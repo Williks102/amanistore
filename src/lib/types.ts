@@ -33,3 +33,14 @@ export type CartItem = {
   size: number;
   color: string;
 };
+
+export type OrderStatus = 'En attente' | 'Prêt' | 'Livré' | 'Annulé';
+
+export type Order = {
+  id: string;
+  customerName: string;
+  date: string;
+  items: CartItem[];
+  total: number;
+  status: OrderStatus;
+};

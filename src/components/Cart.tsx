@@ -13,16 +13,30 @@ import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import Image from 'next/image';
 import { Trash } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export const Cart = () => {
   const { items, isOpen, onClose, removeItem, clearCart } = useCart();
+  const { toast } = useToast();
   const total = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+
+  const handleCheckout = () => {
+    // In a real app, this would trigger a payment flow.
+    // Here, we'll just simulate a successful order.
+    toast({
+      title: 'Commande passée !',
+      description: 'Votre commande a été enregistrée avec succès.',
+    });
+    clearCart();
+    onClose();
+  };
+
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="flex flex-col">
         <SheetHeader>
-          <SheetTitle>Shopping Cart</SheetTitle>
+          <SheetTitle>Panier</SheetTitle>
         </SheetHeader>
         <Separator />
         {items.length > 0 ? (
@@ -42,7 +56,7 @@ export const Cart = () => {
                     <div className="flex-grow">
                       <p className="font-semibold">{item.product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Size: {item.size} | Color: {item.color}
+                        Taille: {item.size} | Couleur: {item.color}
                       </p>
                       <p className="text-sm">
                         {item.quantity} x {`XOF ${item.product.price.toLocaleString('fr-FR')}`}
@@ -62,18 +76,18 @@ export const Cart = () => {
                   <span>Total</span>
                   <span>{`XOF ${total.toLocaleString('fr-FR')}`}</span>
                 </div>
-                <Button className="w-full" size="lg">
-                  Checkout
+                <Button className="w-full" size="lg" onClick={handleCheckout}>
+                  Commander
                 </Button>
                 <Button variant="outline" className="w-full" onClick={clearCart}>
-                  Clear Cart
+                  Vider le panier
                 </Button>
               </div>
             </SheetFooter>
           </>
         ) : (
           <div className="flex-grow flex items-center justify-center">
-            <p>Your cart is empty.</p>
+            <p>Votre panier est vide.</p>
           </div>
         )}
       </SheetContent>
