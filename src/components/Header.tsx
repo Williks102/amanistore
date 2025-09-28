@@ -1,10 +1,16 @@
 import React from 'react';
 import { Button } from './ui/button';
-import { ShoppingBag } from 'lucide-react';
+import { Menu, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { categories } from '@/lib/categories';
 import type { Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface HeaderProps {
   selectedCategory: Category | null;
@@ -22,24 +28,48 @@ const Header = ({ selectedCategory, onSelectCategory }: HeaderProps) => {
         >
           Amani'store
         </h1>
-        <nav className="hidden md:flex items-center gap-6">
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              onClick={() => onSelectCategory(category)}
-              className={cn(
-                'text-lg font-medium transition-colors hover:text-primary',
-                selectedCategory?.id === category.id ? 'text-primary' : 'text-muted-foreground'
-              )}
-            >
-              {category.name}
-            </button>
-          ))}
-        </nav>
-        <Button variant="ghost" size="icon" onClick={onOpen}>
-          <ShoppingBag className="h-6 w-6" />
-          <span className="sr-only">Open Cart</span>
-        </Button>
+        <div className="flex items-center gap-4">
+          <nav className="hidden md:flex items-center gap-6">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                onClick={() => onSelectCategory(category)}
+                className={cn(
+                  'text-lg font-medium transition-colors hover:text-primary',
+                  selectedCategory?.id === category.id ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                {category.name}
+              </button>
+            ))}
+          </nav>
+
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Ouvrir le menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onSelectCategory(null)}>
+                  Toutes
+                </DropdownMenuItem>
+                {categories.map((category) => (
+                  <DropdownMenuItem key={category.id} onClick={() => onSelectCategory(category)}>
+                    {category.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <Button variant="ghost" size="icon" onClick={onOpen}>
+            <ShoppingBag className="h-6 w-6" />
+            <span className="sr-only">Ouvrir le panier</span>
+          </Button>
+        </div>
       </div>
     </header>
   );
