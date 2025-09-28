@@ -87,7 +87,7 @@ export default function Home() {
 
           <section id="all-products" className="py-12">
              <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
-            <div className="flex flex-col md:flex-row gap-8">
+            <div className="flex flex-col md:flex-row md:items-start gap-8">
               <Sidebar
                 priceRange={priceRange}
                 onPriceRangeChange={setPriceRange}
