@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Button } from './ui/button';
-import { Menu, ShoppingBag, Search } from 'lucide-react';
+import { Menu, ShoppingBag, Search, User } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { categories } from '@/lib/categories';
 import type { Category } from '@/lib/types';
@@ -123,6 +124,13 @@ const Header = ({
           <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setIsSearchOpen(!isSearchOpen)}>
             <Search className="h-6 w-6" />
             <span className="sr-only">Rechercher</span>
+          </Button>
+
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard">
+              <User className="h-6 w-6" />
+              <span className="sr-only">Mon Compte</span>
+            </Link>
           </Button>
 
           <Button variant="ghost" size="icon" onClick={onOpen}>
