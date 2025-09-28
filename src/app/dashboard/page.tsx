@@ -11,6 +11,7 @@ import { initialOrders } from '@/lib/orders';
 import type { Order, OrderStatus } from '@/lib/types';
 import { ArrowLeft, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const getStatusVariant = (status: OrderStatus) => {
   switch (status) {
