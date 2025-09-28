@@ -19,12 +19,12 @@ const heroImages = [
 
 const Hero = () => {
   return (
-    <section className="w-full h-screen relative">
+    <section className="w-full h-[60vh] relative">
       <Carousel className="w-full h-full" opts={{ loop: true }}>
         <CarouselContent>
           {heroImages.map((image, index) => (
             <CarouselItem key={index}>
-              <div className="h-screen w-full relative">
+              <div className="h-[60vh] w-full relative">
                 {image && (
                   <Image
                     src={image.imageUrl}
