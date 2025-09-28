@@ -44,7 +44,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     if (!selectedSize) {
       toast({
         title: 'Sélection requise',
-        description: 'Veuillez sélectionner une taille avant d\'ajouter au panier.',
+        description: "Veuillez sélectionner une taille avant d'ajouter au panier.",
         variant: 'destructive',
       });
       return;
