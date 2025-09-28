@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -7,6 +8,8 @@ import type { Category } from '@/lib/types';
 import Hero from '@/components/Hero';
 import { Sidebar } from '@/components/Sidebar';
 import { shoes } from '@/lib/data';
+import { Separator } from '@/components/ui/separator';
+import ProductCard from '@/components/ProductModal';
 
 export type PriceRange = {
   min: number;
@@ -37,6 +40,10 @@ export default function Home() {
     });
     return Array.from(uniqueColors.values());
   }, []);
+  
+  const newArrivals = useMemo(() => shoes.slice(0, 3), []);
+  const bestSellers = useMemo(() => shoes.slice(-3).reverse(), []);
+
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -50,29 +57,61 @@ export default function Home() {
       <main className="flex-grow">
         <Hero />
         <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row gap-8">
-            <Sidebar
-              priceRange={priceRange}
-              onPriceRangeChange={setPriceRange}
-              availableSizes={availableSizes}
-              selectedSizes={selectedSizes}
-              onSelectedSizesChange={setSelectedSizes}
-              availableColors={availableColors}
-              selectedColors={selectedColors}
-              onSelectedColorsChange={setSelectedColors}
-              isOpen={isSidebarOpen}
-              onOpenChange={setSidebarOpen}
+           <section id="new-arrivals" className="py-12">
+            <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
+            <ShoeShowcase
+              shoes={newArrivals}
+              selectedCategory={null}
+              searchTerm=""
+              priceRange={{ min: 0, max: 100000 }}
+              selectedSizes={[]}
+              selectedColors={[]}
             />
-            <div className="w-full">
-              <ShoeShowcase
-                selectedCategory={selectedCategory}
-                searchTerm={searchTerm}
+          </section>
+
+          <Separator className="my-12" />
+
+          <section id="best-sellers" className="py-12">
+            <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
+            <ShoeShowcase
+              shoes={bestSellers}
+              selectedCategory={null}
+              searchTerm=""
+              priceRange={{ min: 0, max: 100000 }}
+              selectedSizes={[]}
+              selectedColors={[]}
+            />
+          </section>
+
+          <Separator className="my-12" />
+
+          <section id="all-products" className="py-12">
+             <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
+            <div className="flex flex-col md:flex-row gap-8">
+              <Sidebar
                 priceRange={priceRange}
+                onPriceRangeChange={setPriceRange}
+                availableSizes={availableSizes}
                 selectedSizes={selectedSizes}
+                onSelectedSizesChange={setSelectedSizes}
+                availableColors={availableColors}
                 selectedColors={selectedColors}
+                onSelectedColorsChange={setSelectedColors}
+                isOpen={isSidebarOpen}
+                onOpenChange={setSidebarOpen}
               />
+              <div className="w-full">
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                />
+              </div>
             </div>
-          </div>
+          </section>
         </div>
       </main>
     </div>

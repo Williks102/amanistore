@@ -1,13 +1,14 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { shoes } from '@/lib/data';
 import type { Shoe, Category } from '@/lib/types';
 import ProductCard from './ProductCard';
 import ProductModal from './ProductModal';
 import type { PriceRange } from '@/app/page';
 
 interface ShoeShowcaseProps {
+  shoes: Shoe[];
   selectedCategory: Category | null;
   searchTerm: string;
   priceRange: PriceRange;
@@ -16,6 +17,7 @@ interface ShoeShowcaseProps {
 }
 
 const ShoeShowcase = ({
+  shoes,
   selectedCategory,
   searchTerm,
   priceRange,
@@ -61,7 +63,7 @@ const ShoeShowcase = ({
       }
       return true;
     });
-  }, [selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors]);
+  }, [shoes, selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors]);
 
   return (
     <>
