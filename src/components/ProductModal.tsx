@@ -63,7 +63,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl p-0 h-[90vh] flex flex-col">
         <div className="grid md:grid-cols-2 flex-1 min-h-0">
-          <div className="p-6">
+          <div className="p-6 flex flex-col">
             <Carousel className="w-full h-full flex flex-col">
               <CarouselContent className="flex-1">
                 {shoe.detailImages.map((image, index) => (
