@@ -30,7 +30,7 @@ const Header = ({
   onSearchTermChange,
   onToggleSidebar,
 }: HeaderProps) => {
-  const { onOpen } = useCart();
+  const { onOpen, items } = useCart();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
@@ -68,7 +68,7 @@ const Header = ({
             </DropdownMenu>
           </div>
            <h1
-            className="text-3xl font-headline font-bold text-primary cursor-pointer"
+            className="text-2xl font-headline font-bold text-primary cursor-pointer"
             onClick={() => onSelectCategory(null)}
           >
             Amani'store
@@ -133,8 +133,13 @@ const Header = ({
             </Link>
           </Button>
 
-          <Button variant="ghost" size="icon" onClick={onOpen}>
+          <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
             <ShoppingBag className="h-6 w-6" />
+            {items.length > 0 && (
+              <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+                {items.length}
+              </span>
+            )}
             <span className="sr-only">Ouvrir le panier</span>
           </Button>
         </div>
