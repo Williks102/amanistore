@@ -1,12 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { shoes } from '@/lib/data';
-import type { Shoe } from '@/lib/types';
+import type { Shoe, Category } from '@/lib/types';
 import ProductCard from './ProductCard';
 import ProductModal from './ProductModal';
 
-const ShoeShowcase = () => {
+interface ShoeShowcaseProps {
+  selectedCategory: Category | null;
+}
+
+const ShoeShowcase = ({ selectedCategory }: ShoeShowcaseProps) => {
   const [selectedShoe, setSelectedShoe] = useState<Shoe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -17,16 +21,22 @@ const ShoeShowcase = () => {
 
   const handleModalClose = () => {
     setIsModalOpen(false);
-    // Delay clearing the selected shoe to allow for the closing animation
     setTimeout(() => {
       setSelectedShoe(null);
     }, 300);
   };
 
+  const filteredShoes = useMemo(() => {
+    if (!selectedCategory) {
+      return shoes;
+    }
+    return shoes.filter((shoe) => shoe.categoryId === selectedCategory.id);
+  }, [selectedCategory]);
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {shoes.map((shoe) => (
+        {filteredShoes.map((shoe) => (
           <ProductCard key={shoe.id} shoe={shoe} onClick={() => handleCardClick(shoe)} />
         ))}
       </div>

@@ -14,6 +14,7 @@ export const shoes: Shoe[] = [
     description:
       'A versatile and stylish sneaker designed for the modern city dweller. Features a breathable mesh upper, cushioned insole, and a durable rubber outsole for all-day comfort and support. Perfect for casual outings and light athletic activities.',
     price: 45000,
+    categoryId: 1, // Sneakers
     gridImage: getImage('urban-stride-sneaker-grid'),
     availableSizes: [39, 40, 41, 42, 43, 44],
     availableColors: [
@@ -33,6 +34,7 @@ export const shoes: Shoe[] = [
     description:
       'Experience timeless elegance with our Classic Leather Loafers. Made from premium full-grain leather, these shoes feature a sleek design with meticulous stitching. The cushioned footbed and flexible sole provide superior comfort for formal events or office wear.',
     price: 75000,
+    categoryId: 2, // Formal
     gridImage: getImage('classic-leather-loafer-grid'),
     availableSizes: [40, 41, 42, 43, 44, 45],
     availableColors: [
@@ -51,6 +53,7 @@ export const shoes: Shoe[] = [
     description:
       'Engineered for performance, the Vista Running Shoe offers a lightweight and responsive ride. Its advanced foam midsole provides excellent energy return, while the engineered mesh upper ensures breathability. Ideal for runners of all levels.',
     price: 62000,
+    categoryId: 3, // Sport
     gridImage: getImage('vista-running-shoe-grid'),
     availableSizes: [38, 39, 40, 41, 42],
     availableColors: [

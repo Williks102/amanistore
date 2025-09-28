@@ -25,6 +25,7 @@ import type { Shoe } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { StyleGuideAssistant } from './StyleGuideAssistant';
 import { useToast } from '@/hooks/use-toast';
+import { useCart } from '@/hooks/use-cart';
 
 interface ProductModalProps {
   shoe: Shoe;
@@ -37,6 +38,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
   const [selectedColor, setSelectedColor] = useState<string | null>(shoe.availableColors[0]?.name || null);
   const [quantity, setQuantity] = useState(1);
   const { toast } = useToast();
+  const { addItem } = useCart();
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -47,6 +49,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
       });
       return;
     }
+    addItem(shoe, quantity, selectedSize, selectedColor || '');
     toast({
       title: 'Added to Cart!',
       description: `${quantity} x ${shoe.name} (Size: ${selectedSize}, Color: ${selectedColor})`,
