@@ -43,16 +43,16 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
   const handleAddToCart = () => {
     if (!selectedSize) {
       toast({
-        title: 'Selection Required',
-        description: 'Please select a size before adding to cart.',
+        title: 'Sélection requise',
+        description: 'Veuillez sélectionner une taille avant d\'ajouter au panier.',
         variant: 'destructive',
       });
       return;
     }
     addItem(shoe, quantity, selectedSize, selectedColor || '');
     toast({
-      title: 'Added to Cart!',
-      description: `${quantity} x ${shoe.name} (Size: ${selectedSize}, Color: ${selectedColor})`,
+      title: 'Ajouté au panier !',
+      description: `${quantity} x ${shoe.name} (Taille: ${selectedSize}, Couleur: ${selectedColor})`,
     });
     onOpenChange(false);
   };
@@ -91,7 +91,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
 
             <div className="py-6 space-y-6 flex-grow">
               <div>
-                <Label className="text-lg font-semibold">Color</Label>
+                <Label className="text-lg font-semibold">Couleur</Label>
                 <div className="flex items-center gap-3 mt-2">
                   {shoe.availableColors.map((color) => (
                     <button
@@ -109,7 +109,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               </div>
 
               <div>
-                <Label className="text-lg font-semibold">Size</Label>
+                <Label className="text-lg font-semibold">Taille</Label>
                 <RadioGroup
                   value={selectedSize?.toString()}
                   onValueChange={(val) => setSelectedSize(Number(val))}
@@ -134,7 +134,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               </div>
 
               <div>
-                <Label className="text-lg font-semibold">Quantity</Label>
+                <Label className="text-lg font-semibold">Quantité</Label>
                 <div className="flex items-center gap-4 mt-2">
                   <Button
                     variant="outline"
@@ -161,7 +161,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                 {`XOF ${(shoe.price * quantity).toLocaleString('fr-FR')}`}
               </p>
               <Button size="lg" className="w-full sm:w-auto" onClick={handleAddToCart}>
-                <ShoppingCart className="mr-2 h-5 w-5" /> Add to Cart
+                <ShoppingCart className="mr-2 h-5 w-5" /> Commander
               </Button>
             </div>
           </div>
