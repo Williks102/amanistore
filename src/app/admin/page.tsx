@@ -63,9 +63,9 @@ const AdminDashboard = () => {
 
       <Tabs defaultValue="orders">
         <TabsList className="grid w-full grid-cols-1 md:grid-cols-3">
-          <TabsTrigger value="orders">Gestion des Commandes</TabsTrigger>
-          <TabsTrigger value="products">Gestion des Produits</TabsTrigger>
-          <TabsTrigger value="create">Créer un Produit</TabsTrigger>
+          <TabsTrigger value="orders">Commandes</TabsTrigger>
+          <TabsTrigger value="products">Produit</TabsTrigger>
+          <TabsTrigger value="create">Créer un produit</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-6">
