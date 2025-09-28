@@ -1,3 +1,76 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "urban-stride-sneaker-grid",
+      "description": "Main grid image for Urban Stride Sneaker",
+      "imageUrl": "https://images.unsplash.com/photo-1742390671595-29fae0a07ea2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzdHlsaXNoJTIwc25lYWtlcnxlbnwwfHx8fDE3NTkwOTc2MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "stylish sneaker"
+    },
+    {
+      "id": "urban-stride-sneaker-1",
+      "description": "Detail image 1 for Urban Stride Sneaker",
+      "imageUrl": "https://images.unsplash.com/photo-1527706005773-ae5d75e90c0e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c25lYWtlciUyMHNpZGV8ZW58MHx8fHwxNzU4OTk3MTAyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sneaker side"
+    },
+    {
+      "id": "urban-stride-sneaker-2",
+      "description": "Detail image 2 for Urban Stride Sneaker",
+      "imageUrl": "https://images.unsplash.com/photo-1657273403575-c4b9c9a102b7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzbmVha2VyJTIwdG9wfGVufDB8fHx8MTc1OTA5NzYzMHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sneaker top"
+    },
+    {
+      "id": "urban-stride-sneaker-3",
+      "description": "Detail image 3 for Urban Stride Sneaker",
+      "imageUrl": "https://images.unsplash.com/photo-1700853006150-05595d465c6d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzbmVha2VyJTIwc29sZXxlbnwwfHx8fDE3NTkwOTc2MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sneaker sole"
+    },
+    {
+      "id": "classic-leather-loafer-grid",
+      "description": "Main grid image for Classic Leather Loafer",
+      "imageUrl": "https://images.unsplash.com/photo-1699199198254-22db27d79ad2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxsZWF0aGVyJTIwbG9hZmVyfGVufDB8fHx8MTc1OTA5NzYzMHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "leather loafer"
+    },
+    {
+      "id": "classic-leather-loafer-1",
+      "description": "Detail image 1 for Classic Leather Loafer",
+      "imageUrl": "https://images.unsplash.com/photo-1563434194539-fcc823f9bf92?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsb2FmZXIlMjBkZXRhaWx8ZW58MHx8fHwxNzU5MDk3NjMwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "loafer detail"
+    },
+    {
+      "id": "classic-leather-loafer-2",
+      "description": "Detail image 2 for Classic Leather Loafer",
+      "imageUrl": "https://images.unsplash.com/photo-1611331410750-1f6236c35e45?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsb2FmZXIlMjBmcm9udHxlbnwwfHx8fDE3NTkwOTc2MzF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "loafer front"
+    },
+    {
+      "id": "classic-leather-loafer-3",
+      "description": "Detail image 3 for Classic Leather Loafer",
+      "imageUrl": "https://images.unsplash.com/photo-1680576554937-33a8748c09fd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxsb2FmZXIlMjBzdGl0Y2hpbmd8ZW58MHx8fHwxNzU5MDk3NjMxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "loafer stitching"
+    },
+    {
+      "id": "vista-running-shoe-grid",
+      "description": "Main grid image for Vista Running Shoe",
+      "imageUrl": "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxydW5uaW5nJTIwc2hvZXxlbnwwfHx8fDE3NTkwNjQ4MDR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "running shoe"
+    },
+    {
+      "id": "vista-running-shoe-1",
+      "description": "Detail image 1 for Vista Running Shoe",
+      "imageUrl": "https://images.unsplash.com/photo-1636886457188-7a879cb88140?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzaG9lJTIwcHJvZmlsZXxlbnwwfHx8fDE3NTkwOTc2MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shoe profile"
+    },
+    {
+      "id": "vista-running-shoe-2",
+      "description": "Detail image 2 for Vista Running Shoe",
+      "imageUrl": "https://images.unsplash.com/photo-1509472290917-08d8d47c5fca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzaG9lJTIwbGFjZXN8ZW58MHx8fHwxNzU5MDIwNzU1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shoe laces"
+    },
+    {
+      "id": "vista-running-shoe-3",
+      "description": "Detail image 3 for Vista Running Shoe",
+      "imageUrl": "https://images.unsplash.com/photo-1684746064420-9105f39d0ad8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzaG9lJTIwdHJlYWR8ZW58MHx8fHwxNzU5MDIwNzU0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "shoe tread"
+    }
+  ]
 }
