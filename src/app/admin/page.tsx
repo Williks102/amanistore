@@ -211,7 +211,7 @@ const AdminDashboard = () => {
                   <Label htmlFor="product-description">Description</Label>
                   <Textarea id="product-description" placeholder="Description détaillée du produit..." />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="product-price">Prix (XOF)</Label>
                       <Input id="product-price" type="number" placeholder="Ex: 45000" />
