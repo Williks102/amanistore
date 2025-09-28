@@ -71,6 +71,24 @@
       "description": "Detail image 3 for Vista Running Shoe",
       "imageUrl": "https://images.unsplash.com/photo-1684746064420-9105f39d0ad8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxzaG9lJTIwdHJlYWR8ZW58MHx8fHwxNzU5MDIwNzU0fDA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "shoe tread"
+    },
+    {
+      "id": "hero-sneakers",
+      "description": "Hero image for sneakers category",
+      "imageUrl": "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjb2xvcmZ1bCUyMHNuZWFrZXJzfGVufDB8fHx8MTc1OTQzMzEwOXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "colorful sneakers"
+    },
+    {
+      "id": "hero-formal",
+      "description": "Hero image for formal shoes category",
+      "imageUrl": "https://images.unsplash.com/photo-1588117269559-27a93732a39a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxsZWF0aGVyJTIwZHJlc3MlMjBzaG9lc3xlbnwwfHx8fDE3NTk0MzMyNTF8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "leather shoes"
+    },
+    {
+      "id": "hero-sports",
+      "description": "Hero image for sports shoes category",
+      "imageUrl": "https://images.unsplash.com/photo-1562856422-726d5a153835?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxydW5uaW5nJTIwc2hvZXMlMjBpbiUyMGFjdGlvbnxlbnwwfHx8fDE3NTk0MzMzMDN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "running action"
     }
   ]
 }
