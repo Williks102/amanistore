@@ -28,7 +28,7 @@ const Header = ({
   onSearchTermChange,
   onToggleSidebar,
 }: HeaderProps) => {
-  const { onOpen } = useCart();
+  const { onOpen, items } = useCart();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
