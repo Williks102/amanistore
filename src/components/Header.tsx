@@ -43,8 +43,9 @@ const Header = ({
 
       {/* Main Header */}
       <div className="container mx-auto px-4 flex justify-between items-center gap-4 py-4 relative">
-        {/* Left Section: Mobile Menu */}
-        <div className="md:hidden">
+        {/* Left Section: Logo & Mobile Menu */}
+        <div className="flex items-center gap-2">
+          <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -65,16 +66,16 @@ const Header = ({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-        {/* Center Section: Logo and Desktop Nav */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-          <h1
+           <h1
             className="text-3xl font-headline font-bold text-primary cursor-pointer"
             onClick={() => onSelectCategory(null)}
           >
             Amani'store
           </h1>
-          <nav className="hidden md:flex items-center gap-6 mt-2">
+        </div>
+
+        {/* Center Section: Desktop Nav */}
+         <nav className="hidden md:flex items-center gap-6">
             {categories.map((category) => (
               <button
                 key={category.id}
@@ -88,8 +89,8 @@ const Header = ({
               </button>
             ))}
           </nav>
-        </div>
-        
+
+        {/* Mobile Search - absolute positioned */}
         {isSearchOpen && (
             <div className="absolute top-full left-4 right-4 mt-2 sm:hidden">
               <div className="relative">
@@ -123,7 +124,7 @@ const Header = ({
             <Search className="h-6 w-6" />
             <span className="sr-only">Rechercher</span>
           </Button>
-          
+
           <Button variant="ghost" size="icon" onClick={onOpen}>
             <ShoppingBag className="h-6 w-6" />
             <span className="sr-only">Ouvrir le panier</span>
@@ -135,5 +136,3 @@ const Header = ({
 };
 
 export default Header;
-
-    
