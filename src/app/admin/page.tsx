@@ -62,7 +62,7 @@ const AdminDashboard = () => {
       <h1 className="text-3xl font-bold mb-6">Tableau de bord administrateur</h1>
 
       <Tabs defaultValue="orders">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 md:grid-cols-3">
           <TabsTrigger value="orders">Gestion des Commandes</TabsTrigger>
           <TabsTrigger value="products">Gestion des Produits</TabsTrigger>
           <TabsTrigger value="create">Créer un Produit</TabsTrigger>
