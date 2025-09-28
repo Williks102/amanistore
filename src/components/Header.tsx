@@ -109,7 +109,7 @@ const Header = ({
 
 
         {/* Right Section: Icons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center sm:gap-2">
            <div className="hidden sm:block relative">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
              <Input
