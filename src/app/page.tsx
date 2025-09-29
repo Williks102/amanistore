@@ -43,6 +43,7 @@ export default function Home() {
   
   const newArrivals = useMemo(() => shoes.slice(0, 3), []);
   const bestSellers = useMemo(() => shoes.slice(-3).reverse(), []);
+  const recommended = useMemo(() => shoes.slice(-3).reverse(), []);
 
 
   return (
@@ -85,8 +86,22 @@ export default function Home() {
 
           <Separator className="my-12" />
 
+          <section id="recommended" className="py-12">
+            <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
+            <ShoeShowcase
+              shoes={recommended}
+              selectedCategory={null}
+              searchTerm=""
+              priceRange={{ min: 0, max: 100000 }}
+              selectedSizes={[]}
+              selectedColors={[]}
+            />
+          </section>
+
+          <Separator className="my-12" />
+
           <section id="all-products" className="py-12">
-             <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
+            <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
             <div className="flex flex-col md:flex-row md:items-start gap-8">
               <Sidebar
                 priceRange={priceRange}
