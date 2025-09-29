@@ -82,34 +82,34 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
           <DialogTitle className="font-headline text-3xl mb-2">{shoe.name}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-6 pb-6">
-            {/* Image Carousel */}
-            <div className="flex flex-col">
-              <Carousel className="w-full max-w-md mx-auto">
-                <CarouselContent>
-                  {shoe.detailImages.map((image, index) => (
-                    <CarouselItem key={index}>
-                      <div className="aspect-square relative rounded-lg overflow-hidden">
-                        <Image
-                          src={image.url}
-                          alt={`${shoe.name} - view ${index + 1}`}
-                          fill
-                          className="object-cover"
-                          data-ai-hint={image.hint}
-                        />
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                <CarouselPrevious className="left-2" />
-                <CarouselNext className="right-2" />
-              </Carousel>
-            </div>
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Image Carousel */}
+          <div className="px-6 md:px-0 md:pl-6 flex flex-col">
+            <Carousel className="w-full max-w-md mx-auto">
+              <CarouselContent>
+                {shoe.detailImages.map((image, index) => (
+                  <CarouselItem key={index}>
+                    <div className="aspect-square relative rounded-lg overflow-hidden">
+                      <Image
+                        src={image.url}
+                        alt={`${shoe.name} - view ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        data-ai-hint={image.hint}
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious className="left-2" />
+              <CarouselNext className="right-2" />
+            </Carousel>
+          </div>
 
-            {/* Details and Actions */}
-            <div className="flex flex-col space-y-6">
-              <DialogDescription className="text-base">
+          {/* Details and Actions */}
+          <ScrollArea className="px-6 md:px-0 md:pr-6">
+            <div className="flex flex-col space-y-6 pb-6">
+               <DialogDescription className="text-base">
                 {shoe.description}
               </DialogDescription>
               
@@ -181,8 +181,8 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               <Separator />
               <StyleGuideAssistant shoeDescription={shoe.description} />
             </div>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
 
         <DialogFooter className="p-6 pt-4 border-t shrink-0">
            <div className="w-full flex flex-col gap-3">
