@@ -100,10 +100,15 @@ const AdminDashboard = () => {
         price: Number(formData.get('product-price')),
         categoryId: Number(formData.get('product-category')),
         availableSizes: (formData.get('product-sizes') as string).split(',').map(s => Number(s.trim())),
-        availableColors: (formData.get('product-colors') as string).split(',').map(c => {
-            const [name, hex] = c.split(':');
-            return { name: name.trim(), hex: hex.trim() };
-        }),
+        availableColors: (formData.get('product-colors') as string)
+            .split(',')
+            .map(c => {
+                const parts = c.split(':');
+                if (parts.length !== 2) return null; // Ignore malformed entries
+                const [name, hex] = parts;
+                return { name: name.trim(), hex: hex.trim() };
+            })
+            .filter((c): c is { name: string; hex: string } => c !== null), // Filter out nulls and type guard
         // Ceci est un placeholder, idéalement il faudrait un système d'upload d'images
         gridImage: { id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" },
         detailImages: [{ id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" }]
