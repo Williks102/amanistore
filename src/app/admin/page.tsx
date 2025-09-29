@@ -106,6 +106,7 @@ const AdminDashboard = () => {
                 const parts = c.split(':');
                 if (parts.length !== 2) return null; // Ignore malformed entries
                 const [name, hex] = parts;
+                if (!name || !hex) return null;
                 return { name: name.trim(), hex: hex.trim() };
             })
             .filter((c): c is { name: string; hex: string } => c !== null), // Filter out nulls and type guard
@@ -342,3 +343,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
