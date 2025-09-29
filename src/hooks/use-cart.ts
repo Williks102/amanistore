@@ -1,3 +1,4 @@
+
 'use client';
 
 import { create } from 'zustand';
@@ -6,8 +7,11 @@ import type { Shoe, CartItem } from '@/lib/types';
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
+  isCheckoutOpen: boolean;
   onOpen: () => void;
   onClose: () => void;
+  openCheckout: () => void;
+  closeCheckout: () => void;
   addItem: (product: Shoe, quantity: number, size: number, color: string) => void;
   removeItem: (itemId: string) => void;
   clearCart: () => void;
@@ -16,8 +20,11 @@ interface CartState {
 export const useCart = create<CartState>((set, get) => ({
   items: [],
   isOpen: false,
+  isCheckoutOpen: false,
   onOpen: () => set({ isOpen: true }),
   onClose: () => set({ isOpen: false }),
+  openCheckout: () => set({ isCheckoutOpen: true }),
+  closeCheckout: () => set({ isCheckoutOpen: false }),
   addItem: (product, quantity, size, color) => {
     const { items } = get();
     const existingItemIndex = items.findIndex(

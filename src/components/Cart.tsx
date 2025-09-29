@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -18,13 +17,12 @@ import { Trash } from 'lucide-react';
 import { CheckoutDialog } from './CheckoutDialog';
 
 export const Cart = () => {
-  const { items, isOpen, onClose, removeItem, clearCart } = useCart();
-  const [isCheckoutOpen, setCheckoutOpen] = useState(false);
+  const { items, isOpen, onClose, removeItem, clearCart, isCheckoutOpen, openCheckout, closeCheckout } = useCart();
   const total = items.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
 
   const handleCheckoutClick = () => {
     onClose(); // Ferme le panier
-    setCheckoutOpen(true); // Ouvre le formulaire de commande
+    openCheckout(); // Ouvre le formulaire de commande via le store
   };
 
 
@@ -89,7 +87,7 @@ export const Cart = () => {
           )}
         </SheetContent>
       </Sheet>
-      <CheckoutDialog isOpen={isCheckoutOpen} onOpenChange={setCheckoutOpen} />
+      <CheckoutDialog isOpen={isCheckoutOpen} onOpenChange={closeCheckout} />
     </>
   );
 };

@@ -40,7 +40,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
   const [selectedColor, setSelectedColor] = useState<string | null>(shoe.availableColors[0]?.name || null);
   const [quantity, setQuantity] = useState(1);
   const { toast } = useToast();
-  const { addItem } = useCart();
+  const { addItem, openCheckout } = useCart();
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -58,6 +58,22 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     });
     onOpenChange(false);
   };
+  
+  const handleBuyNow = () => {
+    if (!selectedSize) {
+      toast({
+        title: 'Sélection requise',
+        description: "Veuillez sélectionner une taille avant de continuer.",
+        variant: 'destructive',
+      });
+      return;
+    }
+    // Ajoute l'article au panier en arrière-plan, puis ouvre le formulaire de commande
+    addItem(shoe, quantity, selectedSize, selectedColor || '');
+    onOpenChange(false); // Ferme le modal du produit
+    openCheckout(); // Ouvre le formulaire de commande
+  };
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -157,13 +173,18 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             <StyleGuideAssistant shoeDescription={shoe.description} />
             <Separator className="my-4" />
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <p className="text-3xl font-bold font-headline text-center sm:text-left">
-                {`XOF ${(shoe.price * quantity).toLocaleString('fr-FR')}`}
-              </p>
-              <Button size="lg" className="w-full sm:w-auto" onClick={handleAddToCart}>
-                <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
-              </Button>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <p className="text-3xl font-bold font-headline text-center sm:text-left">
+                      {`XOF ${(shoe.price * quantity).toLocaleString('fr-FR')}`}
+                    </p>
+                    <Button size="lg" className="w-full sm:w-auto" onClick={handleAddToCart}>
+                      <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
+                    </Button>
+                </div>
+                 <Button size="lg" variant="secondary" className="w-full" onClick={handleBuyNow}>
+                    Acheter maintenant
+                </Button>
             </div>
           </div>
         </ScrollArea>
