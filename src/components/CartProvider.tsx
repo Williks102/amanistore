@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,7 +12,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   if (!isMounted) {
-    return null;
+    return <>{children}</>;
   }
 
   return (
