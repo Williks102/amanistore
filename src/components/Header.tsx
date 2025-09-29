@@ -68,7 +68,7 @@ const Header = ({
             </DropdownMenu>
           </div>
            <h1
-            className="text-2xl font-headline font-bold text-primary cursor-pointer"
+            className="text-xl font-headline font-bold text-primary cursor-pointer"
             onClick={() => onSelectCategory(null)}
           >
             Amani'store
@@ -109,8 +109,8 @@ const Header = ({
 
 
         {/* Right Section: Icons */}
-        <div className="flex items-center sm:gap-2">
-           <div className="hidden sm:block relative">
+        <div className="flex items-center">
+           <div className="hidden sm:block relative mr-2">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
              <Input
                 type="search"
@@ -126,22 +126,24 @@ const Header = ({
             <span className="sr-only">Rechercher</span>
           </Button>
 
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard">
-              <User className="h-6 w-6" />
-              <span className="sr-only">Mon Compte</span>
-            </Link>
-          </Button>
+          <div className="flex items-center">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/dashboard">
+                <User className="h-6 w-6" />
+                <span className="sr-only">Mon Compte</span>
+              </Link>
+            </Button>
 
-          <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
-            <ShoppingBag className="h-6 w-6" />
-            {items.length > 0 && (
-              <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
-                {items.length}
-              </span>
-            )}
-            <span className="sr-only">Ouvrir le panier</span>
-          </Button>
+            <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
+              <ShoppingBag className="h-6 w-6" />
+              {items.length > 0 && (
+                <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+                  {items.length}
+                </span>
+              )}
+              <span className="sr-only">Ouvrir le panier</span>
+            </Button>
+          </div>
         </div>
       </div>
     </header>
