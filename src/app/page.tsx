@@ -11,6 +11,7 @@ import { shoes } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import { categories } from '@/lib/categories';
+import { AnimatedSection } from '@/components/AnimatedSection';
 
 export type PriceRange = {
   min: number;
@@ -59,10 +60,12 @@ export default function Home() {
       <main className="flex-grow">
         <Hero />
         <div className="container mx-auto px-4 py-8">
-          <section id="categories" className="py-12">
-            <h2 className="text-3xl font-bold text-center mb-8">Catégories</h2>
-            <CategoryCarousel categories={categories} onSelectCategory={setSelectedCategory} />
-          </section>
+          <AnimatedSection>
+            <section id="categories" className="py-12">
+              <h2 className="text-3xl font-bold text-center mb-8">Catégories</h2>
+              <CategoryCarousel categories={categories} onSelectCategory={setSelectedCategory} />
+            </section>
+          </AnimatedSection>
 
           <Sidebar
             priceRange={priceRange}
@@ -77,62 +80,70 @@ export default function Home() {
             onOpenChange={setSidebarOpen}
           />
           <div className="w-full">
-            <section id="new-arrivals" className="py-12">
-              <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
-              <ShoeShowcase
-                shoes={shoes}
-                selectedCategory={selectedCategory}
-                searchTerm={searchTerm}
-                priceRange={priceRange}
-                selectedSizes={selectedSizes}
-                selectedColors={selectedColors}
-                filtersubset={newArrivals.map(s => s.id)}
-              />
-            </section>
+            <AnimatedSection>
+              <section id="new-arrivals" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={newArrivals.map(s => s.id)}
+                />
+              </section>
+            </AnimatedSection>
 
             <Separator className="my-12" />
 
-            <section id="best-sellers" className="py-12">
-              <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
-              <ShoeShowcase
-                shoes={shoes}
-                selectedCategory={selectedCategory}
-                searchTerm={searchTerm}
-                priceRange={priceRange}
-                selectedSizes={selectedSizes}
-                selectedColors={selectedColors}
-                filtersubset={bestSellers.map(s => s.id)}
-              />
-            </section>
+            <AnimatedSection>
+              <section id="best-sellers" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={bestSellers.map(s => s.id)}
+                />
+              </section>
+            </AnimatedSection>
 
             <Separator className="my-12" />
 
-            <section id="recommended" className="py-12">
-              <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
-              <ShoeShowcase
-                shoes={shoes}
-                selectedCategory={selectedCategory}
-                searchTerm={searchTerm}
-                priceRange={priceRange}
-                selectedSizes={selectedSizes}
-                selectedColors={selectedColors}
-                filtersubset={recommended.map(s => s.id)}
-              />
-            </section>
+            <AnimatedSection>
+              <section id="recommended" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={recommended.map(s => s.id)}
+                />
+              </section>
+            </AnimatedSection>
 
             <Separator className="my-12" />
 
-            <section id="all-products" className="py-12">
-              <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
-              <ShoeShowcase
-                shoes={shoes}
-                selectedCategory={selectedCategory}
-                searchTerm={searchTerm}
-                priceRange={priceRange}
-                selectedSizes={selectedSizes}
-                selectedColors={selectedColors}
-              />
-            </section>
+            <AnimatedSection>
+              <section id="all-products" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                />
+              </section>
+            </AnimatedSection>
           </div>
         </div>
       </main>
