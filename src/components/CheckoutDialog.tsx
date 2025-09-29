@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom est requis (2 caractères min).' }),
@@ -43,9 +44,14 @@ interface CheckoutDialogProps {
 }
 
 export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) => {
-  const { clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+
+  const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
+  const total = subtotal - discount;
 
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(formSchema),
@@ -57,9 +63,27 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     },
   });
 
+  const handleApplyPromoCode = () => {
+    if (promoCode.toUpperCase() === 'PROMO10') {
+      const discountAmount = subtotal * 0.10;
+      setDiscount(discountAmount);
+      toast({
+        title: 'Code promo appliqué !',
+        description: `Vous avez obtenu une réduction de ${discountAmount.toLocaleString('fr-FR')} XOF.`,
+      });
+    } else {
+      toast({
+        title: 'Code promo invalide',
+        description: 'Veuillez vérifier le code et réessayer.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   const onSubmit = (values: CheckoutFormValues) => {
     setIsSubmitting(true);
-    console.log('Order submitted:', values);
+    console.log('Order submitted:', { ...values, subtotal, discount, total });
 
     // Simulate API call
     setTimeout(() => {
@@ -71,6 +95,8 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
       setIsSubmitting(false);
       onOpenChange(false);
       form.reset();
+      setPromoCode('');
+      setDiscount(0);
     }, 1500);
   };
 
@@ -139,6 +165,40 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                 </FormItem>
               )}
             />
+            
+            <Separator />
+
+            <div className="space-y-2">
+                <FormLabel>Code promo</FormLabel>
+                <div className="flex items-center space-x-2">
+                    <Input 
+                        placeholder="Entrez votre code" 
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value)}
+                    />
+                    <Button type="button" variant="outline" onClick={handleApplyPromoCode}>Appliquer</Button>
+                </div>
+            </div>
+
+            <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                    <span>Sous-total:</span>
+                    <span>{`XOF ${subtotal.toLocaleString('fr-FR')}`}</span>
+                </div>
+                {discount > 0 && (
+                     <div className="flex justify-between text-green-600">
+                        <span>Réduction:</span>
+                        <span>{`- XOF ${discount.toLocaleString('fr-FR')}`}</span>
+                    </div>
+                )}
+                <Separator className="my-2" />
+                 <div className="flex justify-between font-bold text-base">
+                    <span>Total:</span>
+                    <span>{`XOF ${total.toLocaleString('fr-FR')}`}</span>
+                </div>
+            </div>
+
+
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? (
