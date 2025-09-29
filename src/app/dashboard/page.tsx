@@ -1,17 +1,18 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { initialOrders } from '@/lib/orders';
 import type { Order, OrderStatus } from '@/lib/types';
-import { ArrowLeft, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { getOrders } from '@/services/orderService';
+import { useToast } from '@/hooks/use-toast';
 
 const getStatusVariant = (status: OrderStatus) => {
   switch (status) {
@@ -34,7 +35,7 @@ const OrderTracker = ({ orders }: { orders: Order[] }) => {
         <Card key={order.id}>
           <CardHeader className="flex flex-row justify-between items-start">
             <div>
-              <CardTitle className="text-xl">Commande {order.id}</CardTitle>
+              <CardTitle className="text-xl">Commande #{order.id.substring(0, 6)}...</CardTitle>
               <CardDescription>
                 Passée le {new Date(order.date).toLocaleDateString('fr-FR')} - Total: {`XOF ${order.total.toLocaleString('fr-FR')}`}
               </CardDescription>
@@ -90,7 +91,7 @@ const OrderHistory = ({ orders }: { orders: Order[] }) => {
       {orders.map((order) => (
         <div key={order.id} className="border rounded-lg p-4 flex justify-between items-center">
           <div>
-            <p className="font-semibold">{order.id}</p>
+            <p className="font-semibold">#{order.id.substring(0,6)}...</p>
             <p className="text-sm text-muted-foreground">
               {new Date(order.date).toLocaleDateString('fr-FR')} - {`XOF ${order.total.toLocaleString('fr-FR')}`}
             </p>
@@ -103,9 +104,36 @@ const OrderHistory = ({ orders }: { orders: Order[] }) => {
 };
 
 const BuyerDashboard = () => {
-  // En l'absence d'authentification, nous affichons toutes les commandes comme si elles appartenaient à l'utilisateur actuel.
-  const currentOrders = initialOrders.filter(o => o.status === 'En attente' || o.status === 'Prêt');
-  const pastOrders = initialOrders.filter(o => o.status === 'Livré' || o.status === 'Annulé');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedOrders = await getOrders();
+        setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      } catch (error) {
+        console.error("Failed to fetch orders:", error);
+        toast({
+          title: 'Erreur',
+          description: 'Impossible de charger vos commandes.',
+          variant: 'destructive'
+        })
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  const currentOrders = orders.filter(o => o.status === 'En attente' || o.status === 'Prêt');
+  const pastOrders = orders.filter(o => o.status === 'Livré' || o.status === 'Annulé');
+
+  if (isLoading) {
+    return <div className="container mx-auto py-10">Chargement de votre compte...</div>
+  }
 
   return (
     <div className="container mx-auto py-10 px-4">

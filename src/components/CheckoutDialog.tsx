@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
+import { addOrder } from '@/services/orderService';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom est requis (2 caractères min).' }),
@@ -82,23 +83,41 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   };
 
 
-  const onSubmit = (values: CheckoutFormValues) => {
+  const onSubmit = async (values: CheckoutFormValues) => {
     setIsSubmitting(true);
-    console.log('Order submitted:', { ...values, subtotal, discount, total });
+    
+    const orderData = {
+        customerName: values.name,
+        customerPhone: values.phone,
+        customerEmail: values.email,
+        customerAddress: values.address,
+        items: items,
+        subtotal,
+        discount,
+        total,
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: 'Commande passée avec succès !',
-        description: 'Nous vous contacterons bientôt pour la livraison.',
-      });
-      clearCart();
-      setIsSubmitting(false);
-      onOpenChange(false);
-      form.reset();
-      setPromoCode('');
-      setDiscount(0);
-    }, 1500);
+    try {
+        await addOrder(orderData);
+        toast({
+            title: 'Commande passée avec succès !',
+            description: 'Nous vous contacterons bientôt pour la livraison.',
+        });
+        clearCart();
+        onOpenChange(false);
+        form.reset();
+        setPromoCode('');
+        setDiscount(0);
+    } catch (error) {
+        console.error('Order submission failed', error);
+        toast({
+            title: 'Erreur',
+            description: 'Impossible de passer la commande. Veuillez réessayer.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (

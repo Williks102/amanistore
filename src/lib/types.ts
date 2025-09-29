@@ -17,7 +17,7 @@ export type Category = {
 };
 
 export type Shoe = {
-  id: number;
+  id: string; // Changed to string for Firestore ID
   name: string;
   description: string;
   price: number;
