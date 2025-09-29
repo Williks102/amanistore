@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -6,7 +7,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
 import { Button } from './ui/button';
@@ -121,24 +121,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ...filterProps
 }) => {
   return (
-    <>
-      {/* Sidebar for mobile */}
-      <Sheet open={isOpen} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="md:hidden w-80">
-          <SheetHeader>
-            <SheetTitle>Filtres</SheetTitle>
-          </SheetHeader>
-          <div className="py-8">
-            <FilterContent {...filterProps} />
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Sidebar for desktop */}
-      <aside className="hidden md:block w-64 lg:w-72 flex-shrink-0">
-        <h2 className="text-2xl font-bold mb-6">Filtres</h2>
-        <FilterContent {...filterProps} />
-      </aside>
-    </>
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-80">
+        <SheetHeader>
+          <SheetTitle>Filtres</SheetTitle>
+        </SheetHeader>
+        <div className="py-8">
+          <FilterContent {...filterProps} />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
