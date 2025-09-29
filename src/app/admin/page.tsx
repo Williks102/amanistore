@@ -36,6 +36,7 @@ const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const { toast } = useToast();
 
   const fetchAllData = useCallback(async () => {
@@ -98,7 +99,7 @@ const AdminDashboard = () => {
         name: formData.get('product-name') as string,
         description: formData.get('product-description') as string,
         price: Number(formData.get('product-price')),
-        categoryId: Number(formData.get('product-category')),
+        categoryId: Number(selectedCategoryId),
         availableSizes: (formData.get('product-sizes') as string).split(',').map(s => Number(s.trim())),
         availableColors: (formData.get('product-colors') as string)
             .split(',')
@@ -114,11 +115,17 @@ const AdminDashboard = () => {
         gridImage: { id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" },
         detailImages: [{ id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" }]
     };
+    
+    if (!newShoeData.categoryId) {
+        toast({ title: 'Erreur', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
+        return;
+    }
 
     try {
         await addProduct(newShoeData as any);
         toast({ title: 'Succès', description: 'Produit créé avec succès !' });
         event.currentTarget.reset();
+        setSelectedCategoryId('');
         fetchAllData(); // Re-fetch all data to show the new product
     } catch (error) {
         console.error("Failed to create product:", error);
@@ -306,7 +313,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="product-category">Catégorie</Label>
-                      <Select name="product-category" required>
+                      <Select required onValueChange={setSelectedCategoryId}>
                         <SelectTrigger id="product-category">
                           <SelectValue placeholder="Sélectionner une catégorie" />
                         </SelectTrigger>
@@ -343,5 +350,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    
