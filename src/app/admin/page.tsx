@@ -101,26 +101,43 @@ const AdminDashboard = () => {
     }
       
     const formData = new FormData(event.currentTarget);
+    const name = formData.get('product-name') as string;
+    const description = formData.get('product-description') as string;
+    const price = formData.get('product-price') as string;
+    const sizes = formData.get('product-sizes') as string;
+    const colors = formData.get('product-colors') as string;
+    const imageUrl = formData.get('product-image') as string;
+
+    // Manual validation
+    if (!name || !description || !price || !sizes || !colors || !imageUrl) {
+      toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs.', variant: 'destructive' });
+      return;
+    }
+
     const newShoeData = {
-        name: formData.get('product-name') as string,
-        description: formData.get('product-description') as string,
-        price: Number(formData.get('product-price')),
+        name: name,
+        description: description,
+        price: Number(price),
         categoryId: Number(selectedCategoryId),
-        availableSizes: (formData.get('product-sizes') as string).split(',').map(s => Number(s.trim())),
-        availableColors: (formData.get('product-colors') as string)
+        availableSizes: sizes.split(',').map(s => Number(s.trim())),
+        availableColors: colors
             .split(',')
             .map(c => {
                 const parts = c.split(':');
-                if (parts.length !== 2) return null; // Ignore malformed entries
+                if (parts.length !== 2) return null;
                 const [name, hex] = parts;
                 if (!name || !hex) return null;
                 return { name: name.trim(), hex: hex.trim() };
             })
-            .filter((c): c is { name: string; hex: string } => c !== null), // Filter out nulls and type guard
-        // Ceci est un placeholder, idéalement il faudrait un système d'upload d'images
-        gridImage: { id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" },
-        detailImages: [{ id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" }]
+            .filter((c): c is { name: string; hex: string } => c !== null),
+        gridImage: { id: "placeholder", url: imageUrl, hint: "shoe" },
+        detailImages: [{ id: "placeholder", url: imageUrl, hint: "shoe" }]
     };
+
+    if (newShoeData.availableColors.length === 0) {
+      toast({ title: 'Erreur de format', description: 'Veuillez vérifier le format des couleurs.', variant: 'destructive' });
+      return;
+    }
 
     try {
         await addProduct(newShoeData as any);
@@ -301,16 +318,16 @@ const AdminDashboard = () => {
               <form className="space-y-6" onSubmit={handleCreateProduct}>
                 <div className="space-y-2">
                   <Label htmlFor="product-name">Nom du produit</Label>
-                  <Input id="product-name" name="product-name" placeholder="Ex: Urban Stride Sneaker" required/>
+                  <Input id="product-name" name="product-name" placeholder="Ex: Urban Stride Sneaker" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="product-description">Description</Label>
-                  <Textarea id="product-description" name="product-description" placeholder="Description détaillée du produit..." required />
+                  <Textarea id="product-description" name="product-description" placeholder="Description détaillée du produit..." />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="product-price">Prix (XOF)</Label>
-                      <Input id="product-price" name="product-price" type="number" placeholder="Ex: 45000" required />
+                      <Input id="product-price" name="product-price" type="number" placeholder="Ex: 45000" />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="product-category">Catégorie</Label>
@@ -328,17 +345,17 @@ const AdminDashboard = () => {
                 </div>
                 <div className="space-y-2">
                     <Label>Tailles disponibles</Label>
-                    <Input name="product-sizes" placeholder="Ex: 39, 40, 41, 42" required />
+                    <Input name="product-sizes" placeholder="Ex: 39, 40, 41, 42" />
                     <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
                 </div>
                  <div className="space-y-2">
                     <Label>Couleurs disponibles</Label>
-                    <Input name="product-colors" placeholder="Ex: Onyx Black:#353839, Cloud White:#F5F5F5" required />
+                    <Input name="product-colors" placeholder="Ex: Onyx Black:#353839, Cloud White:#F5F5F5" />
                     <p className="text-sm text-muted-foreground">Format: Nom:code_hexa, séparés par des virgules.</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="product-image">URL de l'image principale</Label>
-                  <Input id="product-image" name="product-image" placeholder="https://..." required />
+                  <Input id="product-image" name="product-image" placeholder="https://..." />
                 </div>
                  <Button type="submit">Créer le produit</Button>
               </form>
@@ -351,5 +368,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    
