@@ -28,6 +28,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
+import { ScrollArea } from './ui/scroll-area';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom est requis (2 caractères min).' }),
@@ -102,117 +103,121 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>Finaliser la commande</DialogTitle>
           <DialogDescription>
             Veuillez remplir vos informations pour la livraison.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom complet</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: Awa Fall" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Numéro de téléphone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: 77 123 45 67" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Email <span className="text-muted-foreground">(Optionnel)</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input placeholder="pour le suivi de commande" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Lieu de livraison</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Indiquez votre adresse complète..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <Separator />
+        <ScrollArea className="max-h-[80vh]">
+          <div className="p-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom complet</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: Awa Fall" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Numéro de téléphone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Ex: 77 123 45 67" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Email <span className="text-muted-foreground">(Optionnel)</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="pour le suivi de commande" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Lieu de livraison</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Indiquez votre adresse complète..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Separator />
 
-            <div className="space-y-2">
-                <FormLabel>Code promo</FormLabel>
-                <div className="flex items-center space-x-2">
-                    <Input 
-                        placeholder="Entrez votre code" 
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value)}
-                    />
-                    <Button type="button" variant="outline" onClick={handleApplyPromoCode}>Appliquer</Button>
-                </div>
-            </div>
-
-            <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                    <span>Sous-total:</span>
-                    <span>{`XOF ${subtotal.toLocaleString('fr-FR')}`}</span>
-                </div>
-                {discount > 0 && (
-                     <div className="flex justify-between text-green-600">
-                        <span>Réduction:</span>
-                        <span>{`- XOF ${discount.toLocaleString('fr-FR')}`}</span>
+                <div className="space-y-2">
+                    <FormLabel>Code promo</FormLabel>
+                    <div className="flex items-center space-x-2">
+                        <Input 
+                            placeholder="Entrez votre code" 
+                            value={promoCode}
+                            onChange={(e) => setPromoCode(e.target.value)}
+                        />
+                        <Button type="button" variant="outline" onClick={handleApplyPromoCode}>Appliquer</Button>
                     </div>
-                )}
-                <Separator className="my-2" />
-                 <div className="flex justify-between font-bold text-base">
-                    <span>Total:</span>
-                    <span>{`XOF ${total.toLocaleString('fr-FR')}`}</span>
                 </div>
-            </div>
+
+                <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                        <span>Sous-total:</span>
+                        <span>{`XOF ${subtotal.toLocaleString('fr-FR')}`}</span>
+                    </div>
+                    {discount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                            <span>Réduction:</span>
+                            <span>{`- XOF ${discount.toLocaleString('fr-FR')}`}</span>
+                        </div>
+                    )}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between font-bold text-base">
+                        <span>Total:</span>
+                        <span>{`XOF ${total.toLocaleString('fr-FR')}`}</span>
+                    </div>
+                </div>
 
 
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Envoi...
-                  </>
-                ) : (
-                  'Confirmer la commande'
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter className="pt-4 sticky bottom-0 bg-background pb-0">
+                  <Button type="submit" disabled={isSubmitting} className="w-full">
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Envoi...
+                      </>
+                    ) : (
+                      'Confirmer la commande'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </div>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
