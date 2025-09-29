@@ -94,6 +94,12 @@ const AdminDashboard = () => {
   
   const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!selectedCategoryId) {
+        toast({ title: 'Erreur de validation', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
+        return;
+    }
+      
     const formData = new FormData(event.currentTarget);
     const newShoeData = {
         name: formData.get('product-name') as string,
@@ -115,11 +121,6 @@ const AdminDashboard = () => {
         gridImage: { id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" },
         detailImages: [{ id: "placeholder", url: formData.get('product-image') as string, hint: "shoe" }]
     };
-    
-    if (!newShoeData.categoryId) {
-        toast({ title: 'Erreur', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
-        return;
-    }
 
     try {
         await addProduct(newShoeData as any);
@@ -313,7 +314,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="product-category">Catégorie</Label>
-                      <Select required onValueChange={setSelectedCategoryId}>
+                      <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
                         <SelectTrigger id="product-category">
                           <SelectValue placeholder="Sélectionner une catégorie" />
                         </SelectTrigger>
@@ -350,3 +351,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
