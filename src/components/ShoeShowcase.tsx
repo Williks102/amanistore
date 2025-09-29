@@ -14,6 +14,7 @@ interface ShoeShowcaseProps {
   priceRange: PriceRange;
   selectedSizes: number[];
   selectedColors: string[];
+  filtersubset?: number[];
 }
 
 const ShoeShowcase = ({
@@ -23,6 +24,7 @@ const ShoeShowcase = ({
   priceRange,
   selectedSizes,
   selectedColors,
+  filtersubset,
 }: ShoeShowcaseProps) => {
   const [selectedShoe, setSelectedShoe] = useState<Shoe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,7 +42,14 @@ const ShoeShowcase = ({
   };
 
   const filteredShoes = useMemo(() => {
-    return shoes.filter((shoe) => {
+    let shoesToShow = shoes;
+
+    if (filtersubset) {
+      const subsetSet = new Set(filtersubset);
+      shoesToShow = shoes.filter(shoe => subsetSet.has(shoe.id));
+    }
+    
+    return shoesToShow.filter((shoe) => {
       // Category filter
       if (selectedCategory && shoe.categoryId !== selectedCategory.id) {
         return false;
@@ -63,7 +72,7 @@ const ShoeShowcase = ({
       }
       return true;
     });
-  }, [shoes, selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors]);
+  }, [shoes, selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors, filtersubset]);
 
   return (
     <>

@@ -58,64 +58,67 @@ export default function Home() {
       <main className="flex-grow">
         <Hero />
         <div className="container mx-auto px-4 py-8">
-           <section id="new-arrivals" className="py-12">
-            <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
-            <ShoeShowcase
-              shoes={newArrivals}
-              selectedCategory={null}
-              searchTerm=""
-              priceRange={{ min: 0, max: 100000 }}
-              selectedSizes={[]}
-              selectedColors={[]}
+           <div className="flex flex-col md:flex-row md:items-start gap-8">
+            <Sidebar
+              priceRange={priceRange}
+              onPriceRangeChange={setPriceRange}
+              availableSizes={availableSizes}
+              selectedSizes={selectedSizes}
+              onSelectedSizesChange={setSelectedSizes}
+              availableColors={availableColors}
+              selectedColors={selectedColors}
+              onSelectedColorsChange={setSelectedColors}
+              isOpen={isSidebarOpen}
+              onOpenChange={setSidebarOpen}
             />
-          </section>
+            <div className="w-full">
+              <section id="new-arrivals" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={newArrivals.map(s => s.id)}
+                />
+              </section>
 
-          <Separator className="my-12" />
+              <Separator className="my-12" />
 
-          <section id="best-sellers" className="py-12">
-            <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
-            <ShoeShowcase
-              shoes={bestSellers}
-              selectedCategory={null}
-              searchTerm=""
-              priceRange={{ min: 0, max: 100000 }}
-              selectedSizes={[]}
-              selectedColors={[]}
-            />
-          </section>
+              <section id="best-sellers" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={bestSellers.map(s => s.id)}
+                />
+              </section>
 
-          <Separator className="my-12" />
+              <Separator className="my-12" />
 
-          <section id="recommended" className="py-12">
-            <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
-            <ShoeShowcase
-              shoes={recommended}
-              selectedCategory={null}
-              searchTerm=""
-              priceRange={{ min: 0, max: 100000 }}
-              selectedSizes={[]}
-              selectedColors={[]}
-            />
-          </section>
+              <section id="recommended" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                  filtersubset={recommended.map(s => s.id)}
+                />
+              </section>
 
-          <Separator className="my-12" />
+              <Separator className="my-12" />
 
-          <section id="all-products" className="py-12">
-            <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
-            <div className="flex flex-col md:flex-row md:items-start gap-8">
-              <Sidebar
-                priceRange={priceRange}
-                onPriceRangeChange={setPriceRange}
-                availableSizes={availableSizes}
-                selectedSizes={selectedSizes}
-                onSelectedSizesChange={setSelectedSizes}
-                availableColors={availableColors}
-                selectedColors={selectedColors}
-                onSelectedColorsChange={setSelectedColors}
-                isOpen={isSidebarOpen}
-                onOpenChange={setSidebarOpen}
-              />
-              <div className="w-full">
+              <section id="all-products" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Tous les produits</h2>
                 <ShoeShowcase
                   shoes={shoes}
                   selectedCategory={selectedCategory}
@@ -124,9 +127,9 @@ export default function Home() {
                   selectedSizes={selectedSizes}
                   selectedColors={selectedColors}
                 />
-              </div>
+              </section>
             </div>
-          </section>
+          </div>
         </div>
       </main>
     </div>
