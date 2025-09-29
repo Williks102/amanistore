@@ -89,6 +89,24 @@
       "description": "Hero image for sports shoes category",
       "imageUrl": "https://images.unsplash.com/photo-1562856422-726d5a153835?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxydW5uaW5nJTIwc2hvZXMlMjBpbiUyMGFjdGlvbnxlbnwwfHx8fDE3NTk0MzMzMDN8MA&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "running action"
+    },
+    {
+      "id": "category-sneakers",
+      "description": "Image for the Sneakers category card",
+      "imageUrl": "https://images.unsplash.com/photo-1608667508764-33cf0726b13a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzbmlja2VyfGVufDB8fHx8MTc2MDM5NTc3Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sneaker lifestyle"
+    },
+    {
+      "id": "category-formal",
+      "description": "Image for the Formal category card",
+      "imageUrl": "https://images.unsplash.com/photo-1631540302316-f3a7f858f553?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxmb3JtYWwlMjBzaG9lc3xlbnwwfHx8fDE3NjAzOTU4MTJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "formal shoes"
+    },
+    {
+      "id": "category-sports",
+      "description": "Image for the Sports category card",
+      "imageUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzcG9ydHMlMjBzaG9lfGVufDB8fHx8MTc2MDM5NTg0MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sports shoe"
     }
   ]
 }

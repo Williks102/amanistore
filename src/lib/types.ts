@@ -1,3 +1,4 @@
+
 export type ShoeColor = {
   name: string;
   hex: string;
@@ -12,6 +13,7 @@ export type ShoeImage = {
 export type Category = {
   id: number;
   name: string;
+  imageId: string;
 };
 
 export type Shoe = {

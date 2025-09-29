@@ -10,6 +10,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { shoes } from '@/lib/data';
 import { Separator } from '@/components/ui/separator';
 import ProductCard from '@/components/ProductModal';
+import CategoryCarousel from '@/components/CategoryCarousel';
+import { categories } from '@/lib/categories';
 
 export type PriceRange = {
   min: number;
@@ -58,6 +60,11 @@ export default function Home() {
       <main className="flex-grow">
         <Hero />
         <div className="container mx-auto px-4 py-8">
+            <section id="categories" className="py-12">
+                <h2 className="text-3xl font-bold text-center mb-8">Catégories</h2>
+                <CategoryCarousel categories={categories} onSelectCategory={setSelectedCategory} />
+            </section>
+
            <div className="flex flex-col md:flex-row md:items-start gap-8">
             <Sidebar
               priceRange={priceRange}
