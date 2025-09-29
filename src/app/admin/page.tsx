@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table,
   TableBody,
@@ -38,7 +38,7 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [fetchedOrders, fetchedProducts] = await Promise.all([
@@ -57,11 +57,11 @@ const AdminDashboard = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [fetchAllData]);
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
@@ -146,7 +146,7 @@ const AdminDashboard = () => {
       <Tabs defaultValue="orders">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="orders">Commandes</TabsTrigger>
-          <TabsTrigger value="products">Produit</TabsTrigger>
+          <TabsTrigger value="products">Produits</TabsTrigger>
           <TabsTrigger value="create">Créer un produit</TabsTrigger>
         </TabsList>
 

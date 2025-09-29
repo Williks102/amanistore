@@ -98,7 +98,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     }
 
     try {
-        await addOrder(orderData);
+        await addOrder(orderData as any);
         toast({
             title: 'Commande passée avec succès !',
             description: 'Nous vous contacterons bientôt pour la livraison.',

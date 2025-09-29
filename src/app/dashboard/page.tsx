@@ -126,7 +126,7 @@ const BuyerDashboard = () => {
       }
     };
     fetchOrders();
-  }, []);
+  }, [toast]);
 
   const currentOrders = orders.filter(o => o.status === 'En attente' || o.status === 'Prêt');
   const pastOrders = orders.filter(o => o.status === 'Livré' || o.status === 'Annulé');

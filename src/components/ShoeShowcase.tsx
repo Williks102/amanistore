@@ -14,7 +14,7 @@ interface ShoeShowcaseProps {
   priceRange: PriceRange;
   selectedSizes: number[];
   selectedColors: string[];
-  filtersubset?: number[];
+  filtersubset?: string[];
 }
 
 const ShoeShowcase = ({
