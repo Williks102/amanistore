@@ -28,7 +28,6 @@ import { cn } from '@/lib/utils';
 import { StyleGuideAssistant } from './StyleGuideAssistant';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/hooks/use-cart';
-import { ScrollArea } from './ui/scroll-area';
 
 interface ProductModalProps {
   shoe: Shoe;
@@ -74,17 +73,18 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     openCheckout();
   };
 
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-full p-0 max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-6 pb-2 shrink-0">
-          <DialogTitle className="font-headline text-3xl mb-2">{shoe.name}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-4xl w-full p-0 max-h-[95vh] overflow-y-auto">
+        <div className="sticky top-0 bg-background z-10 border-b">
+          <DialogHeader className="p-4 md:p-6">
+            <DialogTitle className="font-headline text-2xl md:text-3xl">{shoe.name}</DialogTitle>
+          </DialogHeader>
+        </div>
 
-        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-4 md:p-6 space-y-6">
           {/* Image Carousel */}
-          <div className="px-6 md:px-0 md:pl-6 flex flex-col">
+          <div className="w-full">
             <Carousel className="w-full max-w-md mx-auto">
               <CarouselContent>
                 {shoe.detailImages.map((image, index) => (
@@ -106,17 +106,22 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             </Carousel>
           </div>
 
-          {/* Details and Actions */}
-          <ScrollArea className="px-6 md:px-0 md:pr-6">
-            <div className="flex flex-col space-y-6 pb-6">
-               <DialogDescription className="text-base">
-                {shoe.description}
-              </DialogDescription>
-              
-              <p className="text-3xl font-bold text-center text-primary">
-                {`XOF ${(shoe.price * quantity).toLocaleString('fr-FR')}`}
-              </p>
+          {/* Description */}
+          <DialogDescription className="text-base text-center md:text-left">
+            {shoe.description}
+          </DialogDescription>
+          
+          {/* Price */}
+          <div className="bg-accent/50 rounded-lg p-4">
+            <p className="text-3xl font-bold text-center text-primary">
+              {`${(shoe.price * quantity).toLocaleString('fr-FR')} XOF`}
+            </p>
+          </div>
 
+          {/* Desktop Layout */}
+          <div className="hidden md:grid md:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              {/* Color Selection */}
               <div>
                 <Label className="text-lg font-semibold">Couleur</Label>
                 <div className="flex items-center gap-3 mt-2">
@@ -135,6 +140,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                 </div>
               </div>
 
+              {/* Size Selection */}
               <div>
                 <Label className="text-lg font-semibold">Taille</Label>
                 <RadioGroup
@@ -159,10 +165,13 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                   ))}
                 </RadioGroup>
               </div>
+            </div>
 
-              <div className="flex justify-between items-center">
-                <Label className="text-lg font-semibold">Quantité</Label>
-                <div className="flex items-center gap-4">
+            <div className="space-y-6">
+              {/* Quantity */}
+              <div>
+                <Label className="text-lg font-semibold mb-3 block">Quantité</Label>
+                <div className="flex items-center justify-center gap-4">
                   <Button
                     variant="outline"
                     size="icon"
@@ -171,7 +180,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="text-xl font-bold w-12 text-center">{quantity}</span>
+                  <span className="text-2xl font-bold w-12 text-center">{quantity}</span>
                   <Button variant="outline" size="icon" onClick={() => setQuantity((q) => q + 1)}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -181,19 +190,98 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               <Separator />
               <StyleGuideAssistant shoeDescription={shoe.description} />
             </div>
-          </ScrollArea>
+          </div>
+
+          {/* Mobile Layout */}
+          <div className="md:hidden space-y-6">
+            {/* Color Selection */}
+            <div>
+              <Label className="text-lg font-semibold">Couleur</Label>
+              <div className="flex items-center gap-3 mt-2">
+                {shoe.availableColors.map((color) => (
+                  <button
+                    key={color.name}
+                    onClick={() => setSelectedColor(color.name)}
+                    className={cn(
+                      'w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 focus:outline-none',
+                      selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary' : 'border-border'
+                    )}
+                    style={{ backgroundColor: color.hex }}
+                    aria-label={`Select color ${color.name}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Size Selection */}
+            <div>
+              <Label className="text-lg font-semibold">Taille</Label>
+              <RadioGroup
+                value={selectedSize?.toString()}
+                onValueChange={(val) => setSelectedSize(Number(val))}
+                className="grid grid-cols-4 gap-2 mt-2"
+              >
+                {shoe.availableSizes.map((size) => (
+                  <div key={size} className="flex items-center">
+                    <RadioGroupItem value={size.toString()} id={`size-mobile-${size}`} className="sr-only" />
+                    <Label
+                      htmlFor={`size-mobile-${size}`}
+                      className={cn(
+                        'flex items-center justify-center w-full h-10 rounded-md border text-sm font-medium cursor-pointer transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedSize === size ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'
+                      )}
+                    >
+                      {size}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Quantity */}
+            <div>
+              <Label className="text-lg font-semibold mb-3 block">Quantité</Label>
+              <div className="flex items-center justify-center gap-4">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className="h-12 w-12"
+                >
+                  <Minus className="h-5 w-5" />
+                </Button>
+                <span className="text-2xl font-bold w-16 text-center">{quantity}</span>
+                <Button variant="outline" size="icon" onClick={() => setQuantity((q) => q + 1)} className="h-12 w-12">
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Total Display */}
+            <div className="bg-muted rounded-lg p-4 border">
+              <p className="text-2xl font-bold text-center">
+                Total: {(shoe.price * quantity).toLocaleString('fr-FR')} CFA
+              </p>
+            </div>
+
+            <Separator />
+            <StyleGuideAssistant shoeDescription={shoe.description} />
+          </div>
         </div>
 
-        <DialogFooter className="p-6 pt-4 border-t shrink-0">
-           <div className="w-full flex flex-col gap-3">
-              <Button size="lg" className="w-full" onClick={handleAddToCart}>
-                <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
-              </Button>
-              <Button size="lg" variant="secondary" className="w-full" onClick={handleBuyNow}>
-                  Acheter maintenant
-              </Button>
+        {/* Footer with buttons */}
+        <div className="sticky bottom-0 bg-background border-t p-4 md:p-6">
+          <div className="w-full flex flex-col gap-3">
+            <Button size="lg" className="w-full text-base md:text-lg h-12 md:h-14" onClick={handleAddToCart}>
+              <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
+            </Button>
+            <Button size="lg" variant="secondary" className="w-full text-base md:text-lg h-12 md:h-14" onClick={handleBuyNow}>
+              Acheter maintenant
+            </Button>
           </div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
