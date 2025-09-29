@@ -162,7 +162,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                 {`XOF ${(shoe.price * quantity).toLocaleString('fr-FR')}`}
               </p>
               <Button size="lg" className="w-full sm:w-auto" onClick={handleAddToCart}>
-                <ShoppingCart className="mr-2 h-5 w-5" /> Commander
+                <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
               </Button>
             </div>
           </div>
