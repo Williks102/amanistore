@@ -94,50 +94,60 @@ const AdminDashboard = () => {
   
   const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!selectedCategoryId) {
-        toast({ title: 'Erreur de validation', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
-        return;
-    }
       
     const formData = new FormData(event.currentTarget);
     const name = formData.get('product-name') as string;
     const description = formData.get('product-description') as string;
-    const price = formData.get('product-price') as string;
-    const sizes = formData.get('product-sizes') as string;
-    const colors = formData.get('product-colors') as string;
+    const priceStr = formData.get('product-price') as string;
+    const sizesStr = formData.get('product-sizes') as string;
+    const colorsStr = formData.get('product-colors') as string;
     const imageUrl = formData.get('product-image') as string;
 
-    // Manual validation
-    if (!name || !description || !price || !sizes || !colors || !imageUrl) {
+    // --- Validation renforcée ---
+    if (!name || !description || !priceStr || !sizesStr || !colorsStr || !imageUrl) {
       toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs.', variant: 'destructive' });
       return;
     }
+    if (!selectedCategoryId) {
+        toast({ title: 'Erreur de validation', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
+        return;
+    }
+    const price = Number(priceStr);
+    if (isNaN(price) || price <= 0) {
+      toast({ title: 'Erreur de validation', description: 'Veuillez entrer un prix valide.', variant: 'destructive' });
+      return;
+    }
+    const availableSizes = sizesStr.split(',').map(s => Number(s.trim())).filter(s => !isNaN(s) && s > 0);
+    if (availableSizes.length === 0) {
+        toast({ title: 'Erreur de validation', description: 'Veuillez entrer au moins une taille valide.', variant: 'destructive' });
+        return;
+    }
+    const availableColors = colorsStr
+        .split(',')
+        .map(c => {
+            const parts = c.split(':');
+            if (parts.length !== 2) return null;
+            const [name, hex] = parts;
+            if (!name || !name.trim() || !hex || !hex.trim()) return null;
+            return { name: name.trim(), hex: hex.trim() };
+        })
+        .filter((c): c is { name: string; hex: string } => c !== null);
+    if (availableColors.length === 0) {
+      toast({ title: 'Erreur de format', description: 'Veuillez vérifier le format des couleurs (ex: Nom:code, Nom2:code2).', variant: 'destructive' });
+      return;
+    }
+    // --- Fin de la validation ---
 
     const newShoeData = {
         name: name,
         description: description,
-        price: Number(price),
+        price: price,
         categoryId: Number(selectedCategoryId),
-        availableSizes: sizes.split(',').map(s => Number(s.trim())),
-        availableColors: colors
-            .split(',')
-            .map(c => {
-                const parts = c.split(':');
-                if (parts.length !== 2) return null;
-                const [name, hex] = parts;
-                if (!name || !hex) return null;
-                return { name: name.trim(), hex: hex.trim() };
-            })
-            .filter((c): c is { name: string; hex: string } => c !== null),
+        availableSizes: availableSizes,
+        availableColors: availableColors,
         gridImage: { id: "placeholder", url: imageUrl, hint: "shoe" },
         detailImages: [{ id: "placeholder", url: imageUrl, hint: "shoe" }]
     };
-
-    if (newShoeData.availableColors.length === 0) {
-      toast({ title: 'Erreur de format', description: 'Veuillez vérifier le format des couleurs.', variant: 'destructive' });
-      return;
-    }
 
     try {
         await addProduct(newShoeData as any);
@@ -147,7 +157,7 @@ const AdminDashboard = () => {
         fetchAllData(); // Re-fetch all data to show the new product
     } catch (error) {
         console.error("Failed to create product:", error);
-        toast({ title: 'Erreur', description: 'La création du produit a échoué.', variant: 'destructive' });
+        toast({ title: 'Erreur', description: 'La création du produit a échoué. Vérifiez la console pour les détails.', variant: 'destructive' });
     }
   }
 
