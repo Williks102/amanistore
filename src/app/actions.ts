@@ -42,8 +42,7 @@ export async function uploadImage(formData: FormData) {
     const results = await new Promise<{ secure_url: string } | { error: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream({
         resource_type: 'auto',
-        quality: 'auto',
-        format: 'auto'
+        quality: 'auto'
       }, (error, result) => {
         if (error) {
           reject(error);
