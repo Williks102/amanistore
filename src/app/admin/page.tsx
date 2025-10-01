@@ -22,7 +22,7 @@ import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types'
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -45,6 +45,8 @@ const AdminDashboard = () => {
   const [newCategoryName, setNewCategoryName] = useState('');
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -345,13 +347,20 @@ const AdminDashboard = () => {
                   {shoes.map((shoe) => (
                     <TableRow key={shoe.id}>
                       <TableCell>
-                        <Image
-                          src={shoe.gridImage.url}
-                          alt={shoe.name}
-                          width={40}
-                          height={40}
-                          className="rounded-md object-cover"
-                        />
+                        {imageErrors[shoe.id] || !shoe.gridImage?.url ? (
+                          <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
+                            <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <Image
+                            src={shoe.gridImage.url}
+                            alt={shoe.name}
+                            width={40}
+                            height={40}
+                            className="rounded-md object-cover"
+                            onError={() => setImageErrors(prev => ({...prev, [shoe.id]: true}))}
+                          />
+                        )}
                       </TableCell>
                       <TableCell className="font-medium">{shoe.name}</TableCell>
                       <TableCell>{`XOF ${shoe.price.toLocaleString('fr-FR')}`}</TableCell>
@@ -523,5 +532,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    
