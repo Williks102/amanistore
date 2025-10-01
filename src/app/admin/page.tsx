@@ -151,6 +151,15 @@ const AdminDashboard = () => {
       toast({ title: 'Aucune couleur', description: 'Veuillez ajouter au moins une couleur disponible.', variant: 'destructive' });
       return;
     }
+    const imageRegex = /\.(jpeg|jpg|gif|png|webp)$/i;
+    if (!imageRegex.test(imageUrl)) {
+        toast({
+            title: 'URL d\'image invalide',
+            description: 'Veuillez fournir une URL directe vers un fichier image (ex: .jpg, .png).',
+            variant: 'destructive',
+        });
+        return;
+    }
 
     const newShoeData = {
         name: name,
@@ -514,4 +523,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
- 
+
+    
