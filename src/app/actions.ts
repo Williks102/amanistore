@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
@@ -39,7 +40,11 @@ export async function uploadImage(formData: FormData) {
     const buffer = Buffer.from(arrayBuffer);
 
     const results = await new Promise<{ secure_url: string } | { error: any }>((resolve, reject) => {
-      cloudinary.uploader.upload_stream({}, (error, result) => {
+      cloudinary.uploader.upload_stream({
+        resource_type: 'auto',
+        quality: 'auto',
+        format: 'auto'
+      }, (error, result) => {
         if (error) {
           reject(error);
           return;
