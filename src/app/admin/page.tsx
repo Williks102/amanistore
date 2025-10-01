@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -44,6 +44,7 @@ const AdminDashboard = () => {
   const [currentColorHex, setCurrentColorHex] = useState('#000000');
   const [newCategoryName, setNewCategoryName] = useState('');
   const { toast } = useToast();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -165,7 +166,7 @@ const AdminDashboard = () => {
     try {
         await addProduct(newShoeData as any);
         toast({ title: 'Succès', description: 'Produit créé avec succès !' });
-        event.currentTarget.reset();
+        formRef.current?.reset();
         setSelectedCategoryId('');
         setNewProductColors([]);
         fetchAllData(); 
@@ -369,7 +370,7 @@ const AdminDashboard = () => {
                  <CardDescription>Remplissez le formulaire ci-dessous pour créer un nouveau produit.</CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-6" onSubmit={handleCreateProduct}>
+              <form ref={formRef} className="space-y-6" onSubmit={handleCreateProduct}>
                 <div className="space-y-2">
                   <Label htmlFor="product-name">Nom du produit</Label>
                   <Input id="product-name" name="product-name" placeholder="Ex: Urban Stride Sneaker" />
@@ -513,5 +514,4 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    
+ 
