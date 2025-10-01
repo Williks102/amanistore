@@ -41,8 +41,13 @@ export type OrderStatus = 'En attente' | 'Prêt' | 'Livré' | 'Annulé';
 export type Order = {
   id: string;
   customerName: string;
+  customerPhone: string; // Ajout du téléphone
+  customerEmail?: string; // Email optionnel
+  customerAddress: string; // Ajout de l'adresse
   date: string;
   items: CartItem[];
   total: number;
   status: OrderStatus;
 };
+
+    

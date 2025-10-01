@@ -18,11 +18,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { Order, OrderStatus, Shoe } from '@/lib/types';
+import type { Order, OrderStatus, Shoe, ShoeColor } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,9 @@ const AdminDashboard = () => {
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [newProductColors, setNewProductColors] = useState<ShoeColor[]>([]);
+  const [currentColorName, setCurrentColorName] = useState('');
+  const [currentColorHex, setCurrentColorHex] = useState('#000000');
   const { toast } = useToast();
 
   const fetchAllData = useCallback(async () => {
@@ -91,6 +94,24 @@ const AdminDashboard = () => {
       toast({ title: 'Erreur', description: 'La suppression a échoué.', variant: 'destructive' });
     }
   }
+
+  const handleAddColor = () => {
+    if (!currentColorName.trim()) {
+        toast({ title: 'Nom de couleur manquant', description: 'Veuillez donner un nom à la couleur.', variant: 'destructive' });
+        return;
+    }
+    if (newProductColors.some(c => c.name === currentColorName.trim())) {
+        toast({ title: 'Couleur déjà ajoutée', description: 'Cette couleur existe déjà dans la liste.', variant: 'destructive' });
+        return;
+    }
+    setNewProductColors([...newProductColors, { name: currentColorName.trim(), hex: currentColorHex }]);
+    setCurrentColorName('');
+    setCurrentColorHex('#000000');
+  }
+
+  const handleRemoveColor = (colorNameToRemove: string) => {
+    setNewProductColors(newProductColors.filter(c => c.name !== colorNameToRemove));
+  }
   
   const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -100,11 +121,10 @@ const AdminDashboard = () => {
     const description = formData.get('product-description') as string;
     const priceStr = formData.get('product-price') as string;
     const sizesStr = formData.get('product-sizes') as string;
-    const colorsStr = formData.get('product-colors') as string;
     const imageUrl = formData.get('product-image') as string;
 
     // --- Validation renforcée ---
-    if (!name || !description || !priceStr || !sizesStr || !colorsStr || !imageUrl) {
+    if (!name || !description || !priceStr || !sizesStr || !imageUrl) {
       toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs.', variant: 'destructive' });
       return;
     }
@@ -122,18 +142,8 @@ const AdminDashboard = () => {
         toast({ title: 'Erreur de validation', description: 'Veuillez entrer au moins une taille valide.', variant: 'destructive' });
         return;
     }
-    const availableColors = colorsStr
-        .split(',')
-        .map(c => {
-            const parts = c.split(':');
-            if (parts.length !== 2) return null;
-            const [name, hex] = parts;
-            if (!name || !name.trim() || !hex || !hex.trim()) return null;
-            return { name: name.trim(), hex: hex.trim() };
-        })
-        .filter((c): c is { name: string; hex: string } => c !== null);
-    if (availableColors.length === 0) {
-      toast({ title: 'Erreur de format', description: 'Veuillez vérifier le format des couleurs (ex: Nom:code, Nom2:code2).', variant: 'destructive' });
+    if (newProductColors.length === 0) {
+      toast({ title: 'Aucune couleur', description: 'Veuillez ajouter au moins une couleur disponible.', variant: 'destructive' });
       return;
     }
     // --- Fin de la validation ---
@@ -144,7 +154,7 @@ const AdminDashboard = () => {
         price: price,
         categoryId: Number(selectedCategoryId),
         availableSizes: availableSizes,
-        availableColors: availableColors,
+        availableColors: newProductColors,
         gridImage: { id: "placeholder", url: imageUrl, hint: "shoe" },
         detailImages: [{ id: "placeholder", url: imageUrl, hint: "shoe" }]
     };
@@ -154,6 +164,7 @@ const AdminDashboard = () => {
         toast({ title: 'Succès', description: 'Produit créé avec succès !' });
         event.currentTarget.reset();
         setSelectedCategoryId('');
+        setNewProductColors([]);
         fetchAllData(); // Re-fetch all data to show the new product
     } catch (error) {
         console.error("Failed to create product:", error);
@@ -358,11 +369,49 @@ const AdminDashboard = () => {
                     <Input name="product-sizes" placeholder="Ex: 39, 40, 41, 42" />
                     <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
                 </div>
-                 <div className="space-y-2">
-                    <Label>Couleurs disponibles</Label>
-                    <Input name="product-colors" placeholder="Ex: Onyx Black:#353839, Cloud White:#F5F5F5" />
-                    <p className="text-sm text-muted-foreground">Format: Nom:code_hexa, séparés par des virgules.</p>
+                
+                <div className="space-y-4 rounded-md border p-4">
+                    <Label className="font-semibold">Couleurs disponibles</Label>
+                    <div className="flex items-center gap-4">
+                        <div className="flex-grow space-y-2">
+                            <Label htmlFor="color-name">Nom de la couleur</Label>
+                            <Input 
+                                id="color-name"
+                                placeholder="Ex: Onyx Black" 
+                                value={currentColorName} 
+                                onChange={e => setCurrentColorName(e.target.value)} 
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="color-hex">Nuancier</Label>
+                            <Input 
+                                id="color-hex"
+                                type="color" 
+                                value={currentColorHex} 
+                                onChange={e => setCurrentColorHex(e.target.value)}
+                                className="p-1 h-10"
+                            />
+                        </div>
+                        <Button type="button" onClick={handleAddColor} className="self-end">Ajouter</Button>
+                    </div>
+                    {newProductColors.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium">Couleurs ajoutées :</p>
+                            <div className="flex flex-wrap gap-2">
+                                {newProductColors.map(color => (
+                                    <Badge key={color.name} variant="secondary" className="flex items-center gap-2">
+                                        <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.hex }} />
+                                        <span>{color.name}</span>
+                                        <button onClick={() => handleRemoveColor(color.name)} className="rounded-full hover:bg-muted-foreground/20">
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="product-image">URL de l'image principale</Label>
                   <Input id="product-image" name="product-image" placeholder="https://..." />
@@ -378,3 +427,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
