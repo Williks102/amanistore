@@ -41,13 +41,13 @@ export async function uploadImage(formData: FormData) {
     const results = await new Promise<{ secure_url: string } | { error: any }>((resolve, reject) => {
       cloudinary.uploader.upload_stream({}, (error, result) => {
         if (error) {
-          reject({ error });
+          reject(error);
           return;
         }
         if (result) {
           resolve({ secure_url: result.secure_url });
         } else {
-           reject({ error: 'Upload result is undefined.' });
+           reject(new Error('Le résultat de l\'upload de Cloudinary est indéfini.'));
         }
       }).end(buffer);
     });
@@ -55,12 +55,13 @@ export async function uploadImage(formData: FormData) {
     if ('secure_url' in results) {
        return { secure_url: results.secure_url };
     } else {
+       // This part might be redundant due to the promise rejection but kept for safety.
        console.error('Cloudinary upload error:', results.error);
-       return { error: `Échec de l'upload sur Cloudinary. Détails : ${results.error.message}` };
+       return { error: `Échec de l'upload sur Cloudinary. Détails : ${results.error?.message || 'Erreur inconnue'}` };
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Image upload failed:', error);
-    return { error: 'Échec de la conversion du fichier ou de l\'upload.' };
+    return { error: `Échec de la conversion du fichier ou de l'upload. Détails : ${error.message || 'Erreur inconnue'}` };
   }
 }
