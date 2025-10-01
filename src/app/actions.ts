@@ -2,6 +2,13 @@
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const ShoeRecommendationInputSchema = z.object({
   shoeDescription: z.string(),
@@ -17,5 +24,43 @@ export async function fetchShoeRecommendations(
   } catch (error) {
     console.error('Error fetching shoe recommendations:', error);
     return { recommendations: [], error: 'Failed to fetch recommendations.' };
+  }
+}
+
+export async function uploadImage(formData: FormData) {
+  const file = formData.get('image') as File | null;
+
+  if (!file) {
+    return { error: 'Aucun fichier fourni.' };
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const results = await new Promise<{ secure_url: string } | { error: any }>((resolve, reject) => {
+      cloudinary.uploader.upload_stream({}, (error, result) => {
+        if (error) {
+          reject({ error });
+          return;
+        }
+        if (result) {
+          resolve({ secure_url: result.secure_url });
+        } else {
+           reject({ error: 'Upload result is undefined.' });
+        }
+      }).end(buffer);
+    });
+
+    if ('secure_url' in results) {
+       return { secure_url: results.secure_url };
+    } else {
+       console.error('Cloudinary upload error:', results.error);
+       return { error: `Échec de l'upload sur Cloudinary. Détails : ${results.error.message}` };
+    }
+
+  } catch (error) {
+    console.error('Image upload failed:', error);
+    return { error: 'Échec de la conversion du fichier ou de l\'upload.' };
   }
 }

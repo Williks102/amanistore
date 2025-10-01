@@ -22,7 +22,7 @@ import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types'
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -32,12 +32,14 @@ import { getOrders, updateOrderStatus } from '@/services/orderService';
 import { getProducts, addProduct, deleteProduct } from '@/services/productService';
 import { getCategories, addCategory, deleteCategory } from '@/services/categoryService';
 import { useToast } from '@/hooks/use-toast';
+import { uploadImage } from '@/app/actions';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [newProductColors, setNewProductColors] = useState<ShoeColor[]>([]);
   const [currentColorName, setCurrentColorName] = useState('');
@@ -123,45 +125,72 @@ const AdminDashboard = () => {
   
   const handleCreateProduct = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsSubmitting(true);
+
+    if (!selectedCategoryId) {
+        toast({ title: 'Erreur de validation', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+
+    const currentForm = formRef.current;
+    if (!currentForm) {
+      setIsSubmitting(false);
+      return;
+    }
       
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(currentForm);
     const name = formData.get('product-name') as string;
     const description = formData.get('product-description') as string;
     const priceStr = formData.get('product-price') as string;
     const sizesStr = formData.get('product-sizes') as string;
-    const imageUrl = formData.get('product-image') as string;
+    const imageFile = formData.get('product-image') as File;
 
-    if (!name || !description || !priceStr || !sizesStr || !imageUrl) {
-      toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs.', variant: 'destructive' });
+    if (!name || !description || !priceStr || !sizesStr) {
+      toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs de texte.', variant: 'destructive' });
+      setIsSubmitting(false);
       return;
     }
-    if (!selectedCategoryId) {
-        toast({ title: 'Erreur de validation', description: 'Veuillez sélectionner une catégorie.', variant: 'destructive' });
-        return;
+    if (imageFile.size === 0) {
+      toast({ title: 'Image manquante', description: 'Veuillez sélectionner une image pour le produit.', variant: 'destructive' });
+      setIsSubmitting(false);
+      return;
     }
+
     const price = Number(priceStr);
     if (isNaN(price) || price <= 0) {
-      toast({ title: 'Erreur de validation', description: 'Veuillez entrer un prix valide.', variant: 'destructive' });
+      toast({ title: 'Erreur de validation', description: 'Veuillez entrer un prix valide et supérieur à zéro.', variant: 'destructive' });
+      setIsSubmitting(false);
       return;
     }
     const availableSizes = sizesStr.split(',').map(s => Number(s.trim())).filter(s => !isNaN(s) && s > 0);
     if (availableSizes.length === 0) {
-        toast({ title: 'Erreur de validation', description: 'Veuillez entrer au moins une taille valide.', variant: 'destructive' });
+        toast({ title: 'Erreur de validation', description: 'Veuillez entrer au moins une taille valide (nombres séparés par des virgules).', variant: 'destructive' });
+        setIsSubmitting(false);
         return;
     }
     if (newProductColors.length === 0) {
       toast({ title: 'Aucune couleur', description: 'Veuillez ajouter au moins une couleur disponible.', variant: 'destructive' });
+      setIsSubmitting(false);
       return;
     }
-    const imageRegex = /\.(jpeg|jpg|gif|png|webp)$/i;
-    if (!imageRegex.test(imageUrl)) {
+    
+    // Upload image to Cloudinary
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', imageFile);
+    const uploadResult = await uploadImage(uploadFormData);
+
+    if (uploadResult.error || !uploadResult.secure_url) {
         toast({
-            title: 'URL d\'image invalide',
-            description: 'Veuillez fournir une URL directe vers un fichier image (ex: .jpg, .png).',
+            title: 'Échec de l\'upload',
+            description: uploadResult.error || 'Impossible d\'obtenir l\'URL de l\'image depuis Cloudinary.',
             variant: 'destructive',
         });
+        setIsSubmitting(false);
         return;
     }
+
+    const imageUrl = uploadResult.secure_url;
 
     const newShoeData = {
         name: name,
@@ -177,13 +206,15 @@ const AdminDashboard = () => {
     try {
         await addProduct(newShoeData as any);
         toast({ title: 'Succès', description: 'Produit créé avec succès !' });
-        formRef.current?.reset();
+        currentForm.reset();
         setSelectedCategoryId('');
         setNewProductColors([]);
         fetchAllData(); 
     } catch (error) {
         console.error("Failed to create product:", error);
         toast({ title: 'Erreur', description: 'La création du produit a échoué. Vérifiez la console pour les détails.', variant: 'destructive' });
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
@@ -465,10 +496,12 @@ const AdminDashboard = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="product-image">URL de l'image principale</Label>
-                  <Input id="product-image" name="product-image" placeholder="https://..." />
+                  <Label htmlFor="product-image">Image principale</Label>
+                  <Input id="product-image" name="product-image" type="file" accept="image/*" />
                 </div>
-                 <Button type="submit">Créer le produit</Button>
+                 <Button type="submit" disabled={isSubmitting}>
+                   {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...</> : 'Créer le produit'}
+                  </Button>
               </form>
             </CardContent>
           </Card>
