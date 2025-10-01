@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { Order, OrderStatus, Shoe, ShoeColor } from '@/lib/types';
+import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -30,27 +30,32 @@ import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { getOrders, updateOrderStatus } from '@/services/orderService';
 import { getProducts, addProduct, deleteProduct } from '@/services/productService';
+import { getCategories, addCategory, deleteCategory } from '@/services/categoryService';
 import { useToast } from '@/hooks/use-toast';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoes, setShoes] = useState<Shoe[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [newProductColors, setNewProductColors] = useState<ShoeColor[]>([]);
   const [currentColorName, setCurrentColorName] = useState('');
   const [currentColorHex, setCurrentColorHex] = useState('#000000');
+  const [newCategoryName, setNewCategoryName] = useState('');
   const { toast } = useToast();
 
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fetchedOrders, fetchedProducts] = await Promise.all([
+      const [fetchedOrders, fetchedProducts, fetchedCategories] = await Promise.all([
         getOrders(),
-        getProducts()
+        getProducts(),
+        getCategories()
       ]);
       setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setShoes(fetchedProducts);
+      setCategories(fetchedCategories);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({
@@ -123,7 +128,6 @@ const AdminDashboard = () => {
     const sizesStr = formData.get('product-sizes') as string;
     const imageUrl = formData.get('product-image') as string;
 
-    // --- Validation renforcée ---
     if (!name || !description || !priceStr || !sizesStr || !imageUrl) {
       toast({ title: 'Formulaire incomplet', description: 'Veuillez remplir tous les champs.', variant: 'destructive' });
       return;
@@ -146,13 +150,12 @@ const AdminDashboard = () => {
       toast({ title: 'Aucune couleur', description: 'Veuillez ajouter au moins une couleur disponible.', variant: 'destructive' });
       return;
     }
-    // --- Fin de la validation ---
 
     const newShoeData = {
         name: name,
         description: description,
         price: price,
-        categoryId: Number(selectedCategoryId),
+        categoryId: selectedCategoryId,
         availableSizes: availableSizes,
         availableColors: newProductColors,
         gridImage: { id: "placeholder", url: imageUrl, hint: "shoe" },
@@ -165,12 +168,41 @@ const AdminDashboard = () => {
         event.currentTarget.reset();
         setSelectedCategoryId('');
         setNewProductColors([]);
-        fetchAllData(); // Re-fetch all data to show the new product
+        fetchAllData(); 
     } catch (error) {
         console.error("Failed to create product:", error);
         toast({ title: 'Erreur', description: 'La création du produit a échoué. Vérifiez la console pour les détails.', variant: 'destructive' });
     }
   }
+
+  const handleCreateCategory = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!newCategoryName.trim()) {
+      toast({ title: 'Nom manquant', description: 'Veuillez donner un nom à la catégorie.', variant: 'destructive' });
+      return;
+    }
+    try {
+      await addCategory({ name: newCategoryName, imageId: `category-${newCategoryName.toLowerCase().replace(/\s+/g, '-')}` });
+      toast({ title: 'Succès', description: `La catégorie "${newCategoryName}" a été créée.` });
+      setNewCategoryName('');
+      fetchAllData();
+    } catch (error) {
+      console.error("Failed to create category:", error);
+      toast({ title: 'Erreur', description: 'La création de la catégorie a échoué.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ? Cela pourrait affecter les produits existants.')) return;
+    try {
+      await deleteCategory(categoryId);
+      toast({ title: 'Succès', description: 'Catégorie supprimée.' });
+      fetchAllData();
+    } catch (error) {
+      console.error("Failed to delete category:", error);
+      toast({ title: 'Erreur', description: 'La suppression de la catégorie a échoué.', variant: 'destructive' });
+    }
+  };
 
 
   const getStatusVariant = (status: OrderStatus) => {
@@ -196,10 +228,11 @@ const AdminDashboard = () => {
       <h1 className="text-3xl font-bold mb-6">Tableau de bord administrateur</h1>
 
       <Tabs defaultValue="orders">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="orders">Commandes</TabsTrigger>
           <TabsTrigger value="products">Produits</TabsTrigger>
           <TabsTrigger value="create">Créer un produit</TabsTrigger>
+          <TabsTrigger value="categories">Catégories</TabsTrigger>
         </TabsList>
 
         <TabsContent value="orders" className="mt-6">
@@ -357,9 +390,9 @@ const AdminDashboard = () => {
                           <SelectValue placeholder="Sélectionner une catégorie" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="1">Sneakers</SelectItem>
-                          <SelectItem value="2">Formal</SelectItem>
-                          <SelectItem value="3">Sport</SelectItem>
+                          {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -420,6 +453,59 @@ const AdminDashboard = () => {
               </form>
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="categories" className="mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Ajouter une catégorie</CardTitle>
+                <CardDescription>Créez une nouvelle catégorie de produits.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreateCategory} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category-name">Nom de la catégorie</Label>
+                    <Input 
+                      id="category-name" 
+                      placeholder="Ex: Sandales"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                    />
+                  </div>
+                  <Button type="submit">Créer la catégorie</Button>
+                </form>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Catégories existantes</CardTitle>
+                <CardDescription>Gérez les catégories actuelles.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nom</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categories.map((category) => (
+                      <TableRow key={category.id}>
+                        <TableCell className="font-medium">{category.name}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="destructive" size="icon" onClick={() => handleDeleteCategory(category.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

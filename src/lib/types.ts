@@ -11,7 +11,7 @@ export type ShoeImage = {
 };
 
 export type Category = {
-  id: number;
+  id: string; // Changed to string for Firestore ID
   name: string;
   imageId: string;
 };
@@ -21,7 +21,7 @@ export type Shoe = {
   name: string;
   description: string;
   price: number;
-  categoryId: number;
+  categoryId: string; // Changed to string for Firestore ID
   gridImage: ShoeImage;
   availableSizes: number[];
   availableColors: ShoeColor[];

@@ -9,9 +9,9 @@ import Hero from '@/components/Hero';
 import { Sidebar } from '@/components/Sidebar';
 import { Separator } from '@/components/ui/separator';
 import CategoryCarousel from '@/components/CategoryCarousel';
-import { categories } from '@/lib/categories';
 import { AnimatedSection } from '@/components/AnimatedSection';
 import { getProducts } from '@/services/productService';
+import { getCategories } from '@/services/categoryService';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -22,6 +22,7 @@ export type PriceRange = {
 
 export default function Home() {
   const [shoes, setShoes] = useState<Shoe[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,17 +32,18 @@ export default function Home() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const fetchShoes = async () => {
+    const fetchData = async () => {
       try {
-        const products = await getProducts();
+        const [products, fetchedCategories] = await Promise.all([getProducts(), getCategories()]);
         setShoes(products);
+        setCategories(fetchedCategories);
       } catch (error) {
-        console.error("Failed to fetch shoes:", error);
+        console.error("Failed to fetch data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchShoes();
+    fetchData();
   }, []);
 
   const availableSizes = useMemo(() => {
@@ -83,6 +85,7 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <Header
+        categories={categories}
         selectedCategory={selectedCategory}
         onSelectCategory={setSelectedCategory}
         searchTerm={searchTerm}
@@ -190,3 +193,5 @@ export default function Home() {
     </div>
   );
 }
+
+    

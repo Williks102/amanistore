@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Button } from './ui/button';
 import { Menu, ShoppingBag, Search, User } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
-import { categories } from '@/lib/categories';
 import type { Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
@@ -16,6 +15,7 @@ import {
 import { Input } from './ui/input';
 
 interface HeaderProps {
+  categories: Category[];
   selectedCategory: Category | null;
   onSelectCategory: (category: Category | null) => void;
   searchTerm: string;
@@ -24,6 +24,7 @@ interface HeaderProps {
 }
 
 const Header = ({
+  categories,
   selectedCategory,
   onSelectCategory,
   searchTerm,
@@ -151,3 +152,5 @@ const Header = ({
 };
 
 export default Header;
+
+    
