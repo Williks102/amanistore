@@ -1,9 +1,14 @@
 
+
 'use server';
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
+import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
+import { addCategory as addCategoryInDb } from '@/services/categoryService';
+import type { Shoe, Category } from '@/lib/types';
+
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -34,6 +39,9 @@ export async function uploadImage(formData: FormData) {
   if (!file) {
     return { error: 'Aucun fichier fourni.' };
   }
+   if (file.size === 0) {
+    return { error: 'Le fichier est vide.' };
+  }
 
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -59,7 +67,6 @@ export async function uploadImage(formData: FormData) {
     if ('secure_url' in results) {
        return { secure_url: results.secure_url };
     } else {
-       // This part might be redundant due to the promise rejection but kept for safety.
        console.error('Cloudinary upload error:', results.error);
        return { error: `Échec de l'upload sur Cloudinary. Détails : ${results.error?.message || 'Erreur inconnue'}` };
     }
@@ -68,4 +75,31 @@ export async function uploadImage(formData: FormData) {
     console.error('Image upload failed:', error);
     return { error: `Échec de la conversion du fichier ou de l'upload. Détails : ${error.message || 'Erreur inconnue'}` };
   }
+}
+
+export async function createProduct(newShoeData: Omit<Shoe, 'id'>) {
+    try {
+        const productId = await addProductInDb(newShoeData);
+        return { success: true, productId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateProduct(shoeId: string, updatedShoeData: Omit<Shoe, 'id'>) {
+    try {
+        await updateProductInDb(shoeId, updatedShoeData);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createCategory(categoryData: Omit<Category, 'id'>) {
+    try {
+        const categoryId = await addCategoryInDb(categoryData);
+        return { success: true, categoryId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
 }

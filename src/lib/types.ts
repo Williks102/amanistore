@@ -1,4 +1,5 @@
 
+
 export type ShoeColor = {
   name: string;
   hex: string;
@@ -14,11 +15,12 @@ export type Category = {
   id: string; // Changed to string for Firestore ID
   name: string;
   imageId: string;
+  imageUrl?: string;
 };
 
 export type Shoe = {
   id: string; // Changed to string for Firestore ID
-  name: string;
+  name:string;
   description: string;
   price: number;
   categoryId: string; // Changed to string for Firestore ID

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React from 'react';
@@ -13,6 +14,7 @@ import {
 } from '@/components/ui/carousel';
 import type { Category } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { ImageIcon } from 'lucide-react';
 
 interface CategoryCarouselProps {
   categories: Category[];
@@ -30,7 +32,7 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories, onSelec
     >
       <CarouselContent>
         {categories.map((category) => {
-          const image = PlaceHolderImages.find((p) => p.id === category.imageId);
+          const image = category.imageUrl || PlaceHolderImages.find((p) => p.id === category.imageId)?.imageUrl;
           return (
             <CarouselItem key={category.id} className="md:basis-1/2 lg:basis-1/3">
               <div className="p-1">
@@ -39,14 +41,17 @@ const CategoryCarousel: React.FC<CategoryCarouselProps> = ({ categories, onSelec
                   onClick={() => onSelectCategory(category)}
                 >
                   <CardContent className="relative aspect-[4/3] p-0">
-                    {image && (
+                    {image ? (
                       <Image
-                        src={image.imageUrl}
+                        src={image}
                         alt={category.name}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        data-ai-hint={image.imageHint}
                       />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                      </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                     <div className="absolute bottom-0 left-0 p-4">
