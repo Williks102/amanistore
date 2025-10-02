@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -29,7 +28,7 @@ import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types'
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -88,6 +87,19 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchAllData();
   }, [fetchAllData]);
+
+  const stats = useMemo(() => {
+    const totalRevenue = orders
+      .filter(order => order.status === 'Livré')
+      .reduce((acc, order) => acc + order.total, 0);
+    
+    const pendingOrders = orders.filter(order => order.status === 'En attente').length;
+    
+    const totalProducts = shoes.length;
+
+    return { totalRevenue, pendingOrders, totalProducts };
+  }, [orders, shoes]);
+
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
@@ -315,6 +327,40 @@ const AdminDashboard = () => {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-bold mb-6">Tableau de bord administrateur</h1>
 
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">XOF {stats.totalRevenue.toLocaleString('fr-FR')}</div>
+                    <p className="text-xs text-muted-foreground">Basé sur les commandes livrées</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Commandes en attente</CardTitle>
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{stats.pendingOrders}</div>
+                    <p className="text-xs text-muted-foreground">Commandes à préparer</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Produits</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{stats.totalProducts}</div>
+                    <p className="text-xs text-muted-foreground">Articles dans la boutique</p>
+                </CardContent>
+            </Card>
+        </div>
+
+
         <Tabs defaultValue="orders">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="orders">Commandes</TabsTrigger>
@@ -400,21 +446,54 @@ const AdminDashboard = () => {
                   <CardDescription>Consultez les commandes terminées ou annulées.</CardDescription>
               </CardHeader>
               <CardContent>
-                  <div className="space-y-4">
+                  <Accordion type="single" collapsible className="w-full">
                     {orders
                       .filter((o) => o.status === 'Livré' || o.status === 'Annulé')
                       .map((order) => (
-                        <div key={order.id} className="border rounded-lg p-4 flex justify-between items-center">
-                          <div>
-                            <p className="font-semibold">#{order.id.substring(0,6)}... - {order.customerName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {new Date(order.date).toLocaleDateString('fr-FR')} - {`XOF ${order.total.toLocaleString('fr-FR')}`}
-                            </p>
-                          </div>
-                          <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                        </div>
+                        <AccordionItem value={order.id} key={order.id} className="border-b">
+                           <AccordionTrigger className="flex justify-between items-center w-full p-4 hover:bg-muted/50">
+                                <div className="flex-1 text-left">
+                                  <span className="font-medium">#{order.id.substring(0, 6)}...</span> - <span>{order.customerName}</span>
+                                </div>
+                                <div className="flex-1 text-left hidden md:block">{new Date(order.date).toLocaleDateString('fr-FR')}</div>
+                                <div className="flex-1 text-left hidden sm:block">{`XOF ${order.total.toLocaleString('fr-FR')}`}</div>
+                                <div className="flex-1 text-center"><Badge variant={getStatusVariant(order.status)}>{order.status}</Badge></div>
+                           </AccordionTrigger>
+                           <AccordionContent className="p-4 bg-muted/20">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                    <h4 className="font-semibold mb-2">Informations client</h4>
+                                    <p><strong>Adresse de livraison:</strong> {order.customerAddress}</p>
+                                    <p><strong>Téléphone:</strong> {order.customerPhone}</p>
+                                    {order.customerEmail && <p><strong>Email:</strong> {order.customerEmail}</p>}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-semibold mb-2">Statut final</h4>
+                                        <Badge variant={getStatusVariant(order.status)} className="text-base">{order.status}</Badge>
+                                    </div>
+                                </div>
+                                <div className="mt-4">
+                                    <h4 className="font-semibold mb-2">Articles commandés</h4>
+                                    <div className="space-y-2">
+                                    {order.items.map(item => (
+                                        <div key={item.id} className="flex items-center gap-4 text-sm p-2 rounded-md bg-background">
+                                            <Image src={item.product.gridImage.url} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" />
+                                            <div>
+                                                <p className="font-medium">{item.product.name}</p>
+                                                <p className="text-muted-foreground">Taille: {item.size} | Couleur: {item.color} | Qté: {item.quantity}</p>
+                                            </div>
+                                            <p className="ml-auto font-medium">{`XOF ${item.product.price.toLocaleString('fr-FR')}`}</p>
+                                        </div>
+                                    ))}
+                                    </div>
+                                </div>
+                           </AccordionContent>
+                        </AccordionItem>
                       ))}
-                  </div>
+                  </Accordion>
+                  {orders.filter((o) => o.status === 'Livré' || o.status === 'Annulé').length === 0 && (
+                      <p className="text-center text-muted-foreground py-8">Aucun historique de commande.</p>
+                  )}
               </CardContent>
             </Card>
 
