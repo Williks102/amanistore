@@ -3,6 +3,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { CartProvider } from '@/components/CartProvider';
 import Footer from '@/components/Footer';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: "Amani'store",
@@ -25,13 +26,15 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased h-full flex flex-col">
-        <CartProvider>
-          <div className="flex-grow">
-            {children}
-          </div>
-          <Footer />
-          <Toaster />
-        </CartProvider>
+        <FirebaseClientProvider>
+          <CartProvider>
+            <div className="flex-grow">
+              {children}
+            </div>
+            <Footer />
+            <Toaster />
+          </CartProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

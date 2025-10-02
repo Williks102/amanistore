@@ -1,8 +1,10 @@
 
+'use client';
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from './ui/button';
-import { Menu, ShoppingBag, Search, User } from 'lucide-react';
+import { Menu, ShoppingBag, Search, User, LogOut } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import type { Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -11,8 +13,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Input } from './ui/input';
+import { useUser, useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { Skeleton } from './ui/skeleton';
+
 
 interface HeaderProps {
   categories: Category[];
@@ -33,6 +41,61 @@ const Header = ({
 }: HeaderProps) => {
   const { onOpen, items } = useCart();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
+  const UserMenu = () => {
+    if (isUserLoading) {
+      return <Skeleton className="h-8 w-8 rounded-full" />;
+    }
+
+    if (!user) {
+      return (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" asChild>
+            <Link href="/login">Connexion</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/signup">Inscription</Link>
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+       <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User'} />
+              <AvatarFallback>{(user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuItem disabled>
+            <p className="font-medium">Connecté en tant que</p>
+            <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link href="/dashboard">
+              <User className="mr-2 h-4 w-4" />
+              <span>Mon Compte</span>
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Déconnexion</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
 
   return (
     <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b">
@@ -110,7 +173,7 @@ const Header = ({
 
 
         {/* Right Section: Icons */}
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
            <div className="hidden sm:block relative mr-2">
              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
              <Input
@@ -128,12 +191,7 @@ const Header = ({
           </Button>
 
           <div className="flex items-center">
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/dashboard">
-                <User className="h-6 w-6" />
-                <span className="sr-only">Mon Compte</span>
-              </Link>
-            </Button>
+            <UserMenu />
 
             <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
               <ShoppingBag className="h-6 w-6" />
@@ -152,5 +210,3 @@ const Header = ({
 };
 
 export default Header;
-
-    

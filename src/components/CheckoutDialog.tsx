@@ -32,6 +32,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { addOrder } from '@/services/orderService';
 import { validatePromoCode } from '@/app/actions';
 import type { PromoCode } from '@/lib/types';
+import { useUser } from '@/firebase';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom est requis (2 caractères min).' }),
@@ -54,6 +55,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCode | null>(null);
+  const { user } = useUser();
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
   
@@ -73,12 +75,23 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      name: user?.displayName || '',
       phone: '',
-      email: '',
+      email: user?.email || '',
       address: '',
     },
   });
+  
+  // Reset form when user changes
+  useState(() => {
+      form.reset({
+        name: user?.displayName || '',
+        phone: user?.phoneNumber || '',
+        email: user?.email || '',
+        address: '',
+      });
+  })
+
 
   const handleApplyPromoCode = async () => {
     if (!promoCodeInput) return;
@@ -106,8 +119,19 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
 
   const onSubmit = async (values: CheckoutFormValues) => {
     setIsSubmitting(true);
+
+    if(!user) {
+        toast({
+            title: 'Utilisateur non connecté',
+            description: 'Veuillez vous connecter pour passer une commande.',
+            variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+    }
     
     const orderData = {
+        userId: user.uid,
         customerName: values.name,
         customerPhone: values.phone,
         customerEmail: values.email,
@@ -185,10 +209,10 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Email <span className="text-muted-foreground">(Optionnel)</span>
+                      Email
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="pour le suivi de commande" {...field} />
+                      <Input placeholder="pour le suivi de commande" {...field} disabled={!!user?.email}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

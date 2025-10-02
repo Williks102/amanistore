@@ -87,7 +87,7 @@ export async function createProduct(newShoeData: Omit<Shoe, 'id'>) {
     }
 }
 
-export async function updateProduct(shoeId: string, updatedShoeData: Omit<Shoe, 'id'>) {
+export async function updateProduct(shoeId: string, updatedShoeData: Partial<Shoe>) {
     try {
         await updateProductInDb(shoeId, updatedShoeData);
         return { success: true };
@@ -95,6 +95,7 @@ export async function updateProduct(shoeId: string, updatedShoeData: Omit<Shoe, 
         return { success: false, error: error.message };
     }
 }
+
 
 export async function createCategory(categoryData: Omit<Category, 'id'>) {
     try {

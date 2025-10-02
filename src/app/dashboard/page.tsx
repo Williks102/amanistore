@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -11,8 +12,10 @@ import type { Order, OrderStatus } from '@/lib/types';
 import { ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { getOrders } from '@/services/orderService';
+import { getOrdersByUserId } from '@/services/orderService';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getStatusVariant = (status: OrderStatus) => {
   switch (status) {
@@ -107,32 +110,65 @@ const BuyerDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedOrders = await getOrders();
-        setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      } catch (error) {
-        console.error("Failed to fetch orders:", error);
-        toast({
-          title: 'Erreur',
-          description: 'Impossible de charger vos commandes.',
-          variant: 'destructive'
-        })
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchOrders();
-  }, [toast]);
+    // If not loading and user is not logged in, redirect to login
+    if (!isUserLoading && !user) {
+      router.push('/login');
+      return;
+    }
+
+    if (user) {
+      const fetchOrders = async () => {
+        setIsLoading(true);
+        try {
+          // Fetch orders for the logged-in user
+          const fetchedOrders = await getOrdersByUserId(user.uid);
+          setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        } catch (error) {
+          console.error("Failed to fetch orders:", error);
+          toast({
+            title: 'Erreur',
+            description: 'Impossible de charger vos commandes.',
+            variant: 'destructive'
+          })
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchOrders();
+    }
+  }, [user, isUserLoading, router, toast]);
 
   const currentOrders = orders.filter(o => o.status === 'En attente' || o.status === 'Prêt');
   const pastOrders = orders.filter(o => o.status === 'Livré' || o.status === 'Annulé');
 
-  if (isLoading) {
-    return <div className="container mx-auto py-10">Chargement de votre compte...</div>
+  if (isUserLoading || isLoading) {
+    return (
+        <div className="container mx-auto py-10 px-4">
+            <div className="flex justify-between items-center mb-8">
+                <Skeleton className="h-9 w-48" />
+                <Skeleton className="h-10 w-44" />
+            </div>
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div className="lg:col-span-2 space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-40 w-full" />
+                </div>
+                <div className="space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-32 w-full" />
+                </div>
+            </div>
+        </div>
+    );
+  }
+
+  if (!user) {
+    // This is a fallback, but useEffect should have already redirected
+    return null;
   }
 
   return (

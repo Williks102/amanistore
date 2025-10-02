@@ -42,6 +42,7 @@ export type OrderStatus = 'En attente' | 'Prêt' | 'Livré' | 'Annulé';
 
 export type Order = {
   id: string;
+  userId: string; // Added to associate order with a user
   customerName: string;
   customerPhone: string; // Ajout du téléphone
   customerEmail?: string; // Email optionnel
