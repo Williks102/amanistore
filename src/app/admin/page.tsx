@@ -2,6 +2,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/firebase';
 import {
   Table,
   TableBody,
@@ -66,18 +68,45 @@ const AdminDashboard = () => {
   const [editingShoe, setEditingShoe] = useState<Shoe | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
+
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState(false);
   
+  useEffect(() => {
+    if (!isUserLoading) {
+      if (!user) {
+        router.push('/login');
+      } else {
+        // This is a simple client-side check.
+        // The ADMIN_EMAIL is exposed to the client, which is not ideal for high-security scenarios.
+        // For a real-world app, this logic should be backed by server-side checks or custom claims.
+        if (process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email) {
+          setIsAuthorized(true);
+          fetchAllData();
+        } else {
+          toast({
+            title: 'Accès non autorisé',
+            description: "Vous n'avez pas les droits pour accéder à cette page.",
+            variant: 'destructive',
+          });
+          router.push('/');
+        }
+      }
+    }
+  }, [user, isUserLoading, router, toast]);
+
+
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
       const [fetchedOrders, fetchedProducts, fetchedCategories, fetchedPromoCodes] = await Promise.all([
         getOrders(),
-        getProducts(),
         getCategories(),
         getPromoCodes()
       ]);
       setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setShoes(fetchedProducts);
+      setShoes(await getProducts());
       setCategories(fetchedCategories);
       setPromoCodes(fetchedPromoCodes);
     } catch (error) {
@@ -91,10 +120,6 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   }, [toast]);
-
-  useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
 
   const stats = useMemo(() => {
     const totalRevenue = orders
@@ -862,8 +887,12 @@ const AdminDashboard = () => {
     }
   }
 
-  if (isLoading) {
-    return <div className="container mx-auto py-10">Chargement du tableau de bord...</div>
+  if (isUserLoading || !isAuthorized) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
   }
 
   return (
@@ -877,7 +906,7 @@ const AdminDashboard = () => {
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild variant="outline">
                            <Link href="/">
-                              <ArrowLeft />
+                              <Home />
                               Retour à l'accueil
                            </Link>
                         </SidebarMenuButton>
@@ -950,5 +979,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    
