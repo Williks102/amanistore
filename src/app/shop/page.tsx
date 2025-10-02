@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -28,6 +29,7 @@ export default function ShopPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const [products, fetchedCategories] = await Promise.all([getProducts(), getCategories()]);
         setShoes(products);
         setCategories(fetchedCategories);
