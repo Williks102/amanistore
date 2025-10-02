@@ -1,7 +1,27 @@
-import React from 'react';
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
 import { Facebook, Twitter, Instagram } from 'lucide-react';
+import type { Category } from '@/lib/types';
+import { getCategories } from '@/services/categoryService';
 
 const Footer = () => {
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error('Failed to fetch categories for footer:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+
   return (
     <footer className="bg-secondary text-secondary-foreground py-8 mt-auto">
       <div className="container mx-auto px-4">
@@ -13,28 +33,20 @@ const Footer = () => {
             </p>
           </div>
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <h3 className="text-lg font-semibold mb-4">Catégories</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Home
+                <a href="/" className="hover:text-primary transition-colors">
+                  Accueil
                 </a>
               </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Sneakers
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Formal
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-primary transition-colors">
-                  Sport
-                </a>
-              </li>
+              {categories.map((category) => (
+                 <li key={category.id}>
+                    <a href={`#categories`} className="hover:text-primary transition-colors capitalize">
+                        {category.name}
+                    </a>
+                 </li>
+              ))}
             </ul>
           </div>
           <div>
