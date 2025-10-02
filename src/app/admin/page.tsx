@@ -78,9 +78,6 @@ const AdminDashboard = () => {
       if (!user) {
         router.push('/login');
       } else {
-        // This is a simple client-side check.
-        // The ADMIN_EMAIL is exposed to the client, which is not ideal for high-security scenarios.
-        // For a real-world app, this logic should be backed by server-side checks or custom claims.
         if (process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email) {
           setIsAuthorized(true);
           fetchAllData();
@@ -899,7 +896,7 @@ const AdminDashboard = () => {
     <SidebarProvider>
         <Sidebar>
             <SidebarHeader>
-                 <h1 className="text-xl font-headline font-bold text-primary">Amani'store</h1>
+                 <h1 className="text-xl font.headline font-bold text-primary">Amani'store</h1>
             </SidebarHeader>
             <SidebarContent>
                 <SidebarMenu>
@@ -979,3 +976,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
