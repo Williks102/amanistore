@@ -362,11 +362,11 @@ const AdminDashboard = () => {
 
 
         <Tabs defaultValue="orders">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="orders">Commandes</TabsTrigger>
-            <TabsTrigger value="products">Produits</TabsTrigger>
-            <TabsTrigger value="create">Créer un produit</TabsTrigger>
-            <TabsTrigger value="categories">Catégories</TabsTrigger>
+          <TabsList className="bg-transparent p-0 gap-2">
+            <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Commandes</TabsTrigger>
+            <TabsTrigger value="products" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Produits</TabsTrigger>
+            <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Créer un produit</TabsTrigger>
+            <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Catégories</TabsTrigger>
           </TabsList>
 
           <TabsContent value="orders" className="mt-6">
