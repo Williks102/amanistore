@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, Percent, LayoutDashboard, ListOrdered, Tag } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,8 @@ import { useToast } from '@/hooks/use-toast';
 import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
-import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarSeparator, SidebarTrigger } from '@/components/ui/sidebar';
+import Link from 'next/link';
 
 type AdminView = 'dashboard' | 'orders' | 'products' | 'create' | 'categories' | 'promo';
 
@@ -874,6 +875,15 @@ const AdminDashboard = () => {
             <SidebarContent>
                 <SidebarMenu>
                     <SidebarMenuItem>
+                        <SidebarMenuButton asChild variant="outline">
+                           <Link href="/">
+                              <ArrowLeft />
+                              Retour à l'accueil
+                           </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarSeparator />
+                    <SidebarMenuItem>
                         <SidebarMenuButton onClick={() => setActiveView('dashboard')} isActive={activeView === 'dashboard'}>
                             <LayoutDashboard />
                             Tableau de bord
@@ -940,3 +950,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
