@@ -47,14 +47,16 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
   const { toast } = useToast();
 
   useEffect(() => {
-    setName(shoe.name);
-    setDescription(shoe.description);
-    setPrice(shoe.price);
-    setCategoryId(shoe.categoryId);
-    setAvailableSizes(shoe.availableSizes.join(', '));
-    setAvailableColors(shoe.availableColors);
-    setGridImageUrl(shoe.gridImage.url);
-    setNewImageFile(null);
+    if (shoe) {
+      setName(shoe.name);
+      setDescription(shoe.description);
+      setPrice(shoe.price);
+      setCategoryId(shoe.categoryId);
+      setAvailableSizes(shoe.availableSizes.join(', '));
+      setAvailableColors(shoe.availableColors);
+      setGridImageUrl(shoe.gridImage.url);
+      setNewImageFile(null);
+    }
   }, [shoe]);
 
   const handleAddColor = () => {
@@ -122,6 +124,8 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
     setIsSubmitting(false);
   };
 
+  if (!shoe) return null;
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
@@ -129,7 +133,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
           <DialogTitle>Modifier le produit</DialogTitle>
           <DialogDescription>Mettez à jour les informations du produit ci-dessous.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-6 pr-6 pl-1">
+        <form id="edit-product-modal-form" onSubmit={handleSubmit} className="flex-grow overflow-y-auto space-y-6 pr-6 pl-1">
             <div className="space-y-2">
                 <Label htmlFor="edit-product-name">Nom du produit</Label>
                 <Input id="edit-product-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -198,3 +202,5 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
     </Dialog>
   );
 };
+
+    
