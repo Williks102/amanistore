@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -167,20 +168,30 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
         {/* Center Section: Desktop Nav */}
         <NavigationMenu className="hidden md:flex">
           <NavigationMenuList>
-            {navLinks.map((link) => (
-              <NavigationMenuItem key={link.href}>
+            <NavigationMenuItem>
                 <NavigationMenuLink asChild
                   className={cn(
                     navigationMenuTriggerStyle(),
                     'transition-colors hover:text-primary',
-                    pathname === link.href ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
+                    pathname === '/' ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
                   )}>
-                  <Link href={link.href}>
-                    {link.label}
+                  <Link href="/">
+                    Accueil
                   </Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>
-            ))}
+            <NavigationMenuItem>
+                <NavigationMenuLink asChild
+                  className={cn(
+                    navigationMenuTriggerStyle(),
+                    'transition-colors hover:text-primary',
+                    pathname === '/shop' ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
+                  )}>
+                  <Link href="/shop">
+                    Boutique
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
 
             <NavigationMenuItem>
               <NavigationMenuTrigger 
@@ -198,6 +209,18 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                 </ul>
               </NavigationMenuContent>
             </NavigationMenuItem>
+            <NavigationMenuItem>
+                <NavigationMenuLink asChild
+                  className={cn(
+                    navigationMenuTriggerStyle(),
+                    'transition-colors hover:text-primary',
+                    pathname === '/contact' ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
+                  )}>
+                  <Link href="/contact">
+                    Contact
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
 
@@ -227,5 +250,3 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 };
 
 export default Header;
-
-    
