@@ -3,119 +3,91 @@
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model for user profiles and preferences,
- * while allowing public read access to shoe product information.  Write access to shoe
- * data is restricted, simulating a database-administrator controlled environment.
+ * and allows public read access to shoe product information. Write access to shoes is restricted
+ * to authorized admins (DBAC not yet implemented).
  *
  * Data Structure:
- * - /users/{userId}: Stores user profile information. Only the user can read or write their own profile.
- * - /shoes/{shoeId}: Stores shoe product information.  Globally readable, writeable by authorized admins.
- * - /users/{userId}/preferences/{preferenceId}: Stores user preference data.  Only the user can read or write their own preferences.
+ * - /users/{userId}: Stores user profile information.
+ * - /shoes/{shoeId}: Stores shoe product details.
+ * - /users/{userId}/preferences/{preferenceId}: Stores individual user preferences.
  *
  * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Shoe data is publicly readable to allow for open browsing of the product catalog.
- * - The ruleset assumes the existence of an administrative process (DBAC) for managing shoe data.
- * - Data validation is minimal in the prototyping phase, focusing on authorization and relationship integrity.
+ * - Users can only read and write their own profile and preferences data.
+ * - Shoe data is publicly readable.
+ * - Write access to shoe data is currently denied (pending DBAC implementation).
+ * - No user listing is allowed.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
-     * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their profile.
-     *          request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' can read their profile.
-     *          request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' can update their profile.
-     *          request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' can delete their profile.
-     *          request.auth.uid == 'user123'
-     * @deny  (create) User with ID 'user456' cannot create a profile with ID 'user123'.
-     *          request.auth.uid != 'user123'
-     * @principle Enforces user-ownership for profile data.
+     * @description: Controls access to user profile documents.
+     * @path: /users/{userId}
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can create their own profile.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can read their own profile.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can update their own profile.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can delete their own profile.
+     * @deny: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' cannot read another user's profile (e.g., /users/anotherUserId).
+     * @deny: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' cannot create a profile with a mismatched ID.
+     * @principle: Enforces document ownership for user profiles.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+      allow list: if false; // No user listing allowed
+
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to shoe product documents.
-     * @path /shoes/{shoeId}
-     * @allow (get) Any user can read shoe data.
-     *          true
-     * @allow (list) Any user can list shoe data.
-     *          true
-     * @deny (create) No user can create shoe data without proper authorization.
-     *          false
-     * @deny (update) No user can update shoe data without proper authorization.
-     *          false
-     * @deny (delete) No user can delete shoe data without proper authorization.
-     *          false
-     * @principle Allows public read access, restricts write access.
+     * @description: Controls access to shoe product documents.
+     * @path: /shoes/{shoeId}
+     * @allow: Any user can read shoe details.
+     * @deny: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' cannot write shoe data without admin privileges.
+     * @principle: Allows public read access to shoe data but restricts writes.
      */
     match /shoes/{shoeId} {
       allow get, list: if true;
+
       allow create: if false; // TODO: Implement DBAC for admin users.
       allow update: if false; // TODO: Implement DBAC for admin users.
       allow delete: if false; // TODO: Implement DBAC for admin users.
     }
 
     /**
-     * @description Controls access to user preference documents.
-     * @path /users/{userId}/preferences/{preferenceId}
-     * @allow (create) User with ID 'user123' can create their preference.
-     *          request.auth.uid == 'user123'
-     * @allow (get) User with ID 'user123' can read their preference.
-     *          request.auth.uid == 'user123'
-     * @allow (update) User with ID 'user123' can update their preference.
-     *          request.auth.uid == 'user123'
-     * @allow (delete) User with ID 'user123' can delete their preference.
-     *          request.auth.uid == 'user123'
-     * @deny  (create) User with ID 'user456' cannot create a preference with userId 'user123'.
-     *          request.auth.uid != 'user123'
-     * @principle Enforces user-ownership for preference data.
+     * @description: Controls access to user preference documents.
+     * @path: /users/{userId}/preferences/{preferenceId}
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can create their own preference.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can read their own preference.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can update their own preference.
+     * @allow: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' can delete their own preference.
+     * @deny: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' cannot read another user's preference (e.g., /users/anotherUserId/preferences/someId).
+     * @deny: User with UID '4dQ6ZpXIadNqijgV8BC0WaV6Npj2' cannot create a preference with a mismatched userId.
+     * @principle: Enforces document ownership for user preferences.
      */
     match /users/{userId}/preferences/{preferenceId} {
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);
     }
-        /**
-     * @description Denies all access to the /orders collection.
-     * @path /orders
-     * @allow (get) No user can get shoe data.
-     *          false
-     * @allow (list) No user can list shoe data.
-     *          false
-     * @deny (create) No user can create shoe data without proper authorization.
-     *          false
-     * @deny (update) No user can update shoe data without proper authorization.
-     *          false
-     * @deny (delete) No user can delete shoe data without proper authorization.
-     *          false
-     */
-        match /orders/{orderId}{
-            allow get, list, create, update, delete: if false;
-        }
   }
 
-  // Helper functions
+  // Helper function to determine if the user is signed in.
   function isSignedIn() {
     return request.auth != null;
   }
 
+  // Helper function to determine if the user is the owner of the document.
   function isOwner(userId) {
     return isSignedIn() && request.auth.uid == userId;
   }
 
+  // Helper function to determine if the user is the owner of an existing document.
   function isExistingOwner(userId) {
     return isOwner(userId) && resource != null;
   }
