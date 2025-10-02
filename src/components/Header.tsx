@@ -169,17 +169,16 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
           <NavigationMenuList>
             {navLinks.map((link) => (
               <NavigationMenuItem key={link.href}>
-                <Link href={link.href} legacyBehavior passHref>
-                  <NavigationMenuLink
-                    className={cn(
-                        navigationMenuTriggerStyle(),
-                        'transition-colors hover:text-primary',
-                        pathname === link.href ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
-                    )}
-                  >
+                <NavigationMenuLink asChild
+                  className={cn(
+                    navigationMenuTriggerStyle(),
+                    'transition-colors hover:text-primary',
+                    pathname === link.href ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
+                  )}>
+                  <Link href={link.href}>
                     {link.label}
-                  </NavigationMenuLink>
-                </Link>
+                  </Link>
+                </NavigationMenuLink>
               </NavigationMenuItem>
             ))}
 
@@ -192,11 +191,9 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
               <NavigationMenuContent>
                 <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
                   {categories.map((component) => (
-                     <Link key={component.name} href={`/shop?category=${component.id}`} legacyBehavior passHref>
-                        <ListItem title={component.name}>
-                            Découvrez notre sélection de {component.name.toLowerCase()}
-                        </ListItem>
-                    </Link>
+                    <ListItem key={component.name} title={component.name} href={`/shop?category=${component.id}`}>
+                        Découvrez notre sélection de {component.name.toLowerCase()}
+                    </ListItem>
                   ))}
                 </ul>
               </NavigationMenuContent>
@@ -230,3 +227,5 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 };
 
 export default Header;
+
+    
