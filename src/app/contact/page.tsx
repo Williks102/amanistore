@@ -23,9 +23,9 @@ const locations = [
   },
   {
     name: "Amani'store - Rond-point ADO",
-    address: "Plateau, près de l'échangeur",
+    address: "Cocody, Riviera Bonoumin",
     phone: "+225 07 02 03 04 05",
-    googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=Echangeur+de+l'amitié+ivoiro-japonaise+Abidjan"
+    googleMapsUrl: "https://maps.app.goo.gl/bCi2L4faK7EkJPeh6"
   },
   {
     name: "Amani'store - Marcory",
