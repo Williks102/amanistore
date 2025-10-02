@@ -2,7 +2,7 @@
 'use client';
 import { db } from '@/firebase';
 import type { Order, OrderStatus } from '@/lib/types';
-import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc, limit } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -39,6 +39,33 @@ export const getOrders = async (): Promise<Order[]> => {
         return snapshot.docs.map(fromFirestore);
     } catch (e) {
          const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getOrderCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
+};
+
+export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
+    const q = query(getOrderCollection(), where("validationCode", "==", code), where("status", "in", ["Prêt"]), limit(1));
+    try {
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            // Check if a delivered or pending order exists with this code to give a better error
+            const anyStatusQuery = query(getOrderCollection(), where("validationCode", "==", code), limit(1));
+            const anyStatusSnapshot = await getDocs(anyStatusQuery);
+            if(!anyStatusSnapshot.empty) {
+                 throw new Error(`Cette commande a déjà le statut "${anyStatusSnapshot.docs[0].data().status}".`);
+            }
+            return null;
+        }
+        return fromFirestore(snapshot.docs[0]);
+    } catch (e: any) {
+        if (e.message.includes("Cette commande a déjà le statut")) {
+            throw e;
+        }
+        const contextualError = new FirestorePermissionError({
           operation: 'list',
           path: getOrderCollection().path,
         });
@@ -90,6 +117,11 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
             return { success: false, error: "Commande non trouvée." };
         }
         const orderData = orderSnapshot.data() as Order;
+        
+        if (orderData.status !== 'Prêt') {
+            return { success: false, error: `La commande n'est pas prête pour la livraison (statut: ${orderData.status}).` };
+        }
+
         if (orderData.validationCode === code) {
             await updateDoc(orderDocRef, { status: 'Livré' });
             return { success: true };
@@ -103,7 +135,6 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
             requestResourceData: { status: 'Livré' },
         });
         errorEmitter.emit('permission-error', contextualError);
-        // We rethrow the error for the component to handle.
         throw contextualError;
     }
 };

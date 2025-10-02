@@ -6,7 +6,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import type { Shoe, Category, PromoCode } from '@/lib/types';
+import { getOrderByValidationCode } from '@/services/orderService';
+import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 
 
 cloudinary.config({
@@ -166,4 +167,16 @@ export async function sendContactMessage(formData: FormData) {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   return { success: true };
+}
+
+export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
+  try {
+    const order = await getOrderByValidationCode(code);
+    if (order) {
+      return { success: true, order: order as Order };
+    }
+    return { success: false, error: 'Aucune commande prête à être livrée trouvée avec ce code.' };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
