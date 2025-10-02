@@ -18,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -324,49 +330,67 @@ const AdminDashboard = () => {
                 <CardDescription>Visualisez et mettez à jour le statut des commandes récentes.</CardDescription>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Commande ID</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {orders.filter((o) => o.status === 'En attente' || o.status === 'Prêt').map((order) => (
-                      <TableRow key={order.id}>
-                        <TableCell className="font-medium">{order.id.substring(0,6)}...</TableCell>
-                        <TableCell>{order.customerName}</TableCell>
-                        <TableCell>{new Date(order.date).toLocaleDateString('fr-FR')}</TableCell>
-                        <TableCell>{`XOF ${order.total.toLocaleString('fr-FR')}`}</TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Select
-                            value={order.status}
-                            onValueChange={(newStatus: OrderStatus) =>
-                              handleStatusChange(order.id, newStatus)
-                            }
-                          >
-                            <SelectTrigger className="w-[120px]">
-                              <SelectValue placeholder="Changer statut" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="En attente">En attente</SelectItem>
-                              <SelectItem value="Prêt">Prêt</SelectItem>
-                              <SelectItem value="Livré">Livré</SelectItem>
-                              <SelectItem value="Annulé">Annulé</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                 <Accordion type="single" collapsible className="w-full">
+                  {orders.filter((o) => o.status === 'En attente' || o.status === 'Prêt').map((order) => (
+                    <AccordionItem value={order.id} key={order.id} className="border-b">
+                      <AccordionTrigger className="flex justify-between items-center w-full p-4 hover:bg-muted/50">
+                        <div className="flex-1 text-left">
+                          <span className="font-medium">#{order.id.substring(0, 6)}...</span> - <span>{order.customerName}</span>
+                        </div>
+                        <div className="flex-1 text-left hidden md:block">{new Date(order.date).toLocaleDateString('fr-FR')}</div>
+                        <div className="flex-1 text-left hidden sm:block">{`XOF ${order.total.toLocaleString('fr-FR')}`}</div>
+                        <div className="flex-1 text-center"><Badge variant={getStatusVariant(order.status)}>{order.status}</Badge></div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 bg-muted/20">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <h4 className="font-semibold mb-2">Informations client</h4>
+                              <p><strong>Adresse de livraison:</strong> {order.customerAddress}</p>
+                              <p><strong>Téléphone:</strong> {order.customerPhone}</p>
+                              {order.customerEmail && <p><strong>Email:</strong> {order.customerEmail}</p>}
+                            </div>
+                             <div>
+                              <h4 className="font-semibold mb-2">Changer le statut</h4>
+                               <Select
+                                  value={order.status}
+                                  onValueChange={(newStatus: OrderStatus) =>
+                                    handleStatusChange(order.id, newStatus)
+                                  }
+                                >
+                                  <SelectTrigger className="w-full md:w-[180px]">
+                                    <SelectValue placeholder="Changer statut" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="En attente">En attente</SelectItem>
+                                    <SelectItem value="Prêt">Prêt</SelectItem>
+                                    <SelectItem value="Livré">Livré</SelectItem>
+                                    <SelectItem value="Annulé">Annulé</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <h4 className="font-semibold mb-2">Articles commandés</h4>
+                            <div className="space-y-2">
+                              {order.items.map(item => (
+                                <div key={item.id} className="flex items-center gap-4 text-sm p-2 rounded-md bg-background">
+                                    <Image src={item.product.gridImage.url} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" />
+                                    <div>
+                                        <p className="font-medium">{item.product.name}</p>
+                                        <p className="text-muted-foreground">Taille: {item.size} | Couleur: {item.color} | Qté: {item.quantity}</p>
+                                    </div>
+                                    <p className="ml-auto font-medium">{`XOF ${item.product.price.toLocaleString('fr-FR')}`}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                 </Accordion>
+                 {orders.filter((o) => o.status === 'En attente' || o.status === 'Prêt').length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">Aucune commande en cours.</p>
+                 )}
               </CardContent>
             </Card>
             
@@ -382,7 +406,7 @@ const AdminDashboard = () => {
                       .map((order) => (
                         <div key={order.id} className="border rounded-lg p-4 flex justify-between items-center">
                           <div>
-                            <p className="font-semibold">{order.id.substring(0,6)}... - {order.customerName}</p>
+                            <p className="font-semibold">#{order.id.substring(0,6)}... - {order.customerName}</p>
                             <p className="text-sm text-muted-foreground">
                               {new Date(order.date).toLocaleDateString('fr-FR')} - {`XOF ${order.total.toLocaleString('fr-FR')}`}
                             </p>
@@ -639,3 +663,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
