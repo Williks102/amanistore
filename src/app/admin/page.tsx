@@ -327,7 +327,7 @@ const AdminDashboard = () => {
       <div className="container mx-auto py-10">
         <h1 className="text-3xl font-bold mb-6">Tableau de bord administrateur</h1>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-8">
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-8">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
@@ -362,12 +362,14 @@ const AdminDashboard = () => {
 
 
         <Tabs defaultValue="orders">
-          <TabsList className="bg-transparent p-0 gap-2">
-            <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Commandes</TabsTrigger>
-            <TabsTrigger value="products" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Produits</TabsTrigger>
-            <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Créer un produit</TabsTrigger>
-            <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md">Catégories</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="bg-transparent p-0 gap-2">
+              <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Commandes</TabsTrigger>
+              <TabsTrigger value="products" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Produits</TabsTrigger>
+              <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Créer un produit</TabsTrigger>
+              <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Catégories</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="orders" className="mt-6">
             <Card>
@@ -682,42 +684,44 @@ const AdminDashboard = () => {
                   <CardDescription>Gérez les catégories actuelles.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Image</TableHead>
-                        <TableHead>Nom</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {categories.map((category) => (
-                        <TableRow key={category.id}>
-                           <TableCell>
-                            {category.imageUrl ? (
-                              <Image
-                                src={category.imageUrl}
-                                alt={category.name}
-                                width={40}
-                                height={40}
-                                className="rounded-md object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell className="font-medium">{category.name}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="destructive" size="icon" onClick={() => handleDeleteCategory(category.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Image</TableHead>
+                          <TableHead>Nom</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {categories.map((category) => (
+                          <TableRow key={category.id}>
+                            <TableCell>
+                              {category.imageUrl ? (
+                                <Image
+                                  src={category.imageUrl}
+                                  alt={category.name}
+                                  width={40}
+                                  height={40}
+                                  className="rounded-md object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 flex items-center justify-center bg-muted rounded-md">
+                                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">{category.name}</TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="destructive" size="icon" onClick={() => handleDeleteCategory(category.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
             </div>
