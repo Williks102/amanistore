@@ -2,6 +2,8 @@
 import { db } from '@/firebase';
 import type { Category } from '@/lib/types';
 import { collection, getDocs, addDoc, deleteDoc, doc, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const getCategoryCollection = () => collection(db, 'categories');
 
@@ -14,16 +16,41 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Category 
 }
 
 export const getCategories = async (): Promise<Category[]> => {
-    const snapshot = await getDocs(getCategoryCollection());
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const snapshot = await getDocs(getCategoryCollection());
+        return snapshot.docs.map(fromFirestore);
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getCategoryCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const addCategory = async (category: Omit<Category, 'id'>) => {
-    const docRef = await addDoc(getCategoryCollection(), category);
-    return docRef.id;
+    try {
+        const docRef = await addDoc(getCategoryCollection(), category);
+        return docRef.id;
+    } catch (e) {
+         const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: getCategoryCollection().path,
+          requestResourceData: category,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const deleteCategory = async (id: string) => {
     const categoryDoc = doc(db, 'categories', id);
-    await deleteDoc(categoryDoc);
+    deleteDoc(categoryDoc).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'delete',
+            path: categoryDoc.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };

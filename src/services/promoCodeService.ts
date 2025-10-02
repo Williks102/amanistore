@@ -2,6 +2,8 @@
 import { db } from '@/firebase';
 import type { PromoCode } from '@/lib/types';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, where, query, limit, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const getPromoCodeCollection = () => collection(db, 'promoCodes');
 
@@ -14,30 +16,71 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): PromoCode
 }
 
 export const getPromoCodes = async (): Promise<PromoCode[]> => {
-    const snapshot = await getDocs(getPromoCodeCollection());
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const snapshot = await getDocs(getPromoCodeCollection());
+        return snapshot.docs.map(fromFirestore);
+    } catch(e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getPromoCodeCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const getPromoCodeByCode = async (code: string): Promise<PromoCode | null> => {
     const q = query(getPromoCodeCollection(), where("code", "==", code.toUpperCase()), limit(1));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-        return null;
+    try {
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            return null;
+        }
+        return fromFirestore(snapshot.docs[0]);
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getPromoCodeCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
     }
-    return fromFirestore(snapshot.docs[0]);
 }
 
 export const addPromoCode = async (promoCode: Omit<PromoCode, 'id'>) => {
-    const docRef = await addDoc(getPromoCodeCollection(), promoCode);
-    return docRef.id;
+    try {
+        const docRef = await addDoc(getPromoCodeCollection(), promoCode);
+        return docRef.id;
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: getPromoCodeCollection().path,
+          requestResourceData: promoCode,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const updatePromoCode = async (id: string, promoCode: Partial<Omit<PromoCode, 'id'>>) => {
     const promoCodeDoc = doc(db, 'promoCodes', id);
-    await updateDoc(promoCodeDoc, promoCode);
+    updateDoc(promoCodeDoc, promoCode).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: promoCodeDoc.path,
+            requestResourceData: promoCode,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };
 
 export const deletePromoCode = async (id: string) => {
     const promoCodeDoc = doc(db, 'promoCodes', id);
-    await deleteDoc(promoCodeDoc);
+    deleteDoc(promoCodeDoc).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'delete',
+            path: promoCodeDoc.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };

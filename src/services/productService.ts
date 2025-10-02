@@ -2,6 +2,8 @@
 import { db } from '@/firebase';
 import type { Shoe } from '@/lib/types';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const getShoeCollection = () => collection(db, 'shoes');
 
@@ -14,21 +16,54 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Shoe => {
 }
 
 export const getProducts = async (): Promise<Shoe[]> => {
-    const snapshot = await getDocs(getShoeCollection());
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const snapshot = await getDocs(getShoeCollection());
+        return snapshot.docs.map(fromFirestore);
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getShoeCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        // We must throw the error to be caught by Next.js error boundaries
+        throw contextualError;
+    }
 };
 
 export const addProduct = async (shoe: Omit<Shoe, 'id'>) => {
-    const docRef = await addDoc(getShoeCollection(), shoe);
-    return docRef.id;
+    try {
+        const docRef = await addDoc(getShoeCollection(), shoe);
+        return docRef.id;
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: getShoeCollection().path,
+          requestResourceData: shoe,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const updateProduct = async (id: string, shoe: Partial<Shoe>) => {
     const shoeDoc = doc(db, 'shoes', id);
-    await updateDoc(shoeDoc, shoe);
+    updateDoc(shoeDoc, shoe).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: shoeDoc.path,
+            requestResourceData: shoe,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };
 
 export const deleteProduct = async (id: string) => {
     const shoeDoc = doc(db, 'shoes', id);
-    await deleteDoc(shoeDoc);
+    deleteDoc(shoeDoc).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'delete',
+            path: shoeDoc.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };

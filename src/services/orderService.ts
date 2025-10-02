@@ -3,6 +3,8 @@
 import { db } from '@/firebase';
 import type { Order, OrderStatus } from '@/lib/types';
 import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const getOrderCollection = () => collection(db, 'orders');
 
@@ -18,13 +20,31 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Order => 
 
 export const getOrdersByUserId = async (userId: string): Promise<Order[]> => {
     const q = query(getOrderCollection(), where("userId", "==", userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(fromFirestore);
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getOrderCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const getOrders = async (): Promise<Order[]> => {
-    const snapshot = await getDocs(getOrderCollection());
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const snapshot = await getDocs(getOrderCollection());
+        return snapshot.docs.map(fromFirestore);
+    } catch (e) {
+         const contextualError = new FirestorePermissionError({
+          operation: 'list',
+          path: getOrderCollection().path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status'>) => {
@@ -33,11 +53,28 @@ export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status'>) => 
         date: serverTimestamp(),
         status: 'En attente',
     }
-    const docRef = await addDoc(getOrderCollection(), newOrder);
-    return docRef?.id;
+    try {
+        const docRef = await addDoc(getOrderCollection(), newOrder);
+        return docRef?.id;
+    } catch (e) {
+        const contextualError = new FirestorePermissionError({
+          operation: 'create',
+          path: getOrderCollection().path,
+          requestResourceData: newOrder,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
 };
 
 export const updateOrderStatus = async (id: string, status: OrderStatus) => {
     const orderDoc = doc(db, 'orders', id);
-    await updateDoc(orderDoc, { status });
+    updateDoc(orderDoc, { status }).catch(e => {
+        const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: orderDoc.path,
+            requestResourceData: { status },
+        });
+        errorEmitter.emit('permission-error', contextualError);
+    });
 };
