@@ -52,4 +52,12 @@ export type Order = {
   status: OrderStatus;
 };
 
+export type PromoCode = {
+  id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  value: number;
+  isActive: boolean;
+};
+
     

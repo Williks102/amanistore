@@ -24,11 +24,11 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import type { Order, OrderStatus, Shoe, ShoeColor, Category } from '@/lib/types';
+import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, Percent } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -37,15 +37,18 @@ import Image from 'next/image';
 import { getOrders, updateOrderStatus } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
+import { getPromoCodes } from '@/services/promoCodeService';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImage, createProduct, createCategory, updateProduct } from '@/app/actions';
+import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
+import { Switch } from '@/components/ui/switch';
 
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -64,14 +67,16 @@ const AdminDashboard = () => {
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fetchedOrders, fetchedProducts, fetchedCategories] = await Promise.all([
+      const [fetchedOrders, fetchedProducts, fetchedCategories, fetchedPromoCodes] = await Promise.all([
         getOrders(),
         getProducts(),
-        getCategories()
+        getCategories(),
+        getPromoCodes()
       ]);
       setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setShoes(fetchedProducts);
       setCategories(fetchedCategories);
+      setPromoCodes(fetchedPromoCodes);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({
@@ -304,6 +309,62 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCreatePromoCode = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    const code = (formData.get('promo-code') as string).toUpperCase();
+    const type = formData.get('promo-type') as 'percentage' | 'fixed';
+    const value = Number(formData.get('promo-value'));
+
+    if (!code || !type || isNaN(value) || value <= 0) {
+      toast({ title: 'Données invalides', description: 'Veuillez remplir tous les champs correctement.', variant: 'destructive' });
+      setIsSubmitting(false);
+      return;
+    }
+    
+    const newPromoCode: Omit<PromoCode, 'id'> = {
+      code,
+      discountType: type,
+      value,
+      isActive: true,
+    };
+
+    const result = await createPromoCode(newPromoCode);
+
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Code promo créé.' });
+      (event.target as HTMLFormElement).reset();
+      fetchAllData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+
+    setIsSubmitting(false);
+  }
+
+  const handleTogglePromoCode = async (id: string, currentStatus: boolean) => {
+    const result = await togglePromoCodeStatus(id, currentStatus);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Statut du code promo mis à jour.' });
+      fetchAllData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  }
+
+  const handleDeletePromoCode = async (id: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce code promo ?')) return;
+    const result = await removePromoCode(id);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Code promo supprimé.' });
+      fetchAllData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  }
+
+
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
       case 'Prêt':
@@ -368,6 +429,7 @@ const AdminDashboard = () => {
               <TabsTrigger value="products" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Produits</TabsTrigger>
               <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Créer un produit</TabsTrigger>
               <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Catégories</TabsTrigger>
+              <TabsTrigger value="promo" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Codes Promo</TabsTrigger>
             </TabsList>
           </div>
 
@@ -722,6 +784,86 @@ const AdminDashboard = () => {
                       </TableBody>
                     </Table>
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          <TabsContent value="promo" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Créer un code promo</CardTitle>
+                      <CardDescription>Configurez de nouveaux codes de réduction pour votre boutique.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <form onSubmit={handleCreatePromoCode} className="space-y-6">
+                          <div className="space-y-2">
+                              <Label htmlFor="promo-code">Code Promo</Label>
+                              <Input id="promo-code" name="promo-code" placeholder="Ex: SUMMER20" className="uppercase"/>
+                          </div>
+                           <div className="space-y-2">
+                              <Label htmlFor="promo-type">Type de réduction</Label>
+                              <Select name="promo-type" defaultValue="percentage">
+                                  <SelectTrigger id="promo-type">
+                                      <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="percentage">Pourcentage (%)</SelectItem>
+                                      <SelectItem value="fixed">Montant Fixe (XOF)</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                          </div>
+                           <div className="space-y-2">
+                              <Label htmlFor="promo-value">Valeur</Label>
+                              <Input id="promo-value" name="promo-value" type="number" placeholder="Ex: 10 ou 5000" />
+                          </div>
+                          <Button type="submit" disabled={isSubmitting}>
+                              {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...</> : 'Créer le code promo'}
+                          </Button>
+                      </form>
+                  </CardContent>
+              </Card>
+               <Card>
+                <CardHeader>
+                  <CardTitle>Codes promo existants</CardTitle>
+                  <CardDescription>Activez, désactivez ou supprimez les codes de réduction.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Valeur</TableHead>
+                        <TableHead>Actif</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {promoCodes.map((promo) => (
+                        <TableRow key={promo.id}>
+                          <TableCell className="font-medium uppercase">{promo.code}</TableCell>
+                          <TableCell>
+                            {promo.discountType === 'percentage' 
+                              ? `${promo.value}%` 
+                              : `${promo.value.toLocaleString('fr-FR')} XOF`}
+                          </TableCell>
+                           <TableCell>
+                            <Switch
+                              checked={promo.isActive}
+                              onCheckedChange={() => handleTogglePromoCode(promo.id, promo.isActive)}
+                              aria-label="Activer ou désactiver le code promo"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                              <Button variant="destructive" size="icon" onClick={() => handleDeletePromoCode(promo.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  {promoCodes.length === 0 && <p className="text-center text-muted-foreground pt-4">Aucun code promo créé.</p>}
                 </CardContent>
               </Card>
             </div>

@@ -7,7 +7,8 @@ import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
-import type { Shoe, Category } from '@/lib/types';
+import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
+import type { Shoe, Category, PromoCode } from '@/lib/types';
 
 
 cloudinary.config({
@@ -99,6 +100,49 @@ export async function createCategory(categoryData: Omit<Category, 'id'>) {
     try {
         const categoryId = await addCategoryInDb(categoryData);
         return { success: true, categoryId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function validatePromoCode(code: string) {
+    try {
+        const promoCode = await getPromoCodeByCode(code);
+        if (promoCode && promoCode.isActive) {
+            return { success: true, promoCode };
+        }
+        return { success: false, error: 'Code promo invalide ou expiré.' };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createPromoCode(promoCodeData: Omit<PromoCode, 'id'>) {
+    try {
+        const existingCode = await getPromoCodeByCode(promoCodeData.code);
+        if (existingCode) {
+            return { success: false, error: 'Ce code promo existe déjà.' };
+        }
+        const promoCodeId = await addPromoCodeInDb(promoCodeData);
+        return { success: true, promoCodeId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function togglePromoCodeStatus(id: string, currentStatus: boolean) {
+    try {
+        await updatePromoCodeInDb(id, { isActive: !currentStatus });
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function removePromoCode(id: string) {
+    try {
+        await deletePromoCodeInDb(id);
+        return { success: true };
     } catch (error: any) {
         return { success: false, error: error.message };
     }

@@ -30,6 +30,8 @@ import { Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
 import { addOrder } from '@/services/orderService';
+import { validatePromoCode } from '@/app/actions';
+import type { PromoCode } from '@/lib/types';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Le nom est requis (2 caractères min).' }),
@@ -49,10 +51,23 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const { items, clearCart } = useCart();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
-  const [discount, setDiscount] = useState(0);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCode | null>(null);
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
+  
+  const discount = useMemo(() => {
+    if (!appliedPromoCode) return 0;
+    if (appliedPromoCode.discountType === 'percentage') {
+      return subtotal * (appliedPromoCode.value / 100);
+    }
+    if (appliedPromoCode.discountType === 'fixed') {
+      return appliedPromoCode.value;
+    }
+    return 0;
+  }, [subtotal, appliedPromoCode]);
+
   const total = subtotal - discount;
 
   const form = useForm<CheckoutFormValues>({
@@ -65,21 +80,27 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     },
   });
 
-  const handleApplyPromoCode = () => {
-    if (promoCode.toUpperCase() === 'PROMO10') {
-      const discountAmount = subtotal * 0.10;
-      setDiscount(discountAmount);
+  const handleApplyPromoCode = async () => {
+    if (!promoCodeInput) return;
+    setIsApplyingPromo(true);
+
+    const result = await validatePromoCode(promoCodeInput.toUpperCase());
+    
+    if (result.success && result.promoCode) {
+      setAppliedPromoCode(result.promoCode);
       toast({
         title: 'Code promo appliqué !',
-        description: `Vous avez obtenu une réduction de ${discountAmount.toLocaleString('fr-FR')} XOF.`,
+        description: `La réduction a été appliquée à votre commande.`,
       });
     } else {
+      setAppliedPromoCode(null);
       toast({
         title: 'Code promo invalide',
-        description: 'Veuillez vérifier le code et réessayer.',
+        description: result.error || 'Veuillez vérifier le code et réessayer.',
         variant: 'destructive',
       });
     }
+    setIsApplyingPromo(false);
   };
 
 
@@ -106,8 +127,8 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
         clearCart();
         onOpenChange(false);
         form.reset();
-        setPromoCode('');
-        setDiscount(0);
+        setPromoCodeInput('');
+        setAppliedPromoCode(null);
     } catch (error) {
         console.error('Order submission failed', error);
         toast({
@@ -194,10 +215,14 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                   <div className="flex items-center space-x-2">
                       <Input 
                           placeholder="Entrez votre code" 
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value)}
+                          value={promoCodeInput}
+                          onChange={(e) => setPromoCodeInput(e.target.value)}
+                          disabled={!!appliedPromoCode}
+                          className="uppercase"
                       />
-                      <Button type="button" variant="outline" onClick={handleApplyPromoCode}>Appliquer</Button>
+                      <Button type="button" variant="outline" onClick={handleApplyPromoCode} disabled={isApplyingPromo || !!appliedPromoCode}>
+                        {isApplyingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Appliquer'}
+                      </Button>
                   </div>
               </div>
 
@@ -208,7 +233,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                   </div>
                   {discount > 0 && (
                       <div className="flex justify-between text-green-600">
-                          <span>Réduction:</span>
+                          <span>Réduction ({appliedPromoCode?.code}):</span>
                           <span>{`- XOF ${discount.toLocaleString('fr-FR')}`}</span>
                       </div>
                   )}
