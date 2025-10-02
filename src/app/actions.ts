@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
@@ -147,4 +145,25 @@ export async function removePromoCode(id: string) {
     } catch (error: any) {
         return { success: false, error: error.message };
     }
+}
+
+export async function sendContactMessage(formData: FormData) {
+  const name = formData.get('name');
+  const email = formData.get('email');
+  const subject = formData.get('subject');
+  const message = formData.get('message');
+  
+  if (!name || !email || !subject || !message) {
+    return { success: false, error: 'Veuillez remplir tous les champs.' };
+  }
+  
+  // Here you would typically send an email or save to a database.
+  // For this example, we'll just log it to the console and return success.
+  console.log('New contact message:');
+  console.log({ name, email, subject, message });
+  
+  // Simulate network delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  return { success: true };
 }

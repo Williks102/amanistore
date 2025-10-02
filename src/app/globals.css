@@ -86,3 +86,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Add this to enable the red underline */
+.border-destructive {
+  border-color: hsl(var(--destructive));
+}

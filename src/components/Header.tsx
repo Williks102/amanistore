@@ -1,10 +1,10 @@
-
 'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Button } from './ui/button';
-import { Menu, ShoppingBag, Search, User, LogOut } from 'lucide-react';
+import { Menu, ShoppingBag, Search, User, LogOut, ChevronDown } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import type { Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -13,40 +13,70 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from '@/components/ui/navigation-menu';
 import { Input } from './ui/input';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Skeleton } from './ui/skeleton';
 
-
 interface HeaderProps {
   categories: Category[];
-  selectedCategory: Category | null;
-  onSelectCategory: (category: Category | null) => void;
-  searchTerm: string;
-  onSearchTermChange: (term: string) => void;
   onToggleSidebar: () => void;
 }
 
-const Header = ({
-  categories,
-  selectedCategory,
-  onSelectCategory,
-  searchTerm,
-  onSearchTermChange,
-  onToggleSidebar,
-}: HeaderProps) => {
+const ListItem = React.forwardRef<
+  React.ElementRef<'a'>,
+  React.ComponentPropsWithoutRef<'a'>
+>(({ className, title, children, ...props }, ref) => {
+  return (
+    <li>
+      <NavigationMenuLink asChild>
+        <a
+          ref={ref}
+          className={cn(
+            'block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground',
+            className
+          )}
+          {...props}
+        >
+          <div className="text-sm font-medium leading-none">{title}</div>
+          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+            {children}
+          </p>
+        </a>
+      </NavigationMenuLink>
+    </li>
+  );
+});
+ListItem.displayName = 'ListItem';
+
+const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
   const { onOpen, items } = useCart();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     await signOut(auth);
   };
+  
+  const navLinks = [
+    { href: '/', label: 'Accueil' },
+    { href: '/shop', label: 'Boutique' },
+    { href: '/contact', label: 'Contact' },
+  ];
 
   const UserMenu = () => {
     if (isUserLoading) {
@@ -63,11 +93,11 @@ const Header = ({
             <Link href="/signup">Inscription</Link>
           </Button>
         </div>
-      )
+      );
     }
 
     return (
-       <DropdownMenu>
+      <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full">
             <Avatar className="h-8 w-8">
@@ -94,22 +124,14 @@ const Header = ({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    )
-  }
+    );
+  };
 
   return (
-    <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 border-b">
-      {/* Top Bar */}
-      <div className="bg-secondary text-secondary-foreground py-2 text-sm">
-        <div className="container mx-auto px-4 text-center">
-          <p>Bienvenue dans votre boutique en ligne</p>
-        </div>
-      </div>
-
-      {/* Main Header */}
+    <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-50 border-b">
       <div className="container mx-auto px-4 flex justify-between items-center gap-4 py-4 relative">
-        {/* Left Section: Logo & Mobile Menu */}
         <div className="flex items-center gap-2">
+          {/* Mobile Menu */}
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -119,80 +141,78 @@ const Header = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => onSelectCategory(null)}>Toutes</DropdownMenuItem>
-                {categories.map((category) => (
-                  <DropdownMenuItem key={category.id} onClick={() => onSelectCategory(category)}>
-                    {category.name}
-                  </DropdownMenuItem>
+                {navLinks.map(link => (
+                    <DropdownMenuItem key={link.href} asChild>
+                        <Link href={link.href}>{link.label}</Link>
+                    </DropdownMenuItem>
                 ))}
-                <DropdownMenuItem onClick={onToggleSidebar}>
-                  Filtrer
-                </DropdownMenuItem>
+                 <DropdownMenuSeparator />
+                  <DropdownMenuItem>Catégories</DropdownMenuItem>
+                 {categories.map((category) => (
+                    <DropdownMenuItem key={category.id} asChild>
+                        <Link href={`/shop?category=${category.id}`}>{category.name}</Link>
+                    </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onToggleSidebar}>Filtrer</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-           <h1
-            className="text-xl font-headline font-bold text-primary cursor-pointer"
-            onClick={() => onSelectCategory(null)}
-          >
+          {/* Logo */}
+          <Link href="/" className="text-xl font-headline font-bold text-primary">
             Amani'store
-          </h1>
+          </Link>
         </div>
 
         {/* Center Section: Desktop Nav */}
-         <nav className="hidden md:flex items-center gap-6">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => onSelectCategory(category)}
-                className={cn(
-                  'text-lg font-medium transition-colors hover:text-primary',
-                  selectedCategory?.id === category.id ? 'text-primary' : 'text-muted-foreground'
-                )}
-              >
-                {category.name}
-              </button>
+        <NavigationMenu className="hidden md:flex">
+          <NavigationMenuList>
+            {navLinks.map((link) => (
+              <NavigationMenuItem key={link.href}>
+                <Link href={link.href} legacyBehavior passHref>
+                  <NavigationMenuLink
+                    className={cn(
+                        navigationMenuTriggerStyle(),
+                        'transition-colors hover:text-primary',
+                        pathname === link.href ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground'
+                    )}
+                  >
+                    {link.label}
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
             ))}
-          </nav>
 
-        {/* Mobile Search - absolute positioned */}
-        {isSearchOpen && (
-            <div className="absolute top-full left-4 right-4 mt-2 sm:hidden">
-              <div className="relative">
-                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                 <Input
-                    type="search"
-                    placeholder="Rechercher..."
-                    className="pl-10 w-full"
-                    value={searchTerm}
-                    onChange={(e) => onSearchTermChange(e.target.value)}
-                 />
-              </div>
-            </div>
-        )}
-
+            <NavigationMenuItem>
+              <NavigationMenuTrigger 
+                className={cn('transition-colors hover:text-primary', pathname.startsWith('/categories') ? 'text-primary border-b-2 border-destructive' : 'text-muted-foreground')}
+              >
+                Catégories
+                </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
+                  {categories.map((component) => (
+                     <Link key={component.name} href={`/shop?category=${component.id}`} legacyBehavior passHref>
+                        <ListItem title={component.name}>
+                            Découvrez notre sélection de {component.name.toLowerCase()}
+                        </ListItem>
+                    </Link>
+                  ))}
+                </ul>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
 
         {/* Right Section: Icons */}
         <div className="flex items-center gap-2">
-           <div className="hidden sm:block relative mr-2">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-             <Input
-                type="search"
-                placeholder="Rechercher..."
-                className="pl-10 w-full sm:w-auto"
-                value={searchTerm}
-                onChange={(e) => onSearchTermChange(e.target.value)}
-             />
-           </div>
-
-          <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setIsSearchOpen(!isSearchOpen)}>
+           <Button variant="ghost" size="icon" onClick={onToggleSidebar}>
             <Search className="h-6 w-6" />
-            <span className="sr-only">Rechercher</span>
+            <span className="sr-only">Filtrer et Rechercher</span>
           </Button>
-
+          
           <div className="flex items-center">
             <UserMenu />
-
             <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
               <ShoppingBag className="h-6 w-6" />
               {items.length > 0 && (
