@@ -1,0 +1,176 @@
+{
+  "entities": {
+    "Shoe": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Shoe",
+      "type": "object",
+      "description": "Represents a shoe product in the Amani'store.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Shoe entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the shoe."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the shoe."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the shoe's image.",
+          "format": "uri"
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the shoe in XOF."
+        },
+        "availableSizes": {
+          "type": "array",
+          "description": "Available sizes for the shoe.",
+          "items": {
+            "type": "number"
+          }
+        },
+        "availableColors": {
+          "type": "array",
+          "description": "Available colors for the shoe.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "imageUrl",
+        "price",
+        "availableSizes",
+        "availableColors"
+      ]
+    },
+    "UserPreference": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserPreference",
+      "type": "object",
+      "description": "Represents user shoe preferences for the AI Style Guide.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserPreference entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User. (Relationship: User 1:N UserPreference)"
+        },
+        "preferredColors": {
+          "type": "array",
+          "description": "Array of preferred colors.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preferredStyles": {
+          "type": "array",
+          "description": "Array of preferred shoe styles.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "preferredColors",
+        "preferredStyles"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Amani'store.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        }
+      },
+      "required": [
+        "id",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  Authorization is path-based (only the user can read/write their profile).",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/shoes/{shoeId}",
+        "definition": {
+          "entityName": "Shoe",
+          "schema": {
+            "$ref": "#/backend/entities/Shoe"
+          },
+          "description": "Stores shoe products.  Globally readable, but writeable only by authorized admins (via DBAC).",
+          "params": [
+            {
+              "name": "shoeId",
+              "description": "The unique identifier for the shoe."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/preferences/{preferenceId}",
+        "definition": {
+          "entityName": "UserPreference",
+          "schema": {
+            "$ref": "#/backend/entities/UserPreference"
+          },
+          "description": "Stores user preferences. Authorization is path-based (only the user can read/write their preferences).",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "preferenceId",
+              "description": "The unique identifier for the user's preference document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, support the required QAPs, and adhere to the core design principles. It leverages path-based ownership for user-specific data and segregates data based on access requirements.\n\n*   `/users/{userId}`: Stores user profiles. Authorization is path-based (only the user can read/write their profile).\n*   `/shoes/{shoeId}`: Stores all shoe products. This collection is globally readable but writeable only by authorized admins (not defined, but could be implemented via DBAC using a `/roles_admin/{userId}` collection). This supports secure `list` operations (QAPs) as all shoes have the same security posture (publicly readable).\n*   `/users/{userId}/preferences/{preferenceId}`: Stores user preferences. Authorization is path-based (only the user can read/write their preferences). Denormalization is not needed here as the preferences are directly tied to the user's path.\n\nThis structure avoids `get()` calls in security rules (Authorization Independence)."
+  }
+}

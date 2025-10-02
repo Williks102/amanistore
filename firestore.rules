@@ -1,0 +1,111 @@
+/**
+ * @fileoverview Firestore Security Rules for Amani'store.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and preferences.
+ * Shoe data is publicly readable but requires administrative privileges for modification.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles, accessible only to the user themselves.
+ * - /shoes/{shoeId}: Stores shoe product information, publicly readable.
+ * - /users/{userId}/preferences/{preferenceId}: Stores user preferences, accessible only to the user themselves.
+ *
+ * Key Security Decisions:
+ * - User listing is implicitly disallowed by the path-based access control on /users/{userId}.
+ * - Shoe data is publicly readable to support listing and display, but write access is not granted in this ruleset.
+ *
+ * Denormalization for Authorization:
+ * - The data model inherently supports Authorization Independence due to its path-based structure, avoiding the need for denormalization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Controls access to user profiles. Only the user can read and write their own profile.
+     * @path /users/{userId}
+     * @allow (create) - Authenticated user with matching userId in the document.
+     * @allow (get, list, update, delete) - Authenticated user with a matching userId.
+     * @deny (create) - Authenticated user with a non-matching userId.
+     * @deny (get, list, update, delete) - Unauthenticated user.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      // Helper function to check if the authenticated user is the owner of the document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the authenticated user is the existing owner of the document.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allows creating a new user document if the authenticated user's ID matches the userId.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+
+      // Allows reading the user document if the authenticated user's ID matches the userId.
+      allow get: if isOwner(userId);
+
+      // Allows listing user documents if the authenticated user's ID matches the userId.
+      allow list: if isOwner(userId);
+
+      // Allows updating the user document if the authenticated user's ID matches the userId and the document exists.
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+
+      // Allows deleting the user document if the authenticated user's ID matches the userId and the document exists.
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Controls access to shoe product data. Shoe data is publicly readable, but writes are denied.
+     * @path /shoes/{shoeId}
+     * @allow (get, list) - Any user can read shoe data.
+     * @deny (create, update, delete) - All users are denied write access.
+     * @principle Public read access with restricted write access.
+     */
+    match /shoes/{shoeId} {
+      // Allows anyone to read shoe data.
+      allow get, list: if true;
+
+      // Denies all write operations.  In a full implementation, this would be restricted to authorized admins.
+      allow create, update, delete: if false; // TODO: Add admin role validation once roles are defined.
+    }
+
+    /**
+     * @description Controls access to user preferences. Only the user can read and write their own preferences.
+     * @path /users/{userId}/preferences/{preferenceId}
+     * @allow (create) - Authenticated user with matching userId and validates userId in the document.
+     * @allow (get, list, update, delete) - Authenticated user with a matching userId.
+     * @deny (create) - Authenticated user with a non-matching userId.
+     * @deny (get, list, update, delete) - Unauthenticated user.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/preferences/{preferenceId} {
+      // Helper function to check if the authenticated user is the owner of the document.
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      // Helper function to check if the authenticated user is the existing owner of the document.
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      // Allows creating a new user preference if the authenticated user's ID matches the userId.
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+
+      // Allows reading the user preference if the authenticated user's ID matches the userId.
+      allow get: if isOwner(userId);
+
+      // Allows listing user preferences if the authenticated user's ID matches the userId.
+      allow list: if isOwner(userId);
+
+      // Allows updating the user preference if the authenticated user's ID matches the userId and the document exists.
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+
+      // Allows deleting the user preference if the authenticated user's ID matches the userId and the document exists.
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}
