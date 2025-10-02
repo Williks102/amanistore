@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -26,9 +26,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, Percent } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, Percent, LayoutDashboard, ListOrdered, Tag } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -42,7 +41,9 @@ import { useToast } from '@/hooks/use-toast';
 import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
+import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
+type AdminView = 'dashboard' | 'orders' | 'products' | 'create' | 'categories' | 'promo';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -63,6 +64,7 @@ const AdminDashboard = () => {
 
   const [editingShoe, setEditingShoe] = useState<Shoe | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [activeView, setActiveView] = useState<AdminView>('dashboard');
   
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
@@ -379,61 +381,46 @@ const AdminDashboard = () => {
     }
   };
 
-  if (isLoading) {
-    return <div className="container mx-auto py-10">Chargement du tableau de bord...</div>
-  }
-
-  return (
-    <>
-      <div className="container mx-auto py-10">
-        <h1 className="text-3xl font-bold mb-6">Tableau de bord administrateur</h1>
-
-        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mb-8">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">XOF {stats.totalRevenue.toLocaleString('fr-FR')}</div>
-                    <p className="text-xs text-muted-foreground">Basé sur les commandes livrées</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Commandes en attente</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.pendingOrders}</div>
-                    <p className="text-xs text-muted-foreground">Commandes à préparer</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Produits</CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.totalProducts}</div>
-                    <p className="text-xs text-muted-foreground">Articles dans la boutique</p>
-                </CardContent>
-            </Card>
-        </div>
-
-
-        <Tabs defaultValue="orders">
-          <div className="overflow-x-auto pb-2">
-            <TabsList className="bg-transparent p-0 gap-2">
-              <TabsTrigger value="orders" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Commandes</TabsTrigger>
-              <TabsTrigger value="products" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Produits</TabsTrigger>
-              <TabsTrigger value="create" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Créer un produit</TabsTrigger>
-              <TabsTrigger value="categories" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Catégories</TabsTrigger>
-              <TabsTrigger value="promo" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground border px-4 py-2 rounded-md whitespace-nowrap">Codes Promo</TabsTrigger>
-            </TabsList>
+  const renderContent = () => {
+    switch(activeView) {
+      case 'dashboard':
+        return (
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">XOF {stats.totalRevenue.toLocaleString('fr-FR')}</div>
+                      <p className="text-xs text-muted-foreground">Basé sur les commandes livrées</p>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Commandes en attente</CardTitle>
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">{stats.pendingOrders}</div>
+                      <p className="text-xs text-muted-foreground">Commandes à préparer</p>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Total Produits</CardTitle>
+                      <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">{stats.totalProducts}</div>
+                      <p className="text-xs text-muted-foreground">Articles dans la boutique</p>
+                  </CardContent>
+              </Card>
           </div>
-
-          <TabsContent value="orders" className="mt-6">
+        );
+      case 'orders':
+        return (
+          <>
             <Card>
               <CardHeader>
                 <CardTitle>Commandes en cours</CardTitle>
@@ -560,10 +547,10 @@ const AdminDashboard = () => {
                   )}
               </CardContent>
             </Card>
-
-          </TabsContent>
-
-          <TabsContent value="products" className="mt-6">
+          </>
+        );
+      case 'products':
+         return (
             <Card>
               <CardHeader>
                   <CardTitle>Tous les produits</CardTitle>
@@ -616,9 +603,9 @@ const AdminDashboard = () => {
                 </Table>
               </CardContent>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="create" className="mt-6">
+         );
+      case 'create':
+        return (
             <Card>
               <CardHeader>
                   <CardTitle>Ajouter un nouveau produit</CardTitle>
@@ -711,9 +698,9 @@ const AdminDashboard = () => {
                 </form>
               </CardContent>
             </Card>
-          </TabsContent>
-          
-          <TabsContent value="categories" className="mt-6">
+        );
+      case 'categories':
+        return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card>
                 <CardHeader>
@@ -787,8 +774,9 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-          <TabsContent value="promo" className="mt-6">
+        );
+      case 'promo':
+        return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <Card>
                   <CardHeader>
@@ -867,26 +855,88 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+        );
+      default:
+        return null;
+    }
+  }
 
-      {editingShoe && (
-        <EditProductModal
-          shoe={editingShoe}
-          isOpen={isEditModalOpen}
-          onOpenChange={setIsEditModalOpen}
-          categories={categories}
-          onProductUpdate={() => {
-            fetchAllData();
-            setIsEditModalOpen(false);
-          }}
-        />
-      )}
-    </>
+  if (isLoading) {
+    return <div className="container mx-auto py-10">Chargement du tableau de bord...</div>
+  }
+
+  return (
+    <SidebarProvider>
+        <Sidebar>
+            <SidebarHeader>
+                 <h1 className="text-xl font-headline font-bold text-primary">Amani'store</h1>
+            </SidebarHeader>
+            <SidebarContent>
+                <SidebarMenu>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton onClick={() => setActiveView('dashboard')} isActive={activeView === 'dashboard'}>
+                            <LayoutDashboard />
+                            Tableau de bord
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton onClick={() => setActiveView('orders')} isActive={activeView === 'orders'}>
+                            <ListOrdered />
+                            Commandes
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton onClick={() => setActiveView('products')} isActive={activeView === 'products'}>
+                           <ShoppingCart />
+                           Produits
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton onClick={() => setActiveView('create')} isActive={activeView === 'create'}>
+                            <Package />
+                            Créer un produit
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton onClick={() => setActiveView('categories')} isActive={activeView === 'categories'}>
+                            <Tag />
+                            Catégories
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton onClick={() => setActiveView('promo')} isActive={activeView === 'promo'}>
+                            <Ticket />
+                            Codes Promo
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            </SidebarContent>
+        </Sidebar>
+
+        <SidebarInset>
+            <div className="container mx-auto py-10 px-4 md:px-6 lg:px-8">
+                <div className="flex items-center justify-between mb-6">
+                     <h1 className="text-3xl font-bold capitalize">{activeView.replace('create', 'Créer un produit')}</h1>
+                     <SidebarTrigger className="md:hidden"/>
+                </div>
+                {renderContent()}
+            </div>
+        </SidebarInset>
+
+        {editingShoe && (
+            <EditProductModal
+            shoe={editingShoe}
+            isOpen={isEditModalOpen}
+            onOpenChange={setIsEditModalOpen}
+            categories={categories}
+            onProductUpdate={() => {
+                fetchAllData();
+                setIsEditModalOpen(false);
+            }}
+            />
+        )}
+    </SidebarProvider>
   );
 };
 
 export default AdminDashboard;
-
-    
