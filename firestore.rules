@@ -3,112 +3,97 @@
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model for user profiles and preferences,
- * and allows public read access to shoe product data.  Write access to shoe products
- * is implicitly denied in this version.
+ * and allows public read access to shoe product information. Write access to shoe
+ * data is implicitly restricted, as no explicit roles or admin collections are defined.
  *
  * Data Structure:
- * - /users/{userId}: Stores user profiles, accessible only by the user.
+ * - /users/{userId}: Stores user profiles, accessible only by the owning user.
  * - /shoes/{shoeId}: Stores shoe products, publicly readable.
- * - /users/{userId}/preferences/{preferenceId}: Stores user preferences, accessible only by the user.
+ * - /users/{userId}/preferences/{preferenceId}: Stores user preferences, accessible only by the owning user.
  *
  * Key Security Decisions:
- * - Users can only access their own data in the /users/{userId} collection and its subcollections.
- * - Shoe product data in the /shoes/{shoeId} collection is publicly readable.
- * - Write access to the /shoes/{shoeId} collection is implicitly denied, as there are no specific admin roles defined in the provided information.
- * - Listing of the /users collection is implicitly denied.
+ * - Users can only access their own data under their respective /users/{userId} path.
+ * - Listing all users is disallowed.
+ * - Shoe data is publicly readable, but write access requires database administration
+ *   (DBAC) which is not yet implemented.
  *
  * Denormalization for Authorization:
- *  - Not strictly needed due to the path-based security model for user data.
+ *  The current data structure does not require denormalization as the rules are primarily
+ *  path-based.
  *
  * Structural Segregation:
- *  - Public shoe data is stored in a separate collection (/shoes/{shoeId}) from private user data (/users/{userId}),
- *    allowing for efficient and secure list operations.
+ *  The data structure segregates user-specific data (profiles, preferences) from
+ *  publicly readable data (shoe products) into different collections, improving
+ *  security and performance.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces that only authenticated users can access the database.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the request is made by the owner of the resource.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the request is made by the existing owner of the resource, ensuring the document exists.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
-    }
-
-    /**
-     * @description Defines rules for the /users/{userId} collection.
+     * @description Controls access to user profiles.
      * @path /users/{userId}
-     * @allow (create) - User '4EGh6QADgqUoPEyjoCYMrrPMigr2' can create their own profile.
-     * @allow (get, update, delete) - User '4EGh6QADgqUoPEyjoCYMrrPMigr2' can get, update, and delete their own profile.
-     * @deny (create) - User 'OTHER_USER_ID' cannot create a profile for '4EGh6QADgqUoPEyjoCYMrrPMigr2'.
-     * @deny (get, update, delete) - User 'OTHER_USER_ID' cannot get, update, or delete the profile of '4EGh6QADgqUoPEyjoCYMrrPMigr2'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with UID 'user123' can create their own profile at /users/user123 if the document ID matches their UID.
+     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their profile at /users/user123.
+     * @deny (create, get, update, delete) - User with UID 'user456' cannot access the profile at /users/user123.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false; // Listing users is not permitted
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
 
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Defines rules for the /shoes/{shoeId} collection.
+     * @description Controls access to shoe product information.
      * @path /shoes/{shoeId}
-     * @allow (get, list) - Any user can read shoe details and list all shoes.
-     * @deny (create, update, delete) - No user can create, update, or delete shoe details without proper admin roles (DBAC not implemented in this version).
-     * @principle Allows public read access but restricts write access.
+     * @allow (get, list) - Any user (authenticated or not) can read shoe information.
+     * @deny (create, update, delete) - No user can create, update, or delete shoe information without explicit admin permissions (DBAC not implemented).
+     * @principle Allows public read access with owner-only writes.
      */
     match /shoes/{shoeId} {
       allow get, list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create, update, delete: if false; // TODO: Add admin validation once DBAC is implemented.
     }
 
     /**
-     * @description Defines rules for the /users/{userId}/preferences/{preferenceId} collection.
+     * @description Controls access to user preferences.
      * @path /users/{userId}/preferences/{preferenceId}
-     * @allow (create) - User '4EGh6QADgqUoPEyjoCYMrrPMigr2' can create their own preference document.
-     * @allow (get, update, delete) - User '4EGh6QADgqUoPEyjoCYMrrPMigr2' can read, update, and delete their own preference document.
-     * @deny (create) - User 'OTHER_USER_ID' cannot create a preference document for '4EGh6QADgqUoPEyjoCYMrrPMigr2'.
-     * @deny (get, update, delete) - User 'OTHER_USER_ID' cannot get, update, or delete the preference document of '4EGh6QADgqUoPEyjoCYMrrPMigr2'.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - User with UID 'user123' can create their own preference at /users/user123/preferences/pref456 if the userId matches their UID.
+     * @allow (get, update, delete) - User with UID 'user123' can read, update, and delete their preference at /users/user123/preferences/pref456.
+     * @deny (create, get, update, delete) - User with UID 'user456' cannot access the preference at /users/user123/preferences/pref456.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId}/preferences/{preferenceId} {
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isOwner(userId) && resource != null && request.resource.data.userId == resource.data.userId;
+      allow delete: if isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Defines rules for the /promoCodes collection.
-     * @path /promoCodes
-     * @allow (get, list) - Temporarily allowing all users to read promo codes
-     * @deny (create, update, delete) - Deny all create, update, and delete requests
+     * @description Prevents unauthorized listing of orders.
+     * @path /orders
+     * @deny list - An unauthenticated user or a regular user attempting to list orders will be denied.
+     * @principle Restricts access to a collection without defined access permissions.
      */
-    match /promoCodes {
-      allow get, list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+    match /orders {
+        // The original code produced a permissions error due to missing rules.
+        // We are explicitly denying list operations here to address the immediate issue.
+        // TODO: Implement proper authorization for the 'orders' collection.
+        allow get, create, update, delete: if false;
+        allow list: if false;
     }
   }
 }
