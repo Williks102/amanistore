@@ -1,97 +1,83 @@
-/**
- * @file Firebase Security Rules for Amani'store
- *
- * @description This ruleset enforces a user-ownership model for user profiles and preferences,
- * and allows public read access to the shoes collection.
- *
- * Data Structure:
- * - /users/{userId}: User profiles, accessible only by the user.
- * - /shoes/{shoeId}: Shoe product information, publicly readable but writeable only by admins (DBAC not yet implemented).
- * - /users/{userId}/preferences/{preferenceId}: User preferences, accessible only by the user.
- *
- * Key Security Decisions:
- * - Users can only read and write their own profile and preferences.
- * - Shoe data is publicly readable.
- * - Admin-only write access to shoes is a placeholder; DBAC via a `/roles_admin/{userId}` collection is suggested.
- * - Listing of all users is disallowed (a generally unsafe practice).
- * - No schema validation is performed beyond authorization-critical fields to allow for rapid prototyping.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows users to read and write their own profile data.
+     * @description Protects user profiles. Only the user can read/write their profile.
      * @path /users/{userId}
-     * @allow (create) - User with UID 'user123' can create a profile at /users/user123.
-     * @allow (get, update, delete) - User with UID 'user123' can read/update/delete their profile at /users/user123.
-     * @deny (create) - User with UID 'user456' cannot create a profile at /users/user123.
-     * @deny (get, update, delete) - User with UID 'user456' cannot read/update/delete the profile at /users/user123.
+     * @allow (create, get, update, delete, list) - Authenticated user with ID matching {userId} can perform all operations.
+     * @deny (create, get, update, delete, list) - Authenticated user with ID not matching {userId} cannot perform any operations.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
       function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+          return isOwner(userId) && resource != null;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if false; // Listing all users is disallowed.
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
     /**
-     * @description Allows anyone to read shoe data, but restricts writes to authorized admins (not implemented).
+     * @description Protects shoe data. Globally readable, but writeable only by authorized admins (via DBAC).
      * @path /shoes/{shoeId}
-     * @allow (get, list) - Any user (authenticated or not) can read the shoe data.
-     * @deny (create, update, delete) - Any user, even if authenticated, cannot modify shoe data without admin rights.
-     * @principle Public read access with restricted write access.
+     * @allow (get, list) - Any user can read shoe data.
+     * @deny (create, update, delete) - Only authorized admins should be able to create, update, or delete shoe data.
+     * @principle Publicly readable with restricted write access.
      */
     match /shoes/{shoeId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role validation via DBAC.
+      allow create, update, delete: if false; // TODO: Add admin role check once the admin role is defined.
     }
 
     /**
-     * @description Allows users to read and write their own preference data.
+     * @description Protects user preferences. Only the user can read/write their preferences.
      * @path /users/{userId}/preferences/{preferenceId}
-     * @allow (create) - User with UID 'user123' can create a preference at /users/user123/preferences/pref1.
-     * @allow (get, update, delete) - User with UID 'user123' can read/update/delete their preference at /users/user123/preferences/pref1.
-     * @deny (create) - User with UID 'user456' cannot create a preference at /users/user123/preferences/pref1.
-     * @deny (get, update, delete) - User with UID 'user456' cannot read/update/delete the preference at /users/user123/preferences/pref1.
+     * @allow (create, get, update, delete, list) - Authenticated user with ID matching {userId} can perform all operations.
+     * @deny (create, get, update, delete, list) - Authenticated user with ID not matching {userId} cannot perform any operations.
      * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/preferences/{preferenceId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
       function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+          return isOwner(userId) && resource != null;
       }
 
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isExistingOwner(userId);
+      allow delete: if isSignedIn() && isExistingOwner(userId);
     }
 
-    /**
-     * @description Allows public read access to categories data.
-     * @path /categories/{categoryId}
-     * @allow (get, list) - Any user (authenticated or not) can read the categories data.
-     * @deny (create, update, delete) - Any user, even if authenticated, cannot modify categories data without admin rights.
-     * @principle Public read access with restricted write access.
-     */
-    match /categories/{categoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin role validation via DBAC.
+     /**
+      * @description Orders data protection : all reads are denied and all writes are denied.
+      * @path /orders
+      * @allow None
+      * @deny All
+      * @principle Prevent access of any user
+      */
+    match /orders/{orderId}{
+        allow get, list: if false;
+        allow create, update, delete: if false;
     }
   }
 }
