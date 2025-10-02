@@ -73,37 +73,17 @@ const AdminDashboard = () => {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   
-  useEffect(() => {
-    if (!isUserLoading) {
-      if (!user) {
-        router.push('/login');
-      } else {
-        if (process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email) {
-          setIsAuthorized(true);
-          fetchAllData();
-        } else {
-          toast({
-            title: 'Accès non autorisé',
-            description: "Vous n'avez pas les droits pour accéder à cette page.",
-            variant: 'destructive',
-          });
-          router.push('/');
-        }
-      }
-    }
-  }, [user, isUserLoading, router, toast]);
-
-
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fetchedOrders, fetchedProducts, fetchedCategories, fetchedPromoCodes] = await Promise.all([
+      const [fetchedOrders, fetchedCategories, fetchedPromoCodes, fetchedProducts] = await Promise.all([
         getOrders(),
         getCategories(),
-        getPromoCodes()
+        getPromoCodes(),
+        getProducts()
       ]);
       setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setShoes(await getProducts());
+      setShoes(fetchedProducts);
       setCategories(fetchedCategories);
       setPromoCodes(fetchedPromoCodes);
     } catch (error) {
@@ -117,6 +97,34 @@ const AdminDashboard = () => {
       setIsLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    if (!isUserLoading) {
+      if (!user) {
+        router.push('/login');
+      } else {
+        const isAdmin = process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email;
+        if (isAdmin) {
+          setIsAuthorized(true);
+        } else {
+          toast({
+            title: 'Accès non autorisé',
+            description: "Vous n'avez pas les droits pour accéder à cette page.",
+            variant: 'destructive',
+          });
+          router.push('/');
+        }
+      }
+    }
+  }, [user, isUserLoading, router, toast]);
+
+  useEffect(() => {
+    // Fetch data only if the user is authorized
+    if (isAuthorized) {
+      fetchAllData();
+    }
+  }, [isAuthorized, fetchAllData]);
+
 
   const stats = useMemo(() => {
     const totalRevenue = orders
@@ -405,6 +413,13 @@ const AdminDashboard = () => {
   };
 
   const renderContent = () => {
+    if (isLoading) {
+       return (
+        <div className="flex h-[50vh] w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      );
+    }
     switch(activeView) {
       case 'dashboard':
         return (
