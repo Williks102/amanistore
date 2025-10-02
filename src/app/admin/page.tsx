@@ -29,13 +29,13 @@ import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, ArrowLeft } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, ArrowLeft, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { getOrders, updateOrderStatus } from '@/services/orderService';
+import { getOrders, updateOrderStatus, validateOrderDelivery } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
 import { getPromoCodes } from '@/services/promoCodeService';
@@ -60,6 +60,7 @@ const AdminDashboard = () => {
   const [currentColorName, setCurrentColorName] = useState('');
   const [currentColorHex, setCurrentColorHex] = useState('#000000');
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [validationCodes, setValidationCodes] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   
@@ -119,7 +120,6 @@ const AdminDashboard = () => {
   }, [user, isUserLoading, router, toast]);
 
   useEffect(() => {
-    // Fetch data only if the user is authorized
     if (isAuthorized) {
       fetchAllData();
     }
@@ -242,7 +242,6 @@ const AdminDashboard = () => {
       return;
     }
     
-    // Upload image to Cloudinary
     const uploadFormData = new FormData();
     uploadFormData.append('image', imageFile);
     const uploadResult = await uploadImage(uploadFormData);
@@ -302,7 +301,6 @@ const AdminDashboard = () => {
       return;
     }
     
-    // Upload image
     const uploadFormData = new FormData();
     uploadFormData.append('image', imageFile);
     const uploadResult = await uploadImage(uploadFormData);
@@ -397,6 +395,30 @@ const AdminDashboard = () => {
     }
   }
 
+  const handleValidationCodeChange = (orderId: string, code: string) => {
+    setValidationCodes(prev => ({ ...prev, [orderId]: code }));
+  }
+
+  const handleValidateDelivery = async (orderId: string) => {
+    const code = validationCodes[orderId];
+    if (!code || code.length !== 6) {
+      toast({ title: 'Code invalide', description: 'Veuillez entrer un code à 6 chiffres.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      const result = await validateOrderDelivery(orderId, code);
+      if (result.success) {
+        toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
+        fetchAllData();
+      } else {
+        toast({ title: 'Échec', description: result.error, variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error("Failed to validate delivery:", error);
+      toast({ title: 'Erreur', description: 'La validation a échoué.', variant: 'destructive' });
+    }
+  }
 
   const getStatusVariant = (status: OrderStatus) => {
     switch (status) {
@@ -477,10 +499,10 @@ const AdminDashboard = () => {
                         <div className="flex-1 text-center"><Badge variant={getStatusVariant(order.status)}>{order.status}</Badge></div>
                       </AccordionTrigger>
                       <AccordionContent className="p-4 bg-muted/20">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                               <h4 className="font-semibold mb-2">Informations client</h4>
-                              <p><strong>Adresse de livraison:</strong> {order.customerAddress}</p>
+                              <p><strong>Adresse:</strong> {order.customerAddress}</p>
                               <p><strong>Téléphone:</strong> {order.customerPhone}</p>
                               {order.customerEmail && <p><strong>Email:</strong> {order.customerEmail}</p>}
                             </div>
@@ -502,6 +524,19 @@ const AdminDashboard = () => {
                                     <SelectItem value="Annulé">Annulé</SelectItem>
                                   </SelectContent>
                                 </Select>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold mb-2">Validation Livraison</h4>
+                                <div className="flex items-center space-x-2">
+                                  <Input
+                                    type="text"
+                                    placeholder="Code..."
+                                    maxLength={6}
+                                    value={validationCodes[order.id] || ''}
+                                    onChange={(e) => handleValidationCodeChange(order.id, e.target.value)}
+                                  />
+                                  <Button onClick={() => handleValidateDelivery(order.id)}>Valider</Button>
+                                </div>
                             </div>
                           </div>
                           <div className="mt-4">
@@ -991,5 +1026,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus } from '@/lib/types';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { getOrdersByUserId } from '@/services/orderService';
@@ -69,6 +69,18 @@ const OrderTracker = ({ orders }: { orders: Order[] }) => {
               />
             </div>
             <Separator className="my-6" />
+
+            {order.status !== 'Livré' && order.status !== 'Annulé' && (
+                <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6 text-center">
+                    <div className="flex items-center justify-center mb-2">
+                        <KeyRound className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
+                        <h3 className="font-semibold text-blue-800 dark:text-blue-300">Votre code de livraison</h3>
+                    </div>
+                    <p className="text-2xl font-bold tracking-widest text-blue-700 dark:text-blue-400">{order.validationCode}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-500 mt-1">À fournir au livreur pour confirmer la réception.</p>
+                </div>
+            )}
+            
             <p className="font-semibold mb-3">Articles de votre commande :</p>
             <div className="space-y-4">
               {order.items.map(item => (
@@ -114,7 +126,6 @@ const BuyerDashboard = () => {
   const router = useRouter();
 
   useEffect(() => {
-    // If not loading and user is not logged in, redirect to login
     if (!isUserLoading && !user) {
       router.push('/login');
       return;
@@ -124,7 +135,6 @@ const BuyerDashboard = () => {
       const fetchOrders = async () => {
         setIsLoading(true);
         try {
-          // Fetch orders for the logged-in user
           const fetchedOrders = await getOrdersByUserId(user.uid);
           setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         } catch (error) {
@@ -167,7 +177,6 @@ const BuyerDashboard = () => {
   }
 
   if (!user) {
-    // This is a fallback, but useEffect should have already redirected
     return null;
   }
 

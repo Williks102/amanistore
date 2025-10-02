@@ -51,6 +51,7 @@ export type Order = {
   items: CartItem[];
   total: number;
   status: OrderStatus;
+  validationCode: string; // Ajout du code de validation
 };
 
 export type PromoCode = {

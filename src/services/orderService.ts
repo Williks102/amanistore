@@ -2,7 +2,7 @@
 'use client';
 import { db } from '@/firebase';
 import type { Order, OrderStatus } from '@/lib/types';
-import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -47,11 +47,14 @@ export const getOrders = async (): Promise<Order[]> => {
     }
 };
 
-export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status'>) => {
+export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status' | 'validationCode'>) => {
+    const validationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
     const newOrder = {
         ...order,
         date: serverTimestamp(),
         status: 'En attente',
+        validationCode,
     }
     try {
         const docRef = await addDoc(getOrderCollection(), newOrder);
@@ -77,4 +80,30 @@ export const updateOrderStatus = async (id: string, status: OrderStatus) => {
         });
         errorEmitter.emit('permission-error', contextualError);
     });
+};
+
+export const validateOrderDelivery = async (orderId: string, code: string): Promise<{success: boolean, error?: string}> => {
+    const orderDocRef = doc(db, 'orders', orderId);
+    try {
+        const orderSnapshot = await getDoc(orderDocRef);
+        if (!orderSnapshot.exists()) {
+            return { success: false, error: "Commande non trouvée." };
+        }
+        const orderData = orderSnapshot.data() as Order;
+        if (orderData.validationCode === code) {
+            await updateDoc(orderDocRef, { status: 'Livré' });
+            return { success: true };
+        } else {
+            return { success: false, error: "Code de validation incorrect." };
+        }
+    } catch (error: any) {
+        const contextualError = new FirestorePermissionError({
+            operation: 'update',
+            path: orderDocRef.path,
+            requestResourceData: { status: 'Livré' },
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        // We rethrow the error for the component to handle.
+        throw contextualError;
+    }
 };
