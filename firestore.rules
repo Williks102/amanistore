@@ -1,89 +1,122 @@
+/**
+ * @fileoverview Firestore Security Rules for Amani'store
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and preferences,
+ * while allowing public read access to shoe product information.  Write access to shoe
+ * data is restricted, simulating a database-administrator controlled environment.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Only the user can read or write their own profile.
+ * - /shoes/{shoeId}: Stores shoe product information.  Globally readable, writeable by authorized admins.
+ * - /users/{userId}/preferences/{preferenceId}: Stores user preference data.  Only the user can read or write their own preferences.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed to protect user privacy.
+ * - Shoe data is publicly readable to allow for open browsing of the product catalog.
+ * - The ruleset assumes the existence of an administrative process (DBAC) for managing shoe data.
+ * - Data validation is minimal in the prototyping phase, focusing on authorization and relationship integrity.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secure access to the /categories collection.  Listing of categories must be allowed for all users.
-     * @path /databases/{database}/documents/categories
-     * @allow (list) Any user can list categories.
-     * @deny (create) No one can create categories directly.
-     * @principle Allows public listing of categories
-     */
-    match /categories/{categoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Enforce user-ownership for user profiles.
-     * @path /databases/{database}/documents/users/{userId}
-     * @allow (create) A user can create their own profile. (auth.uid == userId)
-     * @allow (get, update, delete) A user can only read, update, or delete their own profile.
-     * @deny (create) A user cannot create a profile for another user. (auth.uid != userId)
-     * @deny (get, update, delete) A user cannot read, update, or delete another user's profile.
-     * @deny (list) User listing is disallowed to prevent account enumeration.
-     * @principle Enforces document ownership for writes.
+     * @description Controls access to user profile documents.
+     * @path /users/{userId}
+     * @allow (create) User with ID 'user123' can create their profile.
+     *          request.auth.uid == 'user123'
+     * @allow (get) User with ID 'user123' can read their profile.
+     *          request.auth.uid == 'user123'
+     * @allow (update) User with ID 'user123' can update their profile.
+     *          request.auth.uid == 'user123'
+     * @allow (delete) User with ID 'user123' can delete their profile.
+     *          request.auth.uid == 'user123'
+     * @deny  (create) User with ID 'user456' cannot create a profile with ID 'user123'.
+     *          request.auth.uid != 'user123'
+     * @principle Enforces user-ownership for profile data.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allow public read access to shoe product information, but restrict write access.
-     * @path /databases/{database}/documents/shoes/{shoeId}
-     * @allow (get, list) Any user can read shoe information.
-     * @deny (create, update, delete) Only authorized admins can create, update, or delete shoe information.
-     * @principle Allows public read access with restricted write access.
+     * @description Controls access to shoe product documents.
+     * @path /shoes/{shoeId}
+     * @allow (get) Any user can read shoe data.
+     *          true
+     * @allow (list) Any user can list shoe data.
+     *          true
+     * @deny (create) No user can create shoe data without proper authorization.
+     *          false
+     * @deny (update) No user can update shoe data without proper authorization.
+     *          false
+     * @deny (delete) No user can delete shoe data without proper authorization.
+     *          false
+     * @principle Allows public read access, restricts write access.
      */
     match /shoes/{shoeId} {
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add admin check
+      allow create: if false; // TODO: Implement DBAC for admin users.
+      allow update: if false; // TODO: Implement DBAC for admin users.
+      allow delete: if false; // TODO: Implement DBAC for admin users.
     }
 
     /**
-     * @description Enforce user-ownership for user preferences.
-     * @path /databases/{database}/documents/users/{userId}/preferences/{preferenceId}
-     * @allow (create) A user can create their own preferences. (auth.uid == userId)
-     * @allow (get, update, delete) A user can only read, update, or delete their own preferences.
-     * @deny (create) A user cannot create preferences for another user. (auth.uid != userId)
-     * @deny (get, update, delete) A user cannot read, update, or delete another user's preferences.
-     * @deny (list) Listing of user preferences is allowed to the owner.
-     * @principle Enforces document ownership for writes.
+     * @description Controls access to user preference documents.
+     * @path /users/{userId}/preferences/{preferenceId}
+     * @allow (create) User with ID 'user123' can create their preference.
+     *          request.auth.uid == 'user123'
+     * @allow (get) User with ID 'user123' can read their preference.
+     *          request.auth.uid == 'user123'
+     * @allow (update) User with ID 'user123' can update their preference.
+     *          request.auth.uid == 'user123'
+     * @allow (delete) User with ID 'user123' can delete their preference.
+     *          request.auth.uid == 'user123'
+     * @deny  (create) User with ID 'user456' cannot create a preference with userId 'user123'.
+     *          request.auth.uid != 'user123'
+     * @principle Enforces user-ownership for preference data.
      */
     match /users/{userId}/preferences/{preferenceId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if isOwner(userId);
-      allow create: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
+        /**
+     * @description Denies all access to the /orders collection.
+     * @path /orders
+     * @allow (get) No user can get shoe data.
+     *          false
+     * @allow (list) No user can list shoe data.
+     *          false
+     * @deny (create) No user can create shoe data without proper authorization.
+     *          false
+     * @deny (update) No user can update shoe data without proper authorization.
+     *          false
+     * @deny (delete) No user can delete shoe data without proper authorization.
+     *          false
+     */
+        match /orders/{orderId}{
+            allow get, list, create, update, delete: if false;
+        }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return isSignedIn() && request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
   }
 }
