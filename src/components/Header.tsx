@@ -97,7 +97,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
         <Button variant="ghost" asChild>
             <Link href="/login" className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                <span>Connexion</span>
+                <span className="hidden sm:inline">Connexion</span>
             </Link>
         </Button>
       );
@@ -255,7 +255,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             <span className="sr-only">Filtrer et Rechercher</span>
           </Button>
           
-          <div className="hidden md:flex items-center">
+          <div className="flex items-center">
             <UserMenu />
           </div>
           
