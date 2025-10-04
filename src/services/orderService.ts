@@ -97,11 +97,15 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
             return { success: false, error: "Code de validation incorrect." };
         }
 
-        if (orderData.status !== 'Prêt') {
-            return { success: false, error: `La commande ne peut pas être validée car son statut est "${orderData.status}".` };
+        if (orderData.status === 'Livré') {
+            return { success: false, error: `Cette commande a déjà été livrée.` };
         }
 
-        // If code is correct and status is 'Prêt', update to 'Livré'
+        if (orderData.status === 'Annulé') {
+            return { success: false, error: `Cette commande a été annulée et ne peut être validée.` };
+        }
+
+        // If code is correct, update to 'Livré' regardless of current status (En attente, Prêt)
         await updateDoc(orderDocRef, { status: 'Livré' });
         return { success: true };
 

@@ -192,19 +192,9 @@ const getOrderByValidationCode = async (code: string): Promise<Order | null> => 
         if (snapshot.empty) {
             return null;
         }
-        // Found a document with the code. Now check its status.
-        const order = fromFirestoreToOrder(snapshot.docs[0]);
-        if (order.status !== 'Prêt') {
-            throw new Error(`Cette commande a déjà le statut "${order.status}" et ne peut pas être validée.`);
-        }
-        return order;
+        return fromFirestoreToOrder(snapshot.docs[0]);
     } catch (e: any) {
         console.error("Server-side getOrderByValidationCode failed:", e.message);
-        // Rethrow specific, user-friendly messages
-        if (e.message.includes("Cette commande a déjà le statut")) {
-            throw e;
-        }
-        // For other errors, return a generic error
         throw new Error("Erreur lors de la recherche de la commande.");
     }
 };
@@ -212,13 +202,17 @@ const getOrderByValidationCode = async (code: string): Promise<Order | null> => 
 export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
   try {
     const order = await getOrderByValidationCode(code);
-    if (order) {
-      return { success: true, order: order as Order };
+    if (!order) {
+        return { success: false, error: 'Aucune commande trouvée avec ce code.' };
     }
-    // If order is null without an error, it means no order was found with that code.
-    return { success: false, error: 'Aucune commande prête à être livrée trouvée avec ce code.' };
+    if (order.status === 'Livré') {
+        return { success: false, error: 'Cette commande a déjà été marquée comme livrée.' };
+    }
+    if (order.status === 'Annulé') {
+        return { success: false, error: 'Cette commande a été annulée et ne peut pas être validée.' };
+    }
+    return { success: true, order: order as Order };
   } catch (error: any) {
-    // Catch the specific error thrown from the service
     return { success: false, error: error.message };
   }
 }
