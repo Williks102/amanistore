@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -12,6 +13,7 @@ import { validateOrderDelivery } from '@/services/orderService';
 import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
+import { getCategories } from '@/services/categoryService';
 
 export default function ValidateDeliveryPage() {
   const { toast } = useToast();
@@ -21,6 +23,18 @@ export default function ValidateDeliveryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validated, setValidated] = useState(false);
+
+  useState(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await getCategories();
+        setCategories(fetchedCategories);
+      } catch (error) {
+        console.error('Failed to fetch categories for header:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -39,16 +53,7 @@ export default function ValidateDeliveryPage() {
     const result = await getOrderByCodeAction(code);
 
     if (result.success && result.order) {
-      if(result.order.status !== 'Prêt') {
-         toast({
-          title: 'Commande non prête',
-          description: `Cette commande a le statut "${result.order.status}" et ne peut pas être validée.`,
-          variant: 'destructive',
-        });
-        setOrder(null);
-      } else {
-        setOrder(result.order);
-      }
+      setOrder(result.order);
     } else {
       toast({
         title: 'Commande non trouvée',
@@ -62,10 +67,12 @@ export default function ValidateDeliveryPage() {
   const handleValidation = async () => {
     if (!order) return;
     setIsSubmitting(true);
-    const result = await validateOrderDelivery(order.id, order.validationCode);
+    // Use the code from the input field, not from the order object
+    const result = await validateOrderDelivery(order.id, code); 
     if (result.success) {
       setValidated(true);
       setOrder(null);
+      setCode('');
       toast({
         title: 'Livraison validée !',
         description: 'Le statut de la commande a été mis à jour.',
@@ -100,14 +107,14 @@ export default function ValidateDeliveryPage() {
                   name="validation-code"
                   placeholder="_ _ _ _ _ _"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => setCode(e.target.value.trim())}
                   maxLength={6}
                   className="text-2xl text-center tracking-[0.5em] font-mono h-16"
                   disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="h-16" disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : 'Rechercher'}
+              <Button type="submit" className="h-16" disabled={isLoading || code.length !== 6}>
+                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
               </Button>
             </form>
 
@@ -152,7 +159,7 @@ export default function ValidateDeliveryPage() {
                 <div className="text-center py-10 flex flex-col items-center gap-4 text-green-600">
                     <CheckCircle className="h-16 w-16" />
                     <p className="text-2xl font-bold">Commande validée avec succès !</p>
-                    <p>Vous pouvez fermer cette page.</p>
+                    <p>Vous pouvez fermer cette page ou en rechercher une autre.</p>
                 </div>
             )}
           </CardContent>

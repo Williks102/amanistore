@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
@@ -8,7 +9,7 @@ import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 import { getAdminApp } from '@/firebase/server-config';
-import { getFirestore, collection, query, where, limit, getDocs } from 'firebase/firestore/lite';
+import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore/lite';
 
 
 cloudinary.config({
@@ -159,52 +160,52 @@ export async function sendContactMessage(formData: FormData) {
     return { success: false, error: 'Veuillez remplir tous les champs.' };
   }
   
-  // Here you would typically send an email or save to a database.
-  // For this example, we'll just log it to the console and return success.
-  console.log('New contact message:');
-  console.log({ name, email, subject, message });
+  console.log('New contact message:', { name, email, subject, message });
   
-  // Simulate network delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   return { success: true };
 }
 
+const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
+    const data = snapshot.data();
+    if (!data) throw new Error("Document data is undefined.");
+    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+    return {
+        ...data,
+        id: snapshot.id,
+        date: date,
+    } as Order;
+};
+
 const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
+    if (!code || code.length !== 6) return null;
+    
     const adminApp = getAdminApp();
     const db = getFirestore(adminApp);
     const orderCollection = collection(db, 'orders');
-    
-    const fromFirestore = (snapshot: any): Order => {
-        const data = snapshot.data();
-        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-        return {
-            ...data,
-            id: snapshot.id,
-            date: date,
-        } as Order;
-    }
 
-    const q = query(orderCollection, where("validationCode", "==", code), where("status", "in", ["Prêt"]), limit(1));
+    const q = query(orderCollection, where("validationCode", "==", code), limit(1));
+    
     try {
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
-            // Check if a delivered or pending order exists with this code to give a better error
-            const anyStatusQuery = query(orderCollection, where("validationCode", "==", code), limit(1));
-            const anyStatusSnapshot = await getDocs(anyStatusQuery);
-            if(!anyStatusSnapshot.empty) {
-                 throw new Error(`Cette commande a déjà le statut "${anyStatusSnapshot.docs[0].data().status}".`);
-            }
             return null;
         }
-        return fromFirestore(snapshot.docs[0]);
+        // Found a document with the code. Now check its status.
+        const order = fromFirestoreToOrder(snapshot.docs[0]);
+        if (order.status !== 'Prêt') {
+            throw new Error(`Cette commande a déjà le statut "${order.status}" et ne peut pas être validée.`);
+        }
+        return order;
     } catch (e: any) {
-        console.error("Server-side getOrderByValidationCode failed:", e);
+        console.error("Server-side getOrderByValidationCode failed:", e.message);
+        // Rethrow specific, user-friendly messages
         if (e.message.includes("Cette commande a déjà le statut")) {
             throw e;
         }
-        // Don't throw permission errors, just return null or the error message
-        return null;
+        // For other errors, return a generic error
+        throw new Error("Erreur lors de la recherche de la commande.");
     }
 };
 
@@ -214,8 +215,10 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     if (order) {
       return { success: true, order: order as Order };
     }
+    // If order is null without an error, it means no order was found with that code.
     return { success: false, error: 'Aucune commande prête à être livrée trouvée avec ce code.' };
   } catch (error: any) {
+    // Catch the specific error thrown from the service
     return { success: false, error: error.message };
   }
 }
