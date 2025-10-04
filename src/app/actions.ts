@@ -8,8 +8,8 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { getAdminApp } from '@/firebase/server-config';
-import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore/lite';
+import { db } from '@/firebase';
+import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 
 cloudinary.config({
@@ -181,9 +181,6 @@ const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order =
 const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
     if (!code || code.length !== 6) return null;
     
-    // Correction: Use the default Firestore instance for server actions
-    const adminApp = getAdminApp();
-    const db = getFirestore(adminApp);
     const orderCollection = collection(db, 'orders');
 
     const q = query(orderCollection, where("validationCode", "==", code), limit(1));
