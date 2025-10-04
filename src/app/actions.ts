@@ -173,44 +173,37 @@ const getFirebaseApp = () => {
     return !getApps().length ? initializeApp(firebaseConfig) : getApp();
 };
 
-const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
-    const data = snapshot.data();
-    if (!data) throw new Error("Document data is undefined.");
-    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-    return {
-        ...data,
-        id: snapshot.id,
-        date: date,
-    } as Order;
-};
 
-const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
-    if (!code || code.length !== 6) return null;
-    
+export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
+  if (!code || code.length !== 6) {
+    return { success: false, error: 'Code invalide. Veuillez entrer 6 chiffres.' };
+  }
+  
+  try {
     const app = getFirebaseApp();
     const firestore = getFirestore(app);
     const orderCollection = collection(firestore, 'orders');
 
     const q = query(orderCollection, where("validationCode", "==", code), limit(1));
-    
-    try {
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-            return null;
-        }
-        return fromFirestoreToOrder(snapshot.docs[0]);
-    } catch (e: any) {
-        console.error("Server-side getOrderByValidationCode failed:", e.message);
-        throw new Error("Erreur lors de la recherche de la commande.");
-    }
-};
+    const snapshot = await getDocs(q);
 
-export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
-  try {
-    const order = await getOrderByValidationCode(code);
-    if (!order) {
+    if (snapshot.empty) {
         return { success: false, error: 'Aucune commande trouvée avec ce code.' };
     }
+    
+    const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
+        const data = snapshot.data();
+        if (!data) throw new Error("Document data is undefined.");
+        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+        return {
+            ...data,
+            id: snapshot.id,
+            date: date,
+        } as Order;
+    };
+    
+    const order = fromFirestoreToOrder(snapshot.docs[0]);
+
     if (order.status === 'Livré') {
         return { success: false, error: 'Erreur : code déjà utilisé.' };
     }
@@ -220,6 +213,6 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     return { success: true, order: order as Order };
   } catch (error: any) {
     console.error("Error in getOrderByCodeAction: ", error);
-    return { success: false, error: error.message };
+    return { success: false, error: 'Erreur lors de la recherche de la commande.' };
   }
 }

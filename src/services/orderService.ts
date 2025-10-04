@@ -122,7 +122,7 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
         }
 
         if (orderData.status === 'Livré') {
-            return { success: false, error: `Cette commande a déjà été livrée.` };
+            return { success: false, error: `Erreur : code déjà utilisé.` };
         }
 
         if (orderData.status === 'Annulé') {
