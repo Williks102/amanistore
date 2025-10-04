@@ -30,18 +30,18 @@ import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, ArrowLeft, KeyRound } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, KeyRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { getOrders, updateOrderStatus, validateOrderDelivery } from '@/services/orderService';
+import { getOrders, updateOrderStatus } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
 import { getPromoCodes } from '@/services/promoCodeService';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
+import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode, validateDeliveryAction } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarSeparator, SidebarTrigger } from '@/components/ui/sidebar';
@@ -407,17 +407,13 @@ const AdminDashboard = () => {
       return;
     }
 
-    try {
-      const result = await validateOrderDelivery(orderId, code);
-      if (result.success) {
-        toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
-        fetchAllData();
-      } else {
-        toast({ title: 'Échec', description: result.error, variant: 'destructive' });
-      }
-    } catch (error) {
-      console.error("Failed to validate delivery:", error);
-      toast({ title: 'Erreur', description: 'La validation a échoué.', variant: 'destructive' });
+    const result = await validateDeliveryAction(code);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
+      fetchAllData(); // Re-fetch orders to update the view
+      setValidationCodes(prev => ({ ...prev, [orderId]: '' })); // Clear input
+    } else {
+      toast({ title: 'Échec', description: result.error, variant: 'destructive' });
     }
   }
 
@@ -1035,5 +1031,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    

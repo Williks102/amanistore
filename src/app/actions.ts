@@ -8,7 +8,7 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
@@ -216,3 +216,26 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     return { success: false, error: 'Erreur lors de la recherche de la commande.' };
   }
 }
+
+export async function validateDeliveryAction(code: string): Promise<{ success: boolean; error?: string }> {
+  const findOrderResult = await getOrderByCodeAction(code);
+
+  if (!findOrderResult.success || !findOrderResult.order) {
+    return { success: false, error: findOrderResult.error };
+  }
+
+  const order = findOrderResult.order;
+
+  try {
+    const app = getFirebaseApp();
+    const firestore = getFirestore(app);
+    const orderDocRef = doc(firestore, 'orders', order.id);
+
+    await updateDoc(orderDocRef, { status: 'Livré' });
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating order status:", error);
+    return { success: false, error: 'Une erreur est survenue lors de la mise à jour de la commande.' };
+  }
+}
+

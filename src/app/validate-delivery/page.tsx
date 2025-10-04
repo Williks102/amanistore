@@ -8,8 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getOrderByCodeAction } from '@/app/actions';
-import { validateOrderDelivery } from '@/services/orderService';
+import { getOrderByCodeAction, validateDeliveryAction } from '@/app/actions';
 import { Loader2, PackageSearch } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
@@ -65,8 +64,9 @@ export default function ValidateDeliveryPage() {
   const handleValidation = async () => {
     if (!order) return;
     setIsSubmitting(true);
-    // Use the code from the input field, not from the order object
-    const result = await validateOrderDelivery(order.id, code); 
+    
+    const result = await validateDeliveryAction(code); 
+    
     if (result.success) {
       setOrder(null);
       setCode('');

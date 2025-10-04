@@ -106,39 +106,3 @@ export const updateOrderStatus = async (id: string, status: OrderStatus) => {
         errorEmitter.emit('permission-error', contextualError);
     });
 };
-
-export const validateOrderDelivery = async (orderId: string, code: string): Promise<{success: boolean, error?: string}> => {
-    const orderDocRef = doc(db, 'orders', orderId);
-    try {
-        const orderSnapshot = await getDoc(orderDocRef);
-        if (!orderSnapshot.exists()) {
-            return { success: false, error: "Commande non trouvée." };
-        }
-        
-        const orderData = orderSnapshot.data() as Order;
-        
-        if (orderData.validationCode !== code) {
-            return { success: false, error: "Code de validation incorrect." };
-        }
-
-        if (orderData.status === 'Livré') {
-            return { success: false, error: `Erreur : code déjà utilisé.` };
-        }
-
-        if (orderData.status === 'Annulé') {
-            return { success: false, error: `Cette commande a été annulée et ne peut être validée.` };
-        }
-
-        await updateDoc(orderDocRef, { status: 'Livré' });
-        return { success: true };
-
-    } catch (error: any) {
-        const contextualError = new FirestorePermissionError({
-            operation: 'update',
-            path: orderDocRef.path,
-            requestResourceData: { status: 'Livré' },
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        return { success: false, error: "Une erreur de permission est survenue. Vérifiez les règles de sécurité." };
-    }
-};
