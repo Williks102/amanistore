@@ -85,6 +85,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
     { href: '/', label: 'Accueil' },
     { href: '/shop', label: 'Boutique' },
     { href: '/contact', label: 'Contact' },
+    { href: '/validate-delivery', label: 'Valider Livraison' },
   ];
 
   const UserMenu = () => {
@@ -283,3 +284,5 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 };
 
 export default Header;
+
+    
