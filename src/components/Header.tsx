@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from './ui/button';
-import { Menu, ShoppingBag, Search, User, LogOut, X } from 'lucide-react';
+import { Menu, ShoppingBag, Search, User, LogOut, X, KeyRound } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import type { Category } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -126,11 +126,19 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             </Link>
           </DropdownMenuItem>
           {process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email && (
-            <DropdownMenuItem asChild>
-                <Link href="/admin">
-                    <span>Admin</span>
-                </Link>
-            </DropdownMenuItem>
+            <>
+                <DropdownMenuItem asChild>
+                    <Link href="/admin">
+                        <span>Admin</span>
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href="/validate-delivery">
+                        <KeyRound className="mr-2 h-4 w-4" />
+                        <span>Valider Livraison</span>
+                    </Link>
+                </DropdownMenuItem>
+            </>
           )}
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
