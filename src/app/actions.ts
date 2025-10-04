@@ -181,6 +181,7 @@ const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order =
 const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
     if (!code || code.length !== 6) return null;
     
+    // Correction: Use the default Firestore instance for server actions
     const adminApp = getAdminApp();
     const db = getFirestore(adminApp);
     const orderCollection = collection(db, 'orders');
