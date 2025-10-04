@@ -8,8 +8,9 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { initializeFirebase } from '@/firebase';
 import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 
 
 cloudinary.config({
@@ -167,6 +168,11 @@ export async function sendContactMessage(formData: FormData) {
   return { success: true };
 }
 
+// Server-side only Firebase initialization
+const getFirebaseApp = () => {
+    return !getApps().length ? initializeApp(firebaseConfig) : getApp();
+};
+
 const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
     const data = snapshot.data();
     if (!data) throw new Error("Document data is undefined.");
@@ -181,8 +187,8 @@ const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order =
 const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
     if (!code || code.length !== 6) return null;
     
-    // Ensure Firebase is initialized and get the firestore instance
-    const { firestore } = initializeFirebase();
+    const app = getFirebaseApp();
+    const firestore = getFirestore(app);
     const orderCollection = collection(firestore, 'orders');
 
     const q = query(orderCollection, where("validationCode", "==", code), limit(1));
