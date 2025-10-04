@@ -8,7 +8,7 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { db } from '@/firebase';
+import { initializeFirebase } from '@/firebase';
 import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData } from 'firebase/firestore';
 
 
@@ -181,7 +181,9 @@ const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order =
 const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
     if (!code || code.length !== 6) return null;
     
-    const orderCollection = collection(db, 'orders');
+    // Ensure Firebase is initialized and get the firestore instance
+    const { firestore } = initializeFirebase();
+    const orderCollection = collection(firestore, 'orders');
 
     const q = query(orderCollection, where("validationCode", "==", code), limit(1));
     
@@ -211,6 +213,7 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     }
     return { success: true, order: order as Order };
   } catch (error: any) {
+    console.error("Error in getOrderByCodeAction: ", error);
     return { success: false, error: error.message };
   }
 }
