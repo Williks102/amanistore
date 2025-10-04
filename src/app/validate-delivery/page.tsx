@@ -56,7 +56,7 @@ export default function ValidateDeliveryPage() {
       setOrder(result.order);
     } else {
       toast({
-        title: 'Commande non trouvée',
+        title: 'Recherche infructueuse',
         description: result.error,
         variant: 'destructive',
       });
@@ -99,24 +99,26 @@ export default function ValidateDeliveryPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
-            <form onSubmit={handleSearch} className="flex items-start gap-2">
-              <div className="flex-grow space-y-2">
-                <Label htmlFor="validation-code" className="sr-only">Code de validation</Label>
-                <Input
-                  id="validation-code"
-                  name="validation-code"
-                  placeholder="_ _ _ _ _ _"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.trim())}
-                  maxLength={6}
-                  className="text-2xl text-center tracking-[0.5em] font-mono h-16"
-                  disabled={isLoading}
-                />
-              </div>
-              <Button type="submit" className="h-16" disabled={isLoading || code.length !== 6}>
-                {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
-              </Button>
-            </form>
+            {!validated ? (
+              <form onSubmit={handleSearch} className="flex items-start gap-2">
+                <div className="flex-grow space-y-2">
+                  <Label htmlFor="validation-code" className="sr-only">Code de validation</Label>
+                  <Input
+                    id="validation-code"
+                    name="validation-code"
+                    placeholder="_ _ _ _ _ _"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.trim())}
+                    maxLength={6}
+                    className="text-2xl text-center tracking-[0.5em] font-mono h-16"
+                    disabled={isLoading}
+                  />
+                </div>
+                <Button type="submit" className="h-16" disabled={isLoading || code.length !== 6}>
+                  {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
+                </Button>
+              </form>
+            ) : null}
 
             {order && (
               <Card className="bg-muted/50">
@@ -159,7 +161,9 @@ export default function ValidateDeliveryPage() {
                 <div className="text-center py-10 flex flex-col items-center gap-4 text-green-600">
                     <CheckCircle className="h-16 w-16" />
                     <p className="text-2xl font-bold">Commande validée avec succès !</p>
-                    <p>Vous pouvez fermer cette page ou en rechercher une autre.</p>
+                    <Button variant="outline" onClick={() => { setValidated(false); setCode(''); }}>
+                      Valider une autre commande
+                    </Button>
                 </div>
             )}
           </CardContent>
