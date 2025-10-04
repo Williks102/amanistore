@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +52,7 @@ interface CheckoutDialogProps {
 export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) => {
   const { items, clearCart } = useCart();
   const { toast } = useToast();
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
@@ -82,7 +84,6 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     },
   });
   
-  // Reset form when user changes
   useState(() => {
       form.reset({
         name: user?.displayName || '',
@@ -143,16 +144,17 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     }
 
     try {
-        await addOrder(orderData as any);
+        const newOrder = await addOrder(orderData as any);
         toast({
             title: 'Commande passée avec succès !',
-            description: 'Nous vous contacterons bientôt pour la livraison.',
+            description: 'Vous allez être redirigé vers la page de confirmation.',
         });
         clearCart();
         onOpenChange(false);
         form.reset();
         setPromoCodeInput('');
         setAppliedPromoCode(null);
+        router.push(`/order-confirmation/${newOrder.id}`);
     } catch (error) {
         console.error('Order submission failed', error);
         toast({
