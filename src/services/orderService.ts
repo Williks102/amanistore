@@ -47,33 +47,6 @@ export const getOrders = async (): Promise<Order[]> => {
     }
 };
 
-export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
-    const q = query(getOrderCollection(), where("validationCode", "==", code), where("status", "in", ["Prêt"]), limit(1));
-    try {
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-            // Check if a delivered or pending order exists with this code to give a better error
-            const anyStatusQuery = query(getOrderCollection(), where("validationCode", "==", code), limit(1));
-            const anyStatusSnapshot = await getDocs(anyStatusQuery);
-            if(!anyStatusSnapshot.empty) {
-                 throw new Error(`Cette commande a déjà le statut "${anyStatusSnapshot.docs[0].data().status}".`);
-            }
-            return null;
-        }
-        return fromFirestore(snapshot.docs[0]);
-    } catch (e: any) {
-        if (e.message.includes("Cette commande a déjà le statut")) {
-            throw e;
-        }
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: getOrderCollection().path,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        throw contextualError;
-    }
-};
-
 export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status' | 'validationCode'>) => {
     const validationCode = Math.floor(100000 + Math.random() * 900000).toString();
     

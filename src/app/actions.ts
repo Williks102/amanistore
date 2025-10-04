@@ -6,8 +6,9 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import { getOrderByValidationCode } from '@/services/orderService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
+import { getAdminApp } from '@/firebase/server-config';
+import { getFirestore, collection, query, where, limit, getDocs } from 'firebase/firestore/lite';
 
 
 cloudinary.config({
@@ -168,6 +169,44 @@ export async function sendContactMessage(formData: FormData) {
   
   return { success: true };
 }
+
+const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
+    const adminApp = getAdminApp();
+    const db = getFirestore(adminApp);
+    const orderCollection = collection(db, 'orders');
+    
+    const fromFirestore = (snapshot: any): Order => {
+        const data = snapshot.data();
+        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+        return {
+            ...data,
+            id: snapshot.id,
+            date: date,
+        } as Order;
+    }
+
+    const q = query(orderCollection, where("validationCode", "==", code), where("status", "in", ["Prêt"]), limit(1));
+    try {
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            // Check if a delivered or pending order exists with this code to give a better error
+            const anyStatusQuery = query(orderCollection, where("validationCode", "==", code), limit(1));
+            const anyStatusSnapshot = await getDocs(anyStatusQuery);
+            if(!anyStatusSnapshot.empty) {
+                 throw new Error(`Cette commande a déjà le statut "${anyStatusSnapshot.docs[0].data().status}".`);
+            }
+            return null;
+        }
+        return fromFirestore(snapshot.docs[0]);
+    } catch (e: any) {
+        console.error("Server-side getOrderByValidationCode failed:", e);
+        if (e.message.includes("Cette commande a déjà le statut")) {
+            throw e;
+        }
+        // Don't throw permission errors, just return null or the error message
+        return null;
+    }
+};
 
 export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
   try {
