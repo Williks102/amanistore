@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getOrderByCodeAction } from '@/app/actions';
 import { validateOrderDelivery } from '@/services/orderService';
-import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
+import { Loader2, PackageSearch } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
 import { getCategories } from '@/services/categoryService';
@@ -22,7 +22,6 @@ export default function ValidateDeliveryPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validated, setValidated] = useState(false);
 
   useState(() => {
     const fetchCategories = async () => {
@@ -48,7 +47,6 @@ export default function ValidateDeliveryPage() {
     }
     setIsLoading(true);
     setOrder(null);
-    setValidated(false);
 
     const result = await getOrderByCodeAction(code);
 
@@ -70,7 +68,6 @@ export default function ValidateDeliveryPage() {
     // Use the code from the input field, not from the order object
     const result = await validateOrderDelivery(order.id, code); 
     if (result.success) {
-      setValidated(true);
       setOrder(null);
       setCode('');
       toast({
@@ -99,7 +96,6 @@ export default function ValidateDeliveryPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
-            {!validated ? (
               <form onSubmit={handleSearch} className="flex items-start gap-2">
                 <div className="flex-grow space-y-2">
                   <Label htmlFor="validation-code" className="sr-only">Code de validation</Label>
@@ -118,7 +114,6 @@ export default function ValidateDeliveryPage() {
                   {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
                 </Button>
               </form>
-            ) : null}
 
             {order && (
               <Card className="bg-muted/50">
@@ -155,16 +150,6 @@ export default function ValidateDeliveryPage() {
                   </Button>
                 </CardContent>
               </Card>
-            )}
-
-            {validated && (
-                <div className="text-center py-10 flex flex-col items-center gap-4 text-green-600">
-                    <CheckCircle className="h-16 w-16" />
-                    <p className="text-2xl font-bold">Commande validée avec succès !</p>
-                    <Button variant="outline" onClick={() => { setValidated(false); setCode(''); }}>
-                      Valider une autre commande
-                    </Button>
-                </div>
             )}
           </CardContent>
         </Card>

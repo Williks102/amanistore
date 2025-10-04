@@ -204,7 +204,7 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
         return { success: false, error: 'Aucune commande trouvée avec ce code.' };
     }
     if (order.status === 'Livré') {
-        return { success: false, error: 'Cette commande a déjà été marquée comme livrée.' };
+        return { success: false, error: 'Erreur : code déjà utilisé.' };
     }
     if (order.status === 'Annulé') {
         return { success: false, error: 'Cette commande a été annulée et ne peut pas être validée.' };
