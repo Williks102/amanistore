@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -995,6 +996,14 @@ const AdminDashboard = () => {
                             Codes Promo
                         </SidebarMenuButton>
                     </SidebarMenuItem>
+                    <SidebarMenuItem>
+                         <SidebarMenuButton asChild>
+                           <Link href="/validate-delivery">
+                              <KeyRound />
+                              Valider Livraison
+                           </Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
                 </SidebarMenu>
             </SidebarContent>
         </Sidebar>
@@ -1026,3 +1035,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
