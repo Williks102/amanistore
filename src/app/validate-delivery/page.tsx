@@ -108,9 +108,12 @@ export default function ValidateDeliveryPage() {
                     placeholder="_ _ _ _ _ _"
                     value={code}
                     onChange={(e) => {
-                      setCode(e.target.value.trim());
-                      setValidationSuccess(false);
-                      setOrder(null);
+                      const value = e.target.value.trim();
+                      setCode(value);
+                      if(value.length !== 6){
+                        setOrder(null);
+                        setValidationSuccess(false);
+                      }
                     }}
                     maxLength={6}
                     className="text-2xl text-center tracking-[0.5em] font-mono h-16"

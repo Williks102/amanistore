@@ -529,7 +529,7 @@ const AdminDashboard = () => {
                                     type="text"
                                     placeholder="Code..."
                                     maxLength={6}
-                                    value={validationCodes[order.id] || ''}
+                                    value={validationCodes[order.id] || order.validationCode}
                                     onChange={(e) => handleValidationCodeChange(order.id, e.target.value)}
                                   />
                                   <Button onClick={() => handleValidateDelivery(order.id)}>Valider</Button>

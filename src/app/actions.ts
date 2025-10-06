@@ -23,6 +23,14 @@ const ShoeRecommendationInputSchema = z.object({
   shoeDescription: z.string(),
 });
 
+// This is a server-side only initialization.
+const getDb = () => {
+    if (!getApps().length) {
+        initializeApp(firebaseConfig);
+    }
+    return getFirestore(getApp());
+};
+
 export async function fetchShoeRecommendations(
   input: z.infer<typeof ShoeRecommendationInputSchema>
 ) {
@@ -168,20 +176,13 @@ export async function sendContactMessage(formData: FormData) {
   return { success: true };
 }
 
-// Server-side only Firebase initialization
-const getFirebaseApp = () => {
-    return !getApps().length ? initializeApp(firebaseConfig) : getApp();
-};
-
-
-export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order, error?: string; }> {
+export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order; error?: string; }> {
   if (!code || code.length !== 6) {
     return { success: false, error: 'Code invalide. Veuillez entrer 6 chiffres.' };
   }
   
   try {
-    const app = getFirebaseApp();
-    const firestore = getFirestore(app);
+    const firestore = getDb();
     const orderCollection = collection(firestore, 'orders');
 
     const q = query(orderCollection, where("validationCode", "==", code), limit(1));
@@ -227,8 +228,7 @@ export async function validateDeliveryAction(code: string): Promise<{ success: b
   const order = findOrderResult.order;
 
   try {
-    const app = getFirebaseApp();
-    const firestore = getFirestore(app);
+    const firestore = getDb();
     const orderDocRef = doc(firestore, 'orders', order.id);
 
     await updateDoc(orderDocRef, { status: 'Livré' });
@@ -238,4 +238,3 @@ export async function validateDeliveryAction(code: string): Promise<{ success: b
     return { success: false, error: 'Une erreur est survenue lors de la mise à jour de la commande.' };
   }
 }
-
