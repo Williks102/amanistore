@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -94,9 +93,9 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
     if (!user) {
       return (
         <Button variant="ghost" asChild>
-            <Link href="/login" className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                <span className="hidden sm:inline">Connexion</span>
+            <Link href="/login" className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4" />
+                <span>Connexion</span>
             </Link>
         </Button>
       );
@@ -146,6 +145,20 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             <SheetTitle className="text-left">Menu</SheetTitle>
         </SheetHeader>
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Accès rapide</p>
+              <div className="flex flex-col items-start gap-2">
+                 <UserMenu />
+                 <Button variant="ghost" asChild>
+                    <Link href="/validate-delivery" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-base">
+                      <KeyRound className="h-5 w-5" />
+                      Valider Livraison
+                    </Link>
+                 </Button>
+              </div>
+            </div>
+            <Separator />
+
             {[...navLinks, { href: '/contact', label: 'Contact' }].map(link => (
                 <Link
                     key={link.href}
@@ -156,15 +169,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                     {link.label}
                 </Link>
             ))}
-             <Separator />
-             <Link
-                href="/validate-delivery"
-                className="flex items-center text-lg font-medium text-foreground hover:text-primary"
-                onClick={() => setMobileMenuOpen(false)}
-            >
-                <KeyRound className="mr-2 h-5 w-5" />
-                Valider Livraison
-            </Link>
+            
             <Separator />
             <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="categories">
@@ -189,100 +194,103 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                 <Search className="mr-2 h-4 w-4"/> Filtrer & Rechercher
             </Button>
         </div>
-        <div className="p-4 border-t">
-           <UserMenu />
-        </div>
     </div>
   );
 
   return (
-    <header className="sticky top-0 bg-background/95 backdrop-blur-sm z-50 border-b">
-      <div className="container mx-auto px-4 flex justify-between items-center gap-4 py-4 relative">
-        <div className="flex items-center gap-2">
-          {/* Mobile Menu Trigger */}
-          <div className="md:hidden">
-             <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-6 w-6" />
-                  <span className="sr-only">Ouvrir le menu</span>
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-full max-w-sm p-0">
-                <MobileMenuContent />
-              </SheetContent>
-            </Sheet>
-          </div>
-          {/* Logo */}
-          <Link href="/" className="text-xl font-headline font-bold text-primary">
-            Amani'store
-          </Link>
-        </div>
-
-        {/* Center Section: Desktop Nav */}
-        <NavigationMenu className="hidden md:flex">
-          <NavigationMenuList>
-            {navLinks.map(link => (
-                 <NavigationMenuItem key={link.href}>
-                    <NavigationMenuLink asChild
-                    className={cn(
-                        navigationMenuTriggerStyle(),
-                        'transition-colors hover:text-primary',
-                        pathname === link.href ? 'text-primary' : 'text-muted-foreground'
-                    )}>
-                    <Link href={link.href}>
-                        {link.label}
-                    </Link>
-                    </NavigationMenuLink>
-                </NavigationMenuItem>
-            ))}
-
-            <NavigationMenuItem>
-              <NavigationMenuTrigger 
-                className={cn('transition-colors hover:text-primary text-muted-foreground', pathname.startsWith('/shop?category=') && 'text-primary')}
-              >
-                Catégories
-                </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-                  {categories.map((component) => (
-                    <ListItem key={component.name} title={component.name} href={`/shop?category=${component.id}`}>
-                        Découvrez notre sélection de {component.name.toLowerCase()}
-                    </ListItem>
-                  ))}
-                </ul>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-
-        {/* Right Section: Icons */}
-        <div className="flex items-center gap-1 md:gap-2">
-           <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="hidden md:inline-flex">
-            <Search className="h-5 w-5" />
-            <span className="sr-only">Filtrer et Rechercher</span>
-          </Button>
-
-          <Button variant="ghost" asChild className="hidden sm:inline-flex">
-            <Link href="/validate-delivery">
-              <KeyRound className="h-5 w-5 mr-2" />
+    <header className="sticky top-0 z-50">
+      {/* Top Bar */}
+      <div className="bg-muted text-muted-foreground text-sm hidden md:block">
+        <div className="container mx-auto px-4 flex justify-end items-center h-10 gap-4">
+           <Button variant="ghost" asChild size="sm">
+            <Link href="/validate-delivery" className="flex items-center gap-2">
+              <KeyRound className="h-4 w-4" />
               Valider Livraison
             </Link>
           </Button>
-          
-          <div className="flex items-center">
-            <UserMenu />
+          <Separator orientation="vertical" className="h-6"/>
+          <UserMenu />
+        </div>
+      </div>
+      
+      {/* Main Nav Bar */}
+      <div className="bg-background/95 backdrop-blur-sm border-b">
+        <div className="container mx-auto px-4 flex justify-between items-center gap-4 py-4 relative">
+          <div className="flex items-center gap-2">
+            {/* Mobile Menu Trigger */}
+            <div className="md:hidden">
+               <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Menu className="h-6 w-6" />
+                    <span className="sr-only">Ouvrir le menu</span>
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="w-full max-w-sm p-0">
+                  <MobileMenuContent />
+                </SheetContent>
+              </Sheet>
+            </div>
+            {/* Logo */}
+            <Link href="/" className="text-xl font-headline font-bold text-primary">
+              Amani'store
+            </Link>
           </div>
-          
-          <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
-            <ShoppingBag className="h-6 w-6" />
-            {items.length > 0 && (
-              <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform bg-red-600 rounded-full">
-                {items.reduce((acc, item) => acc + item.quantity, 0)}
-              </span>
-            )}
-            <span className="sr-only">Ouvrir le panier</span>
-          </Button>
+
+          {/* Center Section: Desktop Nav */}
+          <NavigationMenu className="hidden md:flex">
+            <NavigationMenuList>
+              {navLinks.map(link => (
+                   <NavigationMenuItem key={link.href}>
+                      <NavigationMenuLink asChild
+                      className={cn(
+                          navigationMenuTriggerStyle(),
+                          'transition-colors hover:text-primary',
+                          pathname === link.href ? 'text-primary' : 'text-muted-foreground'
+                      )}>
+                      <Link href={link.href}>
+                          {link.label}
+                      </Link>
+                      </NavigationMenuLink>
+                  </NavigationMenuItem>
+              ))}
+
+              <NavigationMenuItem>
+                <NavigationMenuTrigger 
+                  className={cn('transition-colors hover:text-primary text-muted-foreground', pathname.startsWith('/shop?category=') && 'text-primary')}
+                >
+                  Catégories
+                  </NavigationMenuTrigger>
+                <NavigationMenuContent>
+                  <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
+                    {categories.map((component) => (
+                      <ListItem key={component.name} title={component.name} href={`/shop?category=${component.id}`}>
+                          Découvrez notre sélection de {component.name.toLowerCase()}
+                      </ListItem>
+                    ))}
+                  </ul>
+                </NavigationMenuContent>
+              </NavigationMenuItem>
+            </NavigationMenuList>
+          </NavigationMenu>
+
+          {/* Right Section: Icons */}
+          <div className="flex items-center gap-1 md:gap-2">
+             <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="hidden md:inline-flex">
+              <Search className="h-5 w-5" />
+              <span className="sr-only">Filtrer et Rechercher</span>
+            </Button>
+            
+            <Button variant="ghost" size="icon" onClick={onOpen} className="relative">
+              <ShoppingBag className="h-6 w-6" />
+              {items.length > 0 && (
+                <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 transform bg-red-600 rounded-full">
+                  {items.reduce((acc, item) => acc + item.quantity, 0)}
+                </span>
+              )}
+              <span className="sr-only">Ouvrir le panier</span>
+            </Button>
+          </div>
         </div>
       </div>
     </header>
