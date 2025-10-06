@@ -84,8 +84,6 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
   const navLinks = [
     { href: '/', label: 'Accueil' },
     { href: '/shop', label: 'Boutique' },
-    { href: '/contact', label: 'Contact' },
-    { href: '/validate-delivery', label: 'Valider Livraison' },
   ];
 
   const UserMenu = () => {
@@ -127,19 +125,11 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             </Link>
           </DropdownMenuItem>
           {process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email && (
-            <>
-                <DropdownMenuItem asChild>
-                    <Link href="/admin">
-                        <span>Admin</span>
-                    </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href="/validate-delivery">
-                        <KeyRound className="mr-2 h-4 w-4" />
-                        <span>Valider Livraison</span>
-                    </Link>
-                </DropdownMenuItem>
-            </>
+            <DropdownMenuItem asChild>
+                <Link href="/admin">
+                    <span>Admin</span>
+                </Link>
+            </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -156,7 +146,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             <SheetTitle className="text-left">Menu</SheetTitle>
         </SheetHeader>
         <div className="flex-grow p-4 space-y-4 overflow-y-auto">
-            {navLinks.map(link => (
+            {[...navLinks, { href: '/contact', label: 'Contact' }].map(link => (
                 <Link
                     key={link.href}
                     href={link.href}
@@ -166,6 +156,15 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                     {link.label}
                 </Link>
             ))}
+             <Separator />
+             <Link
+                href="/validate-delivery"
+                className="flex items-center text-lg font-medium text-foreground hover:text-primary"
+                onClick={() => setMobileMenuOpen(false)}
+            >
+                <KeyRound className="mr-2 h-5 w-5" />
+                Valider Livraison
+            </Link>
             <Separator />
             <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="categories">
@@ -240,7 +239,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 
             <NavigationMenuItem>
               <NavigationMenuTrigger 
-                className={cn('transition-colors hover:text-primary text-muted-foreground', pathname.startsWith('/categories') && 'text-primary')}
+                className={cn('transition-colors hover:text-primary text-muted-foreground', pathname.startsWith('/shop?category=') && 'text-primary')}
               >
                 Catégories
                 </NavigationMenuTrigger>
@@ -263,6 +262,13 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             <Search className="h-5 w-5" />
             <span className="sr-only">Filtrer et Rechercher</span>
           </Button>
+
+          <Button variant="ghost" asChild className="hidden sm:inline-flex">
+            <Link href="/validate-delivery">
+              <KeyRound className="h-5 w-5 mr-2" />
+              Valider Livraison
+            </Link>
+          </Button>
           
           <div className="flex items-center">
             <UserMenu />
@@ -284,5 +290,3 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 };
 
 export default Header;
-
-    
