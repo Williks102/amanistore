@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getOrderByCodeAction, validateDeliveryAction } from '@/app/actions';
-import { Loader2, PackageSearch } from 'lucide-react';
+import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
 import { getCategories } from '@/services/categoryService';
@@ -21,6 +21,7 @@ export default function ValidateDeliveryPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationSuccess, setValidationSuccess] = useState(false);
 
   useState(() => {
     const fetchCategories = async () => {
@@ -46,6 +47,7 @@ export default function ValidateDeliveryPage() {
     }
     setIsLoading(true);
     setOrder(null);
+    setValidationSuccess(false);
 
     const result = await getOrderByCodeAction(code);
 
@@ -70,6 +72,7 @@ export default function ValidateDeliveryPage() {
     if (result.success) {
       setOrder(null);
       setCode('');
+      setValidationSuccess(true);
       toast({
         title: 'Livraison validée !',
         description: 'Le statut de la commande a été mis à jour.',
@@ -104,7 +107,11 @@ export default function ValidateDeliveryPage() {
                     name="validation-code"
                     placeholder="_ _ _ _ _ _"
                     value={code}
-                    onChange={(e) => setCode(e.target.value.trim())}
+                    onChange={(e) => {
+                      setCode(e.target.value.trim());
+                      setValidationSuccess(false);
+                      setOrder(null);
+                    }}
                     maxLength={6}
                     className="text-2xl text-center tracking-[0.5em] font-mono h-16"
                     disabled={isLoading}
@@ -114,6 +121,16 @@ export default function ValidateDeliveryPage() {
                   {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
                 </Button>
               </form>
+
+            {validationSuccess && (
+              <Card className="bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800">
+                <CardContent className="pt-6 text-center">
+                  <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-green-800 dark:text-green-300">Livraison validée avec succès !</h3>
+                  <p className="text-muted-foreground mt-2">Vous pouvez entrer un nouveau code pour valider une autre livraison.</p>
+                </CardContent>
+              </Card>
+            )}
 
             {order && (
               <Card className="bg-muted/50">

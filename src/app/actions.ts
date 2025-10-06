@@ -8,7 +8,7 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { getFirestore, collection, query, where, limit, getDocs, DocumentSnapshot, DocumentData, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
 
