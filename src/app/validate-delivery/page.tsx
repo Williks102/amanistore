@@ -37,7 +37,8 @@ export default function ValidateDeliveryPage() {
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (code.length !== 6) {
+    const trimmedCode = code.trim();
+    if (trimmedCode.length !== 6) {
       toast({
         title: 'Code invalide',
         description: 'Veuillez entrer un code à 6 chiffres.',
@@ -49,7 +50,7 @@ export default function ValidateDeliveryPage() {
     setOrder(null);
     setValidationSuccess(false);
 
-    const result = await getOrderByCodeAction(code);
+    const result = await getOrderByCodeAction(trimmedCode);
 
     if (result.success && result.order) {
       setOrder(result.order);
@@ -67,7 +68,7 @@ export default function ValidateDeliveryPage() {
     if (!order) return;
     setIsSubmitting(true);
     
-    const result = await validateDeliveryAction(code); 
+    const result = await validateDeliveryAction(order.id); 
     
     if (result.success) {
       setOrder(null);
@@ -108,9 +109,9 @@ export default function ValidateDeliveryPage() {
                     placeholder="_ _ _ _ _ _"
                     value={code}
                     onChange={(e) => {
-                      const value = e.target.value.trim();
+                      const value = e.target.value;
                       setCode(value);
-                      if(value.length !== 6){
+                      if(value.trim().length !== 6){
                         setOrder(null);
                         setValidationSuccess(false);
                       }
@@ -120,7 +121,7 @@ export default function ValidateDeliveryPage() {
                     disabled={isLoading}
                   />
                 </div>
-                <Button type="submit" className="h-16" disabled={isLoading || code.length !== 6}>
+                <Button type="submit" className="h-16" disabled={isLoading || code.trim().length !== 6}>
                   {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <PackageSearch className="h-6 w-6" />}
                 </Button>
               </form>

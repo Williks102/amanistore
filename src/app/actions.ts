@@ -11,6 +11,7 @@ import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
+import { getOrderById, updateOrderStatus } from '@/services/orderService';
 
 
 cloudinary.config({
@@ -177,7 +178,8 @@ export async function sendContactMessage(formData: FormData) {
 }
 
 export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order; error?: string; }> {
-  if (!code || code.length !== 6) {
+  const trimmedCode = code.trim();
+  if (!trimmedCode || trimmedCode.length !== 6) {
     return { success: false, error: 'Code invalide. Veuillez entrer 6 chiffres.' };
   }
   
@@ -185,7 +187,7 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     const firestore = getDb();
     const orderCollection = collection(firestore, 'orders');
 
-    const q = query(orderCollection, where("validationCode", "==", code), limit(1));
+    const q = query(orderCollection, where("validationCode", "==", trimmedCode), limit(1));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
@@ -214,24 +216,29 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
     return { success: true, order: order as Order };
   } catch (error: any) {
     console.error("Error in getOrderByCodeAction: ", error);
-    return { success: false, error: 'Erreur lors de la recherche de la commande.' };
+    return { success: false, error: 'Erreur lors de la recherche de la commande. ' + error.message };
   }
 }
 
-export async function validateDeliveryAction(code: string): Promise<{ success: boolean; error?: string }> {
-  const findOrderResult = await getOrderByCodeAction(code);
-
-  if (!findOrderResult.success || !findOrderResult.order) {
-    return { success: false, error: findOrderResult.error };
+export async function validateDeliveryAction(orderId: string): Promise<{ success: boolean; error?: string }> {
+  if (!orderId) {
+    return { success: false, error: 'ID de commande manquant.' };
   }
 
-  const order = findOrderResult.order;
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    return { success: false, error: "Commande non trouvée." };
+  }
+  if (order.status === 'Livré') {
+    return { success: false, error: 'Erreur : code déjà utilisé.' };
+  }
+  if (order.status === 'Annulé') {
+    return { success: false, error: 'Cette commande a été annulée.' };
+  }
 
   try {
-    const firestore = getDb();
-    const orderDocRef = doc(firestore, 'orders', order.id);
-
-    await updateDoc(orderDocRef, { status: 'Livré' });
+    await updateOrderStatus(order.id, 'Livré');
     return { success: true };
   } catch (error: any) {
     console.error("Error updating order status:", error);
