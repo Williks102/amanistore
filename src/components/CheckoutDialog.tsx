@@ -124,10 +124,12 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     if(!user) {
         toast({
             title: 'Utilisateur non connecté',
-            description: 'Veuillez vous connecter pour passer une commande.',
+            description: 'Vous allez être redirigé vers la page de connexion.',
             variant: 'destructive',
         });
         setIsSubmitting(false);
+        onOpenChange(false);
+        router.push('/login');
         return;
     }
     
