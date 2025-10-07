@@ -35,6 +35,24 @@ interface ProductModalProps {
   onOpenChange: (isOpen: boolean) => void;
 }
 
+const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+  </svg>
+);
+
+
 const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange }) => {
   const [selectedSize, setSelectedSize] = useState<number | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(shoe.availableColors[0]?.name || null);
@@ -71,6 +89,17 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     addItem(shoe, quantity, selectedSize, selectedColor || '');
     onOpenChange(false);
     openCheckout();
+  };
+
+  const handleShareOnWhatsApp = () => {
+    const storeUrl = window.location.origin;
+    let message = `Salut ! Regarde cette paire que j'ai trouvée sur Amani'store :\n\n`;
+    message += `*Produit :* ${shoe.name}\n`;
+    message += `*Prix :* ${shoe.price.toLocaleString('fr-FR')} XOF\n\n`;
+    message += `Viens voir la boutique : ${storeUrl}`;
+    
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -277,9 +306,15 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             <Button size="lg" className="w-full text-base md:text-lg h-12 md:h-14" onClick={handleAddToCart}>
               <ShoppingCart className="mr-2 h-5 w-5" /> Ajouter au panier
             </Button>
-            <Button size="lg" variant="secondary" className="w-full text-base md:text-lg h-12 md:h-14" onClick={handleBuyNow}>
-              Acheter maintenant
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button size="lg" variant="secondary" className="w-full text-base h-12" onClick={handleBuyNow}>
+                Acheter
+              </Button>
+               <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full h-12 bg-green-500 hover:bg-green-600 text-white">
+                  <WhatsAppIcon className="mr-2 h-5 w-5" />
+                  Partager
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
