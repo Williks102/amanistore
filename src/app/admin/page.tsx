@@ -36,12 +36,12 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { getOrders, updateOrderStatus } from '@/services/orderService';
+import { getOrders, updateOrderStatus, validateOrderDelivery } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
 import { getPromoCodes } from '@/services/promoCodeService';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode, validateDeliveryAction } from '@/app/actions';
+import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarSeparator, SidebarTrigger } from '@/components/ui/sidebar';
@@ -406,14 +406,18 @@ const AdminDashboard = () => {
       toast({ title: 'Code invalide', description: 'Veuillez entrer un code à 6 chiffres.', variant: 'destructive' });
       return;
     }
-
-    const result = await validateDeliveryAction(orderId, code.trim());
-    if (result.success) {
-      toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
-      fetchAllData(); // Re-fetch orders to update the view
-      setValidationCodes(prev => ({ ...prev, [orderId]: '' })); // Clear input
-    } else {
-      toast({ title: 'Échec', description: result.error, variant: 'destructive' });
+    
+    try {
+        const result = await validateOrderDelivery(orderId, code.trim());
+        if (result.success) {
+            toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
+            fetchAllData(); 
+            setValidationCodes(prev => ({ ...prev, [orderId]: '' }));
+        } else {
+            toast({ title: 'Échec', description: result.error, variant: 'destructive' });
+        }
+    } catch (error: any) {
+        toast({ title: 'Erreur', description: error.message || 'Une erreur est survenue.', variant: 'destructive' });
     }
   }
 
@@ -1031,5 +1035,3 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
-
-    

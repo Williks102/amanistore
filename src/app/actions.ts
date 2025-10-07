@@ -7,10 +7,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase/config-and-init'; // Correction de l'import
-import { updateOrderStatus } from '@/services/orderService';
+import type { Shoe, Category, PromoCode } from '@/lib/types';
 
 
 cloudinary.config({
@@ -167,94 +164,3 @@ export async function sendContactMessage(formData: FormData) {
   
   return { success: true };
 }
-
-// Fonction pour convertir les données Firestore en objet Order
-const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
-    const data = snapshot.data();
-    if (!data) throw new Error("Document data is undefined.");
-    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-    const orderData = {
-        ...data,
-        id: snapshot.id,
-        date: date,
-    } as Order;
-
-    // S'assurer que le validationCode est une chaîne et sans espaces
-    if (typeof orderData.validationCode === 'string') {
-        orderData.validationCode = orderData.validationCode.trim();
-    } else {
-        orderData.validationCode = String(orderData.validationCode || '').trim();
-    }
-    return orderData;
-};
-
-export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order; error?: string; }> {
-  const trimmedCode = code.trim();
-  if (!trimmedCode || trimmedCode.length !== 6) {
-    return { success: false, error: 'Code invalide. Veuillez entrer 6 chiffres.' };
-  }
-  
-  try {
-    const orderCollection = collection(db, 'orders');
-    const q = query(orderCollection, where("validationCode", "==", trimmedCode), limit(1));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) {
-        return { success: false, error: 'Aucune commande trouvée avec ce code.' };
-    }
-    
-    const order = fromFirestoreToOrder(snapshot.docs[0]);
-
-    if (order.status === 'Livré') {
-        return { success: false, error: 'Erreur : code déjà utilisé.' };
-    }
-    if (order.status === 'Annulé') {
-        return { success: false, error: 'Cette commande a été annulée et ne peut pas être validée.' };
-    }
-    return { success: true, order: order as Order };
-  } catch (error: any) {
-    console.error("Error in getOrderByCodeAction: ", error);
-    return { success: false, error: 'Erreur lors de la recherche de la commande. ' + error.message };
-  }
-}
-
-export async function validateDeliveryAction(orderId: string, code: string): Promise<{ success: boolean; error?: string }> {
-  if (!orderId || !code) {
-    return { success: false, error: 'ID de commande ou code manquant.' };
-  }
-
-  const orderDocRef = doc(db, 'orders', orderId);
-  let order: Order;
-
-  try {
-    const docSnap = await getDoc(orderDocRef);
-    if (!docSnap.exists()) {
-        return { success: false, error: "Commande non trouvée." };
-    }
-    order = fromFirestoreToOrder(docSnap);
-
-  } catch (error: any) {
-     console.error("Error fetching order in validateDeliveryAction:", error);
-     return { success: false, error: "Échec de la recherche de la commande." };
-  }
-
-  if (order.validationCode.trim() !== code.trim()) {
-    return { success: false, error: "Le code de validation est incorrect." };
-  }
-  if (order.status === 'Livré') {
-    return { success: false, error: 'Erreur : code déjà utilisé.' };
-  }
-  if (order.status === 'Annulé') {
-    return { success: false, error: 'Cette commande a été annulée.' };
-  }
-
-  try {
-    await updateOrderStatus(order.id, 'Livré');
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error updating order status:", error);
-    return { success: false, error: 'Une erreur est survenue lors de la mise à jour de la commande.' };
-  }
-}
-
-    

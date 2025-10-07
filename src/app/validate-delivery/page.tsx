@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getOrderByCodeAction, validateDeliveryAction } from '@/app/actions';
+import { getOrderByValidationCode, updateOrderStatus } from '@/services/orderService';
 import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
@@ -50,17 +50,33 @@ export default function ValidateDeliveryPage() {
     setOrder(null);
     setValidationSuccess(false);
 
-    const result = await getOrderByCodeAction(trimmedCode);
-
-    if (result.success && result.order) {
-      setOrder(result.order);
-    } else {
-      toast({
-        title: 'Recherche infructueuse',
-        description: result.error,
-        variant: 'destructive',
-      });
+    try {
+        const foundOrder = await getOrderByValidationCode(trimmedCode);
+        if (foundOrder) {
+          if (foundOrder.status === 'Livré') {
+            toast({ title: 'Recherche infructueuse', description: 'Erreur : code déjà utilisé.', variant: 'destructive' });
+            setOrder(null);
+          } else if (foundOrder.status === 'Annulé') {
+            toast({ title: 'Recherche infructueuse', description: 'Cette commande a été annulée et ne peut pas être validée.', variant: 'destructive' });
+            setOrder(null);
+          } else {
+            setOrder(foundOrder);
+          }
+        } else {
+          toast({
+            title: 'Recherche infructueuse',
+            description: 'Aucune commande trouvée avec ce code.',
+            variant: 'destructive',
+          });
+        }
+    } catch (error: any) {
+        toast({
+            title: 'Erreur',
+            description: error.message || 'Une erreur est survenue lors de la recherche.',
+            variant: 'destructive',
+        });
     }
+
     setIsLoading(false);
   };
 
@@ -68,24 +84,23 @@ export default function ValidateDeliveryPage() {
     if (!order) return;
     setIsSubmitting(true);
     
-    // Pour la validation, nous avons besoin de l'ID de la commande ET du code pour la vérification
-    const result = await validateDeliveryAction(order.id, code.trim()); 
-    
-    if (result.success) {
-      setOrder(null);
-      setCode('');
-      setValidationSuccess(true);
-      toast({
-        title: 'Livraison validée !',
-        description: 'Le statut de la commande a été mis à jour.',
-      });
-    } else {
-      toast({
-        title: 'Erreur de validation',
-        description: result.error,
-        variant: 'destructive',
-      });
+    try {
+        await updateOrderStatus(order.id, 'Livré');
+        setOrder(null);
+        setCode('');
+        setValidationSuccess(true);
+        toast({
+            title: 'Livraison validée !',
+            description: 'Le statut de la commande a été mis à jour.',
+        });
+    } catch (error: any) {
+         toast({
+            title: 'Erreur de validation',
+            description: error.message || 'La mise à jour du statut a échoué.',
+            variant: 'destructive',
+        });
     }
+    
     setIsSubmitting(false);
   };
 
@@ -179,5 +194,3 @@ export default function ValidateDeliveryPage() {
     </div>
   );
 }
-
-    

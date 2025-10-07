@@ -3,7 +3,7 @@
 'use client';
 import { db } from '@/firebase';
 import type { Order, OrderStatus } from '@/lib/types';
-import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc, limit } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -16,6 +16,7 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Order => 
         ...data,
         id: snapshot.id,
         date: date,
+        validationCode: String(data.validationCode || '').trim()
     } as Order;
 }
 
@@ -98,12 +99,67 @@ export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status' | 'va
 
 export const updateOrderStatus = async (id: string, status: OrderStatus) => {
     const orderDoc = doc(db, 'orders', id);
-    updateDoc(orderDoc, { status }).catch(e => {
+    try {
+      await updateDoc(orderDoc, { status });
+    } catch(e) {
         const contextualError = new FirestorePermissionError({
             operation: 'update',
             path: orderDoc.path,
             requestResourceData: { status },
         });
         errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+    }
+};
+
+export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
+  const q = query(collection(db, 'orders'), where("validationCode", "==", code.trim()), limit(1));
+  try {
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) {
+      return null;
+    }
+    return fromFirestore(snapshot.docs[0]);
+  } catch (error) {
+    const contextualError = new FirestorePermissionError({
+      operation: 'list',
+      path: 'orders',
     });
+    errorEmitter.emit('permission-error', contextualError);
+    throw contextualError;
+  }
+};
+
+export const validateOrderDelivery = async (orderId: string, code: string): Promise<{ success: boolean; error?: string }> => {
+    const orderDocRef = doc(db, 'orders', orderId);
+    try {
+        const docSnap = await getDoc(orderDocRef);
+        if (!docSnap.exists()) {
+            return { success: false, error: "Commande non trouvée." };
+        }
+        
+        const order = fromFirestore(docSnap as QueryDocumentSnapshot<DocumentData>);
+
+        if (order.validationCode !== code.trim()) {
+            return { success: false, error: "Le code de validation est incorrect." };
+        }
+        if (order.status === 'Livré') {
+            return { success: false, error: 'Erreur : code déjà utilisé.' };
+        }
+        if (order.status === 'Annulé') {
+            return { success: false, error: 'Cette commande a été annulée.' };
+        }
+        
+        await updateOrderStatus(order.id, 'Livré');
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error validating delivery:", error);
+        const contextualError = new FirestorePermissionError({
+          operation: 'get', // Or 'update' depending on where it failed
+          path: orderDocRef.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        return { success: false, error: "Échec de la recherche ou de la mise à jour de la commande." };
+    }
 };
