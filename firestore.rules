@@ -1,134 +1,35 @@
-/**
- * @file Firebase Security Rules for Amani'store
- * @core_philosophy This ruleset enforces a strict user-ownership model for user profiles and preferences, while allowing public read access to the shoe catalog.
- * @data_structure
- *  - /users/{userId}: User profiles, accessible only by the user themselves.
- *  - /shoes/{shoeId}: Shoe catalog, publicly readable but write-protected.
- *  - /users/{userId}/preferences/{preferenceId}: User preferences, accessible only by the user themselves.
- * @key_security_decisions
- *  - User data is strictly private, with no listing allowed except for the user's own subcollections.
- *  - The shoe catalog is publicly readable to enable easy browsing without authentication.
- *  - Write access to the shoe catalog is not implemented (admin access).
- * @denormalization_for_authorization Not applicable as the rules are path-based or rely on the `request.auth.uid`.
- * @structural_segregation User data and public shoe catalog data are stored in separate top-level collections to simplify access control.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Allows users to read and write their own profile data.
-     * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their profile if request.auth.uid == 'user123'.
-     * @allow (get) User with ID 'user123' can read their profile if request.auth.uid == 'user123'.
-     * @allow (update) User with ID 'user123' can update their profile if request.auth.uid == 'user123'.
-     * @allow (delete) User with ID 'user123' can delete their profile if request.auth.uid == 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a profile with ID 'user123' if request.auth.uid != 'user123'.
-     * @deny (get) User with ID 'user456' cannot read the profile of user 'user123' if request.auth.uid != 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the profile of user 'user123' if request.auth.uid != 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the profile of user 'user123' if request.auth.uid != 'user123'.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+    
+    function isAdmin() {
+      return request.auth.token.email == 'lagopauline28@gmail.com';
     }
 
-    /**
-     * @description Allows anyone to read shoe data, but restricts modifications.
-     * @path /shoes/{shoeId}
-     * @allow (get) Any user can read shoe data.
-     * @allow (list) Any user can list shoe data.
-     * @deny (create) No user can create shoe data (admin-only, not implemented).
-     * @deny (update) No user can update shoe data (admin-only, not implemented).
-     * @deny (delete) No user can delete shoe data (admin-only, not implemented).
-     * @principle Provides public read access while restricting write access.
-     */
     match /shoes/{shoeId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read: if true;
+      allow write: if isAdmin();
     }
-
-    /**
-     * @description Allows users to read and write their own preference data.
-     * @path /users/{userId}/preferences/{preferenceId}
-     * @allow (create) User with ID 'user123' can create their preference if request.auth.uid == 'user123'.
-     * @allow (get) User with ID 'user123' can read their preference if request.auth.uid == 'user123'.
-     * @allow (update) User with ID 'user123' can update their preference if request.auth.uid == 'user123'.
-     * @allow (delete) User with ID 'user123' can delete their preference if request.auth.uid == 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a preference for user 'user123' if request.auth.uid != 'user123'.
-     * @deny (get) User with ID 'user456' cannot read the preference of user 'user123' if request.auth.uid != 'user123'.
-     * @deny (update) User with ID 'user456' cannot update the preference of user 'user123' if request.auth.uid != 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete the preference of user 'user123' if request.auth.uid != 'user123'.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId}/preferences/{preferenceId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
-    }
-
-    /**
-     * @description Allows authenticated users to read orders data.
-     * @path /orders/{orderId}
-     * @allow (get) Any authenticated user can read order data.
-     * @allow (list) Listing is not allowed.
-     * @deny (create) No user can create order data.
-     * @deny (update) No user can update order data.
-     * @deny (delete) No user can delete order data.
-     */
-    match /orders/{orderId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get: if isSignedIn();
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
-    }
-
-     /**
-      * @description Allows anyone to read category data, but restricts modifications.
-      * @path /categories/{categoryId}
-      * @allow (get) Any user can read category data.
-      * @allow (list) Any user can list category data.
-      * @deny (create) No user can create category data (admin-only, not implemented).
-      * @deny (update) No user can update category data (admin-only, not implemented).
-      * @deny (delete) No user can delete category data (admin-only, not implemented).
-      * @principle Provides public read access while restricting write access.
-      */
+    
     match /categories/{categoryId} {
-        allow get: if true;
-        allow list: if true;
-        allow create: if false;
-        allow update: if false;
-        allow delete: if false;
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /promoCodes/{promoCodeId} {
+        allow read, write: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow create: if request.auth != null;
+      
+      // Admin access: Admins can read, update, and list all orders.
+      allow get, list, update: if isAdmin();
+
+      // User access: Users can only get or list their OWN orders.
+      allow get: if request.auth.uid == resource.data.userId;
+      allow list: if request.auth.uid == request.query.where.userId;
     }
   }
 }
