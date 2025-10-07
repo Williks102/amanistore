@@ -407,7 +407,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    const result = await validateDeliveryAction(orderId, code);
+    const result = await validateDeliveryAction(orderId, code.trim());
     if (result.success) {
       toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
       fetchAllData(); // Re-fetch orders to update the view
@@ -1031,3 +1031,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    

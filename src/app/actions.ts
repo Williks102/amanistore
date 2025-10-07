@@ -9,8 +9,7 @@ import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc, getDoc } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
+import { db } from '@/firebase'; // Utiliser l'instance partagée de la base de données
 import { updateOrderStatus } from '@/services/orderService';
 
 
@@ -23,14 +22,6 @@ cloudinary.config({
 const ShoeRecommendationInputSchema = z.object({
   shoeDescription: z.string(),
 });
-
-// This is a server-side only initialization.
-const getDb = () => {
-    if (!getApps().length) {
-        initializeApp(firebaseConfig);
-    }
-    return getFirestore(getApp());
-};
 
 export async function fetchShoeRecommendations(
   input: z.infer<typeof ShoeRecommendationInputSchema>
@@ -177,6 +168,26 @@ export async function sendContactMessage(formData: FormData) {
   return { success: true };
 }
 
+// Fonction pour convertir les données Firestore en objet Order
+const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
+    const data = snapshot.data();
+    if (!data) throw new Error("Document data is undefined.");
+    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+    const orderData = {
+        ...data,
+        id: snapshot.id,
+        date: date,
+    } as Order;
+
+    // S'assurer que le validationCode est une chaîne et sans espaces
+    if (typeof orderData.validationCode === 'string') {
+        orderData.validationCode = orderData.validationCode.trim();
+    } else {
+        orderData.validationCode = String(orderData.validationCode || '').trim();
+    }
+    return orderData;
+};
+
 export async function getOrderByCodeAction(code: string): Promise<{ success: boolean; order?: Order; error?: string; }> {
   const trimmedCode = code.trim();
   if (!trimmedCode || trimmedCode.length !== 6) {
@@ -184,35 +195,13 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
   }
   
   try {
-    const firestore = getDb();
-    const orderCollection = collection(firestore, 'orders');
-
+    const orderCollection = collection(db, 'orders');
     const q = query(orderCollection, where("validationCode", "==", trimmedCode), limit(1));
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
         return { success: false, error: 'Aucune commande trouvée avec ce code.' };
     }
-    
-    const fromFirestoreToOrder = (snapshot: DocumentSnapshot<DocumentData>): Order => {
-        const data = snapshot.data();
-        if (!data) throw new Error("Document data is undefined.");
-        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-        const orderData = {
-            ...data,
-            id: snapshot.id,
-            date: date,
-        } as Order;
-
-        // Ensure validationCode is a string and trimmed
-        if (typeof orderData.validationCode === 'string') {
-            orderData.validationCode = orderData.validationCode.trim();
-        } else {
-            // Handle cases where validationCode might not be a string, though it should be
-            orderData.validationCode = String(orderData.validationCode || '').trim();
-        }
-        return orderData;
-    };
     
     const order = fromFirestoreToOrder(snapshot.docs[0]);
 
@@ -234,8 +223,7 @@ export async function validateDeliveryAction(orderId: string, code: string): Pro
     return { success: false, error: 'ID de commande ou code manquant.' };
   }
 
-  const firestore = getDb();
-  const orderDocRef = doc(firestore, 'orders', orderId);
+  const orderDocRef = doc(db, 'orders', orderId);
   let order: Order;
 
   try {
@@ -243,9 +231,7 @@ export async function validateDeliveryAction(orderId: string, code: string): Pro
     if (!docSnap.exists()) {
         return { success: false, error: "Commande non trouvée." };
     }
-    const data = docSnap.data();
-    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-    order = { ...data, id: docSnap.id, date } as Order;
+    order = fromFirestoreToOrder(docSnap);
 
   } catch (error: any) {
      console.error("Error fetching order in validateDeliveryAction:", error);
@@ -270,3 +256,5 @@ export async function validateDeliveryAction(orderId: string, code: string): Pro
     return { success: false, error: 'Une erreur est survenue lors de la mise à jour de la commande.' };
   }
 }
+
+    

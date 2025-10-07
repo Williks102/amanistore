@@ -68,7 +68,8 @@ export default function ValidateDeliveryPage() {
     if (!order) return;
     setIsSubmitting(true);
     
-    const result = await validateDeliveryAction(order.id); 
+    // Pour la validation, nous avons besoin de l'ID de la commande ET du code pour la vérification
+    const result = await validateDeliveryAction(order.id, code.trim()); 
     
     if (result.success) {
       setOrder(null);
@@ -178,3 +179,5 @@ export default function ValidateDeliveryPage() {
     </div>
   );
 }
+
+    
