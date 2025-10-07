@@ -939,96 +939,98 @@ const AdminDashboard = () => {
   }
 
   return (
-    <SidebarProvider>
-        <Sidebar>
-            <SidebarHeader>
-                 <h1 className="text-xl font.headline font-bold text-primary">Amani'store</h1>
-            </SidebarHeader>
-            <SidebarContent>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild variant="outline">
-                           <Link href="/">
-                              <Home />
-                              Retour à l'accueil
-                           </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarSeparator />
-                    <SidebarMenuItem>
-                        <SidebarMenuButton onClick={() => setActiveView('dashboard')} isActive={activeView === 'dashboard'}>
-                            <LayoutDashboard />
-                            Tableau de bord
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton onClick={() => setActiveView('orders')} isActive={activeView === 'orders'}>
-                            <ListOrdered />
-                            Commandes
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton onClick={() => setActiveView('products')} isActive={activeView === 'products'}>
-                           <ShoppingCart />
-                           Produits
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton onClick={() => setActiveView('create')} isActive={activeView === 'create'}>
-                            <Package />
-                            Créer un produit
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton onClick={() => setActiveView('categories')} isActive={activeView === 'categories'}>
-                            <Tag />
-                            Catégories
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton onClick={() => setActiveView('promo')} isActive={activeView === 'promo'}>
-                            <Ticket />
-                            Codes Promo
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                    <SidebarMenuItem>
-                         <SidebarMenuButton asChild>
-                           <Link href="/validate-delivery">
-                              <KeyRound />
-                              Valider Livraison
-                           </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
-            </SidebarContent>
-        </Sidebar>
+    <div className="flex flex-col min-h-screen">
+        <SidebarProvider>
+            <Sidebar>
+                <SidebarHeader>
+                    <h1 className="text-xl font.headline font-bold text-primary">Amani'store</h1>
+                </SidebarHeader>
+                <SidebarContent>
+                    <SidebarMenu>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild variant="outline">
+                            <Link href="/">
+                                <Home />
+                                Retour à l'accueil
+                            </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarSeparator />
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('dashboard')} isActive={activeView === 'dashboard'}>
+                                <LayoutDashboard />
+                                Tableau de bord
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('orders')} isActive={activeView === 'orders'}>
+                                <ListOrdered />
+                                Commandes
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('products')} isActive={activeView === 'products'}>
+                            <ShoppingCart />
+                            Produits
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('create')} isActive={activeView === 'create'}>
+                                <Package />
+                                Créer un produit
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('categories')} isActive={activeView === 'categories'}>
+                                <Tag />
+                                Catégories
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('promo')} isActive={activeView === 'promo'}>
+                                <Ticket />
+                                Codes Promo
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                            <Link href="/validate-delivery">
+                                <KeyRound />
+                                Valider Livraison
+                            </Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </SidebarMenu>
+                </SidebarContent>
+            </Sidebar>
 
-        <SidebarInset>
-            <div className="container mx-auto py-10 px-4 md:px-6 lg:px-8">
-                <div className="flex items-center justify-between mb-6">
-                     <h1 className="text-3xl font-bold capitalize">{activeView.replace('create', 'Créer un produit')}</h1>
-                     <SidebarTrigger className="md:hidden"/>
-                </div>
-                {renderContent()}
+            <div className="flex-grow flex flex-col">
+                <SidebarInset>
+                    <div className="container mx-auto py-10 px-4 md:px-6 lg:px-8 flex-grow">
+                        <div className="flex items-center justify-between mb-6">
+                            <h1 className="text-3xl font-bold capitalize">{activeView.replace('create', 'Créer un produit')}</h1>
+                            <SidebarTrigger className="md:hidden"/>
+                        </div>
+                        {renderContent()}
+                    </div>
+                </SidebarInset>
             </div>
-        </SidebarInset>
 
-        {editingShoe && (
-            <EditProductModal
-            shoe={editingShoe}
-            isOpen={isEditModalOpen}
-            onOpenChange={setIsEditModalOpen}
-            categories={categories}
-            onProductUpdate={() => {
-                fetchAllData();
-                setIsEditModalOpen(false);
-            }}
-            />
-        )}
-    </SidebarProvider>
+            {editingShoe && (
+                <EditProductModal
+                shoe={editingShoe}
+                isOpen={isEditModalOpen}
+                onOpenChange={setIsEditModalOpen}
+                categories={categories}
+                onProductUpdate={() => {
+                    fetchAllData();
+                    setIsEditModalOpen(false);
+                }}
+                />
+            )}
+        </SidebarProvider>
+    </div>
   );
 };
 
 export default AdminDashboard;
-
-    
