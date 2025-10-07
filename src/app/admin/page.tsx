@@ -73,8 +73,9 @@ const AdminDashboard = () => {
 
   const { user, isUserLoading } = useUser();
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState(false);
   
+  const isAdmin = useMemo(() => user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL, [user]);
+
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -92,7 +93,7 @@ const AdminDashboard = () => {
       console.error("Failed to fetch data:", error);
       toast({
         title: 'Erreur',
-        description: 'Impossible de charger les données.',
+        description: 'Impossible de charger les données. Vérifiez les permissions.',
         variant: 'destructive'
       })
     } finally {
@@ -101,30 +102,24 @@ const AdminDashboard = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (!isUserLoading) {
-      if (!user) {
-        router.push('/login');
-      } else {
-        const isAdmin = process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email;
-        if (isAdmin) {
-          setIsAuthorized(true);
-        } else {
-          toast({
-            title: 'Accès non autorisé',
-            description: "Vous n'avez pas les droits pour accéder à cette page.",
-            variant: 'destructive',
-          });
-          router.push('/');
-        }
-      }
-    }
-  }, [user, isUserLoading, router, toast]);
+    if (isUserLoading) return;
 
-  useEffect(() => {
-    if (isAuthorized) {
-      fetchAllData();
+    if (!user) {
+      router.replace('/login');
+      return;
     }
-  }, [isAuthorized, fetchAllData]);
+    
+    if (isAdmin) {
+      fetchAllData();
+    } else {
+      toast({
+        title: 'Accès non autorisé',
+        description: "Vous n'avez pas les droits pour accéder à cette page.",
+        variant: 'destructive',
+      });
+      router.replace('/');
+    }
+  }, [user, isUserLoading, isAdmin, router, fetchAllData, toast]);
 
 
   const stats = useMemo(() => {
@@ -935,7 +930,7 @@ const AdminDashboard = () => {
     }
   }
 
-  if (isUserLoading || !isAuthorized) {
+  if (isUserLoading || !isAdmin) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -1035,3 +1030,5 @@ const AdminDashboard = () => {
 };
 
 export default AdminDashboard;
+
+    
