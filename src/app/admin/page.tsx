@@ -402,12 +402,12 @@ const AdminDashboard = () => {
 
   const handleValidateDelivery = async (orderId: string) => {
     const code = validationCodes[orderId];
-    if (!code || code.length !== 6) {
+    if (!code || code.trim().length !== 6) {
       toast({ title: 'Code invalide', description: 'Veuillez entrer un code à 6 chiffres.', variant: 'destructive' });
       return;
     }
 
-    const result = await validateDeliveryAction(code);
+    const result = await validateDeliveryAction(orderId, code);
     if (result.success) {
       toast({ title: 'Succès', description: 'Livraison validée et statut mis à jour.' });
       fetchAllData(); // Re-fetch orders to update the view
@@ -529,7 +529,7 @@ const AdminDashboard = () => {
                                     type="text"
                                     placeholder="Code..."
                                     maxLength={6}
-                                    value={validationCodes[order.id] || order.validationCode}
+                                    value={validationCodes[order.id] || ''}
                                     onChange={(e) => handleValidationCodeChange(order.id, e.target.value)}
                                   />
                                   <Button onClick={() => handleValidateDelivery(order.id)}>Valider</Button>

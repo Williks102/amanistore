@@ -220,15 +220,18 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
   }
 }
 
-export async function validateDeliveryAction(orderId: string): Promise<{ success: boolean; error?: string }> {
-  if (!orderId) {
-    return { success: false, error: 'ID de commande manquant.' };
+export async function validateDeliveryAction(orderId: string, code: string): Promise<{ success: boolean; error?: string }> {
+  if (!orderId || !code) {
+    return { success: false, error: 'ID de commande ou code manquant.' };
   }
 
   const order = await getOrderById(orderId);
 
   if (!order) {
     return { success: false, error: "Commande non trouvée." };
+  }
+  if (order.validationCode.trim() !== code.trim()) {
+    return { success: false, error: "Le code de validation est incorrect." };
   }
   if (order.status === 'Livré') {
     return { success: false, error: 'Erreur : code déjà utilisé.' };
