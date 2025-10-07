@@ -30,7 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, KeyRound } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, KeyRound, Sun } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -126,12 +126,28 @@ const AdminDashboard = () => {
     const totalRevenue = orders
       .filter(order => order.status === 'Livré')
       .reduce((acc, order) => acc + order.total, 0);
+
+    const isToday = (someDate: Date) => {
+      const today = new Date();
+      return (
+        someDate.getDate() === today.getDate() &&
+        someDate.getMonth() === today.getMonth() &&
+        someDate.getFullYear() === today.getFullYear()
+      );
+    };
+
+    const todaysRevenue = orders
+      .filter(order => {
+        const orderDate = new Date(order.date);
+        return order.status === 'Livré' && isToday(orderDate);
+      })
+      .reduce((acc, order) => acc + order.total, 0);
     
     const pendingOrders = orders.filter(order => order.status === 'En attente').length;
     
     const totalProducts = shoes.length;
 
-    return { totalRevenue, pendingOrders, totalProducts };
+    return { totalRevenue, todaysRevenue, pendingOrders, totalProducts };
   }, [orders, shoes]);
 
 
@@ -441,7 +457,7 @@ const AdminDashboard = () => {
     switch(activeView) {
       case 'dashboard':
         return (
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
               <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
@@ -450,6 +466,16 @@ const AdminDashboard = () => {
                   <CardContent>
                       <div className="text-2xl font-bold">XOF {stats.totalRevenue.toLocaleString('fr-FR')}</div>
                       <p className="text-xs text-muted-foreground">Basé sur les commandes livrées</p>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Ventes du jour</CardTitle>
+                      <Sun className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                      <div className="text-2xl font-bold">XOF {stats.todaysRevenue.toLocaleString('fr-FR')}</div>
+                      <p className="text-xs text-muted-foreground">Revenu des commandes livrées aujourd'hui</p>
                   </CardContent>
               </Card>
               <Card>
