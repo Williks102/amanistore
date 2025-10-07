@@ -1,51 +1,93 @@
+/**
+ * @fileoverview Firestore Security Rules for Amani'store
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and preferences,
+ * while allowing public read access to shoe product information. Write access to shoe
+ * products is restricted, intended for admin-level control (though admin roles are not
+ * explicitly implemented in this prototype).
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores individual user profiles, accessible only to the user themselves.
+ * - /shoes/{shoeId}: Stores shoe product information, publicly readable.
+ * - /users/{userId}/preferences/{preferenceId}: Stores user preferences, accessible only to the user.
+ *
+ * Key Security Decisions:
+ * - User profiles and preferences are strictly controlled by the owning user (path-based ownership).
+ * - Shoe products are publicly readable, but write access is not granted in this prototype.
+ * - No user listing is allowed.
+ *
+ * Denormalization for Authorization:
+ * - None needed. The rules leverage path-based authorization, so no denormalization is necessary.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin role based on email.
-    function isAdmin() {
-      // The environment variable is not directly accessible here.
-      // The admin email must be hardcoded or managed in a separate 'roles' collection.
-      // For simplicity and to fix the immediate issue, we will hardcode it,
-      // but a roles collection is the best practice.
-      return request.auth.token.email == "lagopauline28@gmail.com";
-    }
-
-    // Shoes are publicly readable, but only writable by admins.
-    match /shoes/{shoeId} {
-      allow read, list: if true;
-      allow write: if isAdmin();
-    }
-
-    // Categories are publicly readable, but only writable by admins.
-    match /categories/{categoryId} {
-      allow read, list: if true;
-      allow write: if isAdmin();
-    }
-
-    // Users can only manage their own documents.
+    /**
+     * @description Controls access to user profiles.
+     * @path /users/{userId}
+     * @allow (create) - User with ID 'user123' can create their profile.
+     *    `request.auth.uid == 'user123'` and `request.resource.data.id == 'user123'`
+     * @allow (get, update, delete) - User with ID 'user123' can read/update/delete their profile.
+     *    `request.auth.uid == 'user123'`
+     * @deny (create) - User with ID 'user456' cannot create a profile for 'user123'.
+     *    `request.auth.uid == 'user456'`
+     * @deny (get, update, delete) - User with ID 'user456' cannot read/update/delete user 'user123's profile.
+     *    `request.auth.uid == 'user456'`
+     * @principle Enforces document ownership for writes.
+     */
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
-    // Orders can be created by any authenticated user.
-    // They can only be read by the owner or an admin.
-    // They can only be updated/deleted by an admin.
-    match /orders/{orderId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth.uid == resource.data.userId || isAdmin();
-      // Allow admin to list all orders.
-      // Allow user to list their own orders.
-      allow list: if isAdmin() || (request.auth != null && request.query.where.userId == request.auth.uid);
-      allow update, delete: if isAdmin();
+    /**
+     * @description Controls access to shoe products.
+     * @path /shoes/{shoeId}
+     * @allow (get, list) - Any user can read shoe product information.
+     * @deny (create, update, delete) - No user can create, update, or delete shoe products.
+     * @principle Allows public read access, restricts write access.
+     */
+    match /shoes/{shoeId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add admin role check once implemented.
     }
 
-    // Promo codes can be read by any authenticated user (to validate them).
-    // They can only be fully managed (listed, created, updated, deleted) by an admin.
-    match /promoCodes/{promoCodeId} {
-      allow get: if request.auth != null;
-      allow list, write: if isAdmin();
+    /**
+     * @description Controls access to user preferences.
+     * @path /users/{userId}/preferences/{preferenceId}
+     * @allow (create) - User with ID 'user123' can create their preference.
+     *    `request.auth.uid == 'user123'` and `request.resource.data.userId == 'user123'`
+     * @allow (get, update, delete) - User with ID 'user123' can read/update/delete their preference.
+     *    `request.auth.uid == 'user123'`
+     * @deny (create) - User with ID 'user456' cannot create a preference for 'user123'.
+     *    `request.auth.uid == 'user456'`
+     * @deny (get, update, delete) - User with ID 'user456' cannot read/update/delete user 'user123's preference.
+     *    `request.auth.uid == 'user456'`
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId}/preferences/{preferenceId} {
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
