@@ -54,22 +54,22 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 
 const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange }) => {
-  const [selectedSize, setSelectedSize] = useState<number | null>(null);
+  const [selectedSize, setSelectedSize] = useState<number | null>(shoe.availableSizes[0] || null);
   const [selectedColor, setSelectedColor] = useState<string | null>(shoe.availableColors[0]?.name || null);
   const [quantity, setQuantity] = useState(1);
   const { toast } = useToast();
   const { addItem, openCheckout } = useCart();
 
   const handleAddToCart = () => {
-    if (!selectedSize) {
+    if (!selectedSize || !selectedColor) {
       toast({
         title: 'Sélection requise',
-        description: "Veuillez sélectionner une taille avant d'ajouter au panier.",
+        description: "Veuillez sélectionner une taille et une couleur avant d'ajouter au panier.",
         variant: 'destructive',
       });
       return;
     }
-    addItem(shoe, quantity, selectedSize, selectedColor || '');
+    addItem(shoe, quantity, selectedSize, selectedColor);
     toast({
       title: 'Ajouté au panier !',
       description: `${quantity} x ${shoe.name} (Taille: ${selectedSize}, Couleur: ${selectedColor})`,
@@ -78,27 +78,37 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
   };
   
   const handleBuyNow = () => {
-    if (!selectedSize) {
+    if (!selectedSize || !selectedColor) {
       toast({
         title: 'Sélection requise',
-        description: "Veuillez sélectionner une taille avant de continuer.",
+        description: "Veuillez sélectionner une taille et une couleur avant de continuer.",
         variant: 'destructive',
       });
       return;
     }
-    addItem(shoe, quantity, selectedSize, selectedColor || '');
+    addItem(shoe, quantity, selectedSize, selectedColor);
     onOpenChange(false);
     openCheckout();
   };
 
   const handleShareOnWhatsApp = () => {
-    const storeUrl = window.location.origin;
-    let message = `Salut ! Regarde cette paire que j'ai trouvée sur Amani'store :\n\n`;
-    message += `*Produit :* ${shoe.name}\n`;
-    message += `*Prix :* ${shoe.price.toLocaleString('fr-FR')} XOF\n\n`;
-    message += `Viens voir la boutique : ${storeUrl}`;
+    if (!selectedSize || !selectedColor) {
+      toast({
+        title: 'Sélection requise',
+        description: "Veuillez sélectionner une taille et une couleur avant de contacter la boutique.",
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const shopNumber = "2250172698282";
+    let message = `Bonjour, je souhaiterais acheter cette chaussure : *${shoe.name}*.\n\n`;
+    message += `*Options choisies :*\n`;
+    message += `- Taille : ${selectedSize}\n`;
+    message += `- Couleur : ${selectedColor}\n`;
+    message += `- Quantité : ${quantity}`;
     
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    const whatsappUrl = `https://wa.me/${shopNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -312,7 +322,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               </Button>
                <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full h-12 bg-green-500 hover:bg-green-600 text-white">
                   <WhatsAppIcon className="mr-2 h-5 w-5" />
-                  Partager
+                  Commander via WhatsApp
               </Button>
             </div>
           </div>
