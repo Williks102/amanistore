@@ -44,19 +44,27 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/dashboard');
+        if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+            router.push('/admin');
+        } else {
+            router.push('/dashboard');
+        }
     }
   }, [user, isUserLoading, router]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, data.email, data.password);
+      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
         title: "Connexion réussie",
         description: "Vous êtes maintenant connecté.",
       });
-      router.push('/dashboard');
+      if (userCredential.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+          router.push('/admin');
+      } else {
+          router.push('/dashboard');
+      }
     } catch (error: any) {
       let errorMessage = "Une erreur est survenue lors de la connexion.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

@@ -44,19 +44,27 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/dashboard');
+      if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
     }
   }, [user, isUserLoading, router]);
 
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
       toast({
         title: "Compte créé avec succès",
         description: "Vous êtes maintenant connecté.",
       });
-      router.push('/dashboard');
+      if (userCredential.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
        let errorMessage = "Une erreur est survenue lors de l'inscription.";
       if (error.code === 'auth/email-already-in-use') {
