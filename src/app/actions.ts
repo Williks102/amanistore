@@ -8,10 +8,10 @@ import { updateProduct as updateProductInDb, addProduct as addProductInDb } from
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc, getDoc } from 'firebase/firestore';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { firebaseConfig } from '@/firebase/config';
-import { getOrderById, updateOrderStatus } from '@/services/orderService';
+import { updateOrderStatus } from '@/services/orderService';
 
 
 cloudinary.config({
@@ -198,11 +198,20 @@ export async function getOrderByCodeAction(code: string): Promise<{ success: boo
         const data = snapshot.data();
         if (!data) throw new Error("Document data is undefined.");
         const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-        return {
+        const orderData = {
             ...data,
             id: snapshot.id,
             date: date,
         } as Order;
+
+        // Ensure validationCode is a string and trimmed
+        if (typeof orderData.validationCode === 'string') {
+            orderData.validationCode = orderData.validationCode.trim();
+        } else {
+            // Handle cases where validationCode might not be a string, though it should be
+            orderData.validationCode = String(orderData.validationCode || '').trim();
+        }
+        return orderData;
     };
     
     const order = fromFirestoreToOrder(snapshot.docs[0]);
@@ -225,11 +234,24 @@ export async function validateDeliveryAction(orderId: string, code: string): Pro
     return { success: false, error: 'ID de commande ou code manquant.' };
   }
 
-  const order = await getOrderById(orderId);
+  const firestore = getDb();
+  const orderDocRef = doc(firestore, 'orders', orderId);
+  let order: Order;
 
-  if (!order) {
-    return { success: false, error: "Commande non trouvée." };
+  try {
+    const docSnap = await getDoc(orderDocRef);
+    if (!docSnap.exists()) {
+        return { success: false, error: "Commande non trouvée." };
+    }
+    const data = docSnap.data();
+    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+    order = { ...data, id: docSnap.id, date } as Order;
+
+  } catch (error: any) {
+     console.error("Error fetching order in validateDeliveryAction:", error);
+     return { success: false, error: "Échec de la recherche de la commande." };
   }
+
   if (order.validationCode.trim() !== code.trim()) {
     return { success: false, error: "Le code de validation est incorrect." };
   }
