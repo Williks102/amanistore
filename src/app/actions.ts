@@ -9,7 +9,7 @@ import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 import { getFirestore, collection, query, where, limit, getDocs, doc, DocumentSnapshot, DocumentData, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/firebase'; // Utiliser l'instance partagée de la base de données
+import { db } from '@/firebase/config-and-init'; // Correction de l'import
 import { updateOrderStatus } from '@/services/orderService';
 
 
