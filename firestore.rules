@@ -1,42 +1,36 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own profile
+
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId;
     }
 
-    // All users can read shoes, only admins can write
     match /shoes/{shoeId} {
-      allow read: if true;
-      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+        allow read: if true;
+        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
     }
 
-    // All users can read categories, only admins can write
     match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
-    }
-
-    // All users can read promo codes, only admins can write
-    match /promoCodes/{promoCodeId} {
-      allow read: if true;
-      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
-    }
-
-    // Users can only manage their own preferences
-    match /users/{userId}/preferences/{preferenceId} {
-      allow read, write: if request.auth.uid == userId;
+        allow read: if true;
+        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
     }
     
+    match /promoCodes/{promoCodeId} {
+        allow read: if true;
+        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+    }
+
     match /orders/{orderId} {
-       // Admins can read and write any order
-       allow read, write: if request.auth.token.email == "lagopauline28@gmail.com";
-       // Users can read their own orders
-       allow read: if request.auth.uid == resource.data.userId;
-       // Users can create their own order
-       allow create: if request.auth.uid == request.resource.data.userId;
+      // Admins can manage all orders
+      allow list, get, update, delete: if request.auth.token.email == "lagopauline28@gmail.com";
+      
+      // Users can create and read their own orders
+      allow create: if request.auth.uid == request.resource.data.userId;
+      allow get: if request.auth.uid == resource.data.userId;
+      
+      // Allow delivery validation by anyone, but only when querying by validationCode
+      allow list: if request.query.keys().hasOnly(['validationCode', 'limit']);
     }
   }
 }
