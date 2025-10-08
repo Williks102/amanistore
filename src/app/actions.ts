@@ -172,7 +172,7 @@ export async function getOrderByCodeForValidation(code: string): Promise<{ order
     const order = await getOrderByValidationCode(code);
     return { order };
   } catch (error: any) {
-    console.error("Server-side error fetching order by code:", error);
+    console.error("Erreur détaillée côté serveur lors de la recherche de commande:", error);
     // Avoid leaking detailed error messages to the client
     return { order: null, error: 'Impossible de récupérer la commande.' };
   }
