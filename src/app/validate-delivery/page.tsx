@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getOrderByValidationCode, updateOrderStatus } from '@/services/orderService';
+import { updateOrderStatus } from '@/services/orderService';
+import { getOrderByCodeForValidation } from '@/app/actions';
 import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
@@ -51,8 +52,12 @@ export default function ValidateDeliveryPage() {
     setValidationSuccess(false);
 
     try {
-        const foundOrder = await getOrderByValidationCode(trimmedCode);
-        if (foundOrder) {
+        const { order: foundOrder, error } = await getOrderByCodeForValidation(trimmedCode);
+
+        if (error) {
+            toast({ title: 'Erreur', description: error, variant: 'destructive' });
+            setOrder(null);
+        } else if (foundOrder) {
           if (foundOrder.status === 'Livré') {
             toast({ title: 'Recherche infructueuse', description: 'Erreur : code déjà utilisé.', variant: 'destructive' });
             setOrder(null);

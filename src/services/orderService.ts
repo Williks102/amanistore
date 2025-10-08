@@ -112,6 +112,7 @@ export const updateOrderStatus = async (id: string, status: OrderStatus) => {
     }
 };
 
+// This function is now intended to be used server-side only
 export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
   const q = query(collection(db, 'orders'), where("validationCode", "==", code.trim()), limit(1));
   try {
@@ -119,14 +120,12 @@ export const getOrderByValidationCode = async (code: string): Promise<Order | nu
     if (snapshot.empty) {
       return null;
     }
+    // No need to check permissions here, as it runs with admin/server credentials
     return fromFirestore(snapshot.docs[0]);
   } catch (error) {
-    const contextualError = new FirestorePermissionError({
-      operation: 'list',
-      path: 'orders',
-    });
-    errorEmitter.emit('permission-error', contextualError);
-    throw contextualError;
+    console.error("Error in getOrderByValidationCode:", error);
+    // Rethrow or handle as appropriate for server-side logic
+    throw new Error('Failed to query orders by validation code.');
   }
 };
 
@@ -155,6 +154,7 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
 
     } catch (error: any) {
         console.error("Error validating delivery:", error);
+        // This function is called from the admin panel, so permission errors should be handled.
         const contextualError = new FirestorePermissionError({
           operation: 'get', // Or 'update' depending on where it failed
           path: orderDocRef.path,

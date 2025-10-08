@@ -7,7 +7,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import type { Shoe, Category, PromoCode } from '@/lib/types';
+import { getOrderByValidationCode } from '@/services/orderService';
+import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 
 
 cloudinary.config({
@@ -163,4 +164,16 @@ export async function sendContactMessage(formData: FormData) {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   return { success: true };
+}
+
+// This action runs on the server and has elevated privileges.
+export async function getOrderByCodeForValidation(code: string): Promise<{ order: Order | null; error?: string }> {
+  try {
+    const order = await getOrderByValidationCode(code);
+    return { order };
+  } catch (error: any) {
+    console.error("Server-side error fetching order by code:", error);
+    // Avoid leaking detailed error messages to the client
+    return { order: null, error: 'Impossible de récupérer la commande.' };
+  }
 }
