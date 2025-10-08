@@ -1,36 +1,45 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
+    function isAdmin() {
+      return request.auth.token.email == "lagopauline28@gmail.com";
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId;
+      allow read, write: if request.auth.uid == userId || isAdmin();
+      // Admins can read/write any user document.
     }
 
     match /shoes/{shoeId} {
-        allow read: if true;
-        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+      allow read: if true; // Products are publicly readable
+      allow write: if isAdmin(); // Only admins can create, update, or delete products
     }
 
     match /categories/{categoryId} {
-        allow read: if true;
-        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+      allow read: if true; // Categories are publicly readable
+      allow write: if isAdmin(); // Only admins can create, update, or delete categories
     }
     
     match /promoCodes/{promoCodeId} {
-        allow read: if true;
-        allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+      allow read: if true; // Promo codes can be read publicly to validate them.
+      allow write: if isAdmin(); // Only admins can manage promo codes.
     }
 
     match /orders/{orderId} {
-      // Admins can manage all orders
-      allow list, get, update, delete: if request.auth.token.email == "lagopauline28@gmail.com";
-      
-      // Users can create and read their own orders
-      allow create: if request.auth.uid == request.resource.data.userId;
-      allow get: if request.auth.uid == resource.data.userId;
-      
-      // Allow delivery validation by anyone, but only when querying by validationCode
-      allow list: if request.query.keys().hasOnly(['validationCode', 'limit']);
+        // Any user can get a specific order by its ID. This is required for the delivery validation page to function,
+        // as it first queries for the document with a validation code, then fetches it.
+        allow get;
+        // A user can list their OWN orders. An admin can list ALL orders.
+        allow list: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+        // A user can create an order for themselves.
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+        // Only an admin can update an order (e.g., change its status).
+        allow update: if isAdmin();
+        // Orders should not be deletable to preserve history.
+        allow delete: if false;
     }
   }
 }
