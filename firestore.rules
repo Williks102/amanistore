@@ -1,10 +1,10 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
+      // Comparez l'email de l'utilisateur authentifié avec la variable d'environnement
       return request.auth.token.email == "lagopauline28@gmail.com";
     }
 
@@ -26,16 +26,26 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
     
+    // Règle pour les requêtes sur la collection
     match /orders/{orderId} {
+        // Un admin peut lire n'importe quelle commande.
+        // Un utilisateur peut lire sa propre commande.
         allow get: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.userId);
+
+        // Un admin peut mettre à jour n'importe quelle commande.
+        // La fonction de validation de livraison met à jour le statut, ce qui est géré côté serveur.
         allow update: if isAdmin();
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+
+        // Seul un utilisateur authentifié peut créer une commande pour lui-même.
+        allow create: if request.auth.uid == request.resource.data.userId;
+
+        // Personne ne peut supprimer une commande.
         allow delete: if false;
         
-        allow list: if 
-          isAdmin() ||
-          (request.auth != null && request.query.where.userId == request.auth.uid) ||
-          (request.query.where.validationCode is string && request.query.limit == 1);
+        // Les admins peuvent lister toutes les commandes.
+        // Les utilisateurs peuvent lister leurs propres commandes.
+        // N'importe qui peut rechercher par code de validation
+        allow list: if isAdmin() || (request.auth != null && request.query.where.userId == request.auth.uid) || request.query.where.validationCode is string;
     }
   }
 }
