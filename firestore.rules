@@ -1,75 +1,42 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * @description Checks if the request is made by a signed-in user.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user ID matches the provided user ID.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Rules for the /users/{userId} collection.
-     * @path /users/{userId}
-     * @allow (create) Signed-in user creates their own profile.
-     * @allow (get, update, delete) Signed-in user accesses their own profile.
-     * @deny (create) Signed-in user attempts to create a profile for another user.
-     * @deny (get, update, delete) Signed-in user attempts to access another user's profile.
-     * @principle Enforces document ownership for writes.
-     */
+    // Users can only read/write their own profile
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow read, write: if request.auth.uid == userId;
     }
 
-    /**
-     * @description Rules for the /shoes/{shoeId} collection.
-     * @path /shoes/{shoeId}
-     * @allow (get, list) Any user can read shoe information.
-     * @deny (create, update, delete) Only authorized admins can write shoe information (implicitly denied, no rule provided).
-     * @principle Allows public read access with owner-only writes (implicitly denied in this case).
-     */
+    // All users can read shoes, only admins can write
     match /shoes/{shoeId} {
-      allow get, list: if true;
+      allow read: if true;
+      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
     }
 
-    /**
-     * @description Rules for the /users/{userId}/preferences/{preferenceId} collection.
-     * @path /users/{userId}/preferences/{preferenceId}
-     * @allow (create) Signed-in user creates their own preference.
-     * @allow (get, update, delete) Signed-in user accesses their own preference.
-     * @deny (create) Signed-in user attempts to create a preference for another user.
-     * @deny (get, update, delete) Signed-in user attempts to access another user's preference.
-     * @principle Enforces document ownership for writes.
-     */
+    // All users can read categories, only admins can write
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+    }
+
+    // All users can read promo codes, only admins can write
+    match /promoCodes/{promoCodeId} {
+      allow read: if true;
+      allow write: if request.auth.token.email == "lagopauline28@gmail.com";
+    }
+
+    // Users can only manage their own preferences
     match /users/{userId}/preferences/{preferenceId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      allow read, write: if request.auth.uid == userId;
     }
     
-     /**
-      * @description Public read-only access to categories
-      * @path /categories
-      * @allow (get, list) Any user can read category information.
-      * @deny (create, update, delete) No writes allowed
-      * @principle Public read, no writes allowed
-      */
-     match /categories/{categoryId} {
-       allow get, list: if true;
-     }
+    match /orders/{orderId} {
+       // Admins can read and write any order
+       allow read, write: if request.auth.token.email == "lagopauline28@gmail.com";
+       // Users can read their own orders
+       allow read: if request.auth.uid == resource.data.userId;
+       // Users can create their own order
+       allow create: if request.auth.uid == request.resource.data.userId;
+    }
   }
 }
