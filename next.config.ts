@@ -3,6 +3,13 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  devIndicators: {
+    allowedDevOrigins: [
+      '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-eu114.gitpod.io',
+      '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-us114.gitpod.io',
+      '**.' + process.env.CS_HOSTNAME,
+    ],
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
