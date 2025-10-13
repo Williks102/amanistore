@@ -146,9 +146,8 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
     }
 };
 
-
 export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
-    const q = query(getOrderCollection(), where("validationCode", "==", code), limit(1));
+    const q = query(collection(db, "orders"), where("validationCode", "==", code));
     try {
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
