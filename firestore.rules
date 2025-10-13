@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -24,22 +25,17 @@ service cloud.firestore {
     match /promoCodes/{promoCodeId} {
       allow read, write: if isAdmin();
     }
-
+    
     match /orders/{orderId} {
-      // N'importe qui peut lire UNE commande spécifique (pour la page de confirmation et la validation)
       allow get: if true;
       
-      // Les admins peuvent lister toutes les commandes.
-      // Un utilisateur connecté peut lister SES propres commandes.
+      // Admins can list all orders. Users can list their own orders.
       allow list: if isAdmin() || (request.auth != null && request.query.where.userId == request.auth.uid);
       
-      // Un utilisateur connecté peut créer une commande pour lui-même
       allow create: if request.auth.uid == request.resource.data.userId;
       
-      // Seul l'admin peut changer le statut d'une commande
       allow update: if isAdmin();
       
-      // Personne ne peut supprimer une commande
       allow delete: if false;
     }
   }
