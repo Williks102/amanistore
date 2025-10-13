@@ -12,7 +12,7 @@ import type { Order, OrderStatus } from '@/lib/types';
 import { ShoppingBag, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { getOrdersByUserId } from '@/services/orderService';
+import { getOrdersForUser } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -134,19 +134,21 @@ const BuyerDashboard = () => {
     if (user) {
       const fetchOrders = async () => {
         setIsLoading(true);
-        try {
-          const fetchedOrders = await getOrdersByUserId(user.uid);
-          setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        } catch (error) {
+        const { orders: fetchedOrders, error } = await getOrdersForUser(user.uid);
+        
+        if (error) {
           console.error("Failed to fetch orders:", error);
           toast({
             title: 'Erreur',
             description: 'Impossible de charger vos commandes.',
             variant: 'destructive'
           })
-        } finally {
-          setIsLoading(false);
+          setOrders([]);
+        } else if (fetchedOrders) {
+          setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         }
+
+        setIsLoading(false);
       };
       fetchOrders();
     }

@@ -7,7 +7,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import { getOrderByValidationCode } from '@/services/orderService';
+import { getOrderByValidationCode, getOrdersByUserId } from '@/services/orderService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
 
 
@@ -175,5 +175,15 @@ export async function getOrderByCodeForValidation(code: string): Promise<{ order
     console.error("Erreur détaillée côté serveur lors de la recherche de commande:", error);
     // Avoid leaking detailed error messages to the client
     return { order: null, error: 'Impossible de récupérer la commande.' };
+  }
+}
+
+export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {
+  try {
+    const orders = await getOrdersByUserId(userId);
+    return { orders };
+  } catch (error: any) {
+    console.error("Erreur détaillée côté serveur lors de la récupération des commandes:", error);
+    return { orders: null, error: 'Impossible de récupérer vos commandes.' };
   }
 }
