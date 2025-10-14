@@ -1,18 +1,22 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      // Remplacez par l'e-mail de votre administrateur
-      return request.auth.token.email == "lagopauline28@gmail.com";
+      // L'email de l'administrateur est défini ici.
+      // Assurez-vous que l'email dans `request.auth.token.email` est vérifié.
+      return request.auth.token.email == "lagopauline28@gmail.com" && request.auth.token.email_verified;
     }
 
+    // Les utilisateurs peuvent lire et écrire leur propre profil.
+    // L'admin peut lire et écrire n'importe quel profil.
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId || isAdmin();
     }
 
+    // Tout le monde peut lire les produits et les catégories.
+    // Seul l'admin peut les modifier.
     match /shoes/{shoeId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -22,25 +26,28 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
-
+    
+    // Seul l'admin peut gérer les codes promos
     match /promoCodes/{promoCodeId} {
-      allow read, write: if isAdmin();
+        allow read, write: if isAdmin();
     }
 
+    // Règles pour les commandes
     match /orders/{orderId} {
-      // N'importe qui peut lire UNE commande spécifique s'il a l'ID (pour la page de confirmation)
+      // N'importe qui peut lire UNE commande spécifique s'il a l'ID (utile pour la page de confirmation)
       allow get: if true;
       
-      // Seuls les administrateurs peuvent lister toutes les commandes
+      // Seul l'admin peut lister toutes les commandes.
+      // Les utilisateurs liront leurs commandes via une action serveur sécurisée.
       allow list: if isAdmin();
       
-      // Un utilisateur connecté ne peut créer qu'une commande pour lui-même
+      // Un utilisateur connecté peut créer une commande pour lui-même
       allow create: if request.auth.uid == request.resource.data.userId;
       
-      // Seul l'administrateur peut mettre à jour une commande (ex: changer le statut)
+      // Seul l'admin peut changer le statut d'une commande
       allow update: if isAdmin();
       
-      // Personne ne peut supprimer une commande
+      // Personne ne peut supprimer une commande pour garder un historique
       allow delete: if false;
     }
   }
