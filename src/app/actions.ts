@@ -9,6 +9,8 @@ import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import { getOrderByValidationCode, getOrdersByUserId } from '@/services/orderService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
+import { db } from '@/firebase';
+import { collection, query, where, getDocs, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 
 
 cloudinary.config({
@@ -178,9 +180,28 @@ export async function getOrderByCodeForValidation(code: string): Promise<{ order
   }
 }
 
+// This action runs on the server and has elevated privileges.
 export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {
+  if (!userId) {
+    return { orders: null, error: 'User ID non fourni.' };
+  }
   try {
-    const orders = await getOrdersByUserId(userId);
+    const orderCollection = collection(db, 'orders');
+    const q = query(orderCollection, where("userId", "==", userId));
+    const snapshot = await getDocs(q);
+
+    const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Order => {
+        const data = snapshot.data();
+        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+        return {
+            ...data,
+            id: snapshot.id,
+            date: date,
+            validationCode: String(data.validationCode || '').trim()
+        } as Order;
+    }
+
+    const orders = snapshot.docs.map(fromFirestore);
     return { orders };
   } catch (error: any) {
     console.error("Erreur détaillée côté serveur lors de la récupération des commandes:", error);
