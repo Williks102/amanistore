@@ -1,6 +1,4 @@
 
-'use client';
-
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { Auth, getAuth } from 'firebase/auth';
@@ -27,8 +25,7 @@ export function initializeFirebase(): {
   return { firebaseApp, auth, firestore: db };
 }
 
-// Re-exporting initialized services for direct use is discouraged, 
-// but kept for compatibility if any part of the old code still uses it.
+// Re-exporting initialized services for direct use
 export { firebaseApp, auth, db };
 
 
@@ -40,4 +37,3 @@ export * from './non-blocking-updates';
 export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
-
