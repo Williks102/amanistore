@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
       '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-eu114.gitpod.io',
       '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-us114.gitpod.io',
       '**.' + process.env.CS_HOSTNAME,
+      '**.cloudworkstations.dev',
     ],
   },
   typescript: {
