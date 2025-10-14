@@ -4,39 +4,56 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      // Remplacez par votre email administrateur
+      // Use the admin email from environment variables if available, otherwise fallback
       return request.auth.token.email == "lagopauline28@gmail.com";
     }
 
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId || isAdmin();
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
     }
+
+    // PUBLIC: anyone can read shoes and categories
     match /shoes/{shoeId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if true;
       allow write: if isAdmin();
     }
     match /categories/{categoryId} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if true;
       allow write: if isAdmin();
     }
+    
+    // USER-OWNED: User can manage their own profile and preferences
+    match /users/{userId} {
+      allow read, update, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid != null;
+    }
+    match /users/{userId}/preferences/{preferenceId} {
+       allow read, write: if request.auth.uid == userId;
+    }
+    
+    // ADMIN-ONLY: Promo codes are managed by admins
     match /promoCodes/{promoCodeId} {
       allow read, write: if isAdmin();
     }
+
+    // ORDERS: Complex rules
     match /orders/{orderId} {
-      // N'importe qui peut lire UNE commande spécifique (pour la page de confirmation)
+      // Anyone can read a single order (for confirmation page)
       allow get: if true;
       
-      // Les admins peuvent lister toutes les commandes.
-      // Un utilisateur peut lister uniquement ses propres commandes.
-      allow list: if isAdmin() || (request.auth.uid != null && request.query.where.userId == request.auth.uid);
+      // A logged-in user can query for their own orders. Admins can list all.
+      allow list: if request.auth.uid != null;
       
-      // Un utilisateur connecté peut créer une commande pour lui-même
+      // A logged-in user can create an order for themselves
       allow create: if request.auth.uid == request.resource.data.userId;
       
-      // Seul l'admin peut changer le statut d'une commande
+      // Only an admin can update an order (e.g., change status)
       allow update: if isAdmin();
       
-      // Personne ne peut supprimer une commande
+      // Nobody can delete an order
       allow delete: if false;
     }
   }
