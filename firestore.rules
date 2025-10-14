@@ -1,49 +1,46 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      // Remplacez cette adresse e-mail par l'e-mail de l'administrateur désigné
+      // Remplacez par l'e-mail de votre administrateur
       return request.auth.token.email == "lagopauline28@gmail.com";
     }
 
-    // Les utilisateurs ne peuvent lire et écrire que leurs propres données
     match /users/{userId} {
       allow read, write: if request.auth.uid == userId || isAdmin();
     }
 
-    // Tout le monde peut lire les produits et catégories, seul l'admin peut les modifier
     match /shoes/{shoeId} {
       allow read: if true;
       allow write: if isAdmin();
     }
+
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Seul l'admin peut gérer les codes promo
     match /promoCodes/{promoCodeId} {
       allow read, write: if isAdmin();
     }
 
-    // Règles pour les commandes
     match /orders/{orderId} {
-      // N'importe qui peut lire UNE commande spécifique (pour la page de confirmation)
+      // N'importe qui peut lire UNE commande spécifique s'il a l'ID (pour la page de confirmation)
       allow get: if true;
       
-      // Un utilisateur connecté peut lister des commandes (la logique applicative filtre par son ID)
-      // Un admin peut lister toutes les commandes
-      allow list: if request.auth != null || isAdmin();
+      // Seuls les administrateurs peuvent lister toutes les commandes
+      allow list: if isAdmin();
       
-      // Un utilisateur connecté peut créer une commande pour lui-même
+      // Un utilisateur connecté ne peut créer qu'une commande pour lui-même
       allow create: if request.auth.uid == request.resource.data.userId;
       
-      // Seul l'admin peut changer le statut d'une commande
+      // Seul l'administrateur peut mettre à jour une commande (ex: changer le statut)
       allow update: if isAdmin();
       
-      // Personne ne peut supprimer une commande pour la traçabilité
+      // Personne ne peut supprimer une commande
       allow delete: if false;
     }
   }

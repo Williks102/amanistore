@@ -7,10 +7,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import { getOrderByValidationCode, getOrdersByUserId } from '@/services/orderService';
 import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
-import { db } from '@/firebase';
-import { collection, query, where, getDocs, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { adminDb } from '@/firebase/admin';
 
 
 cloudinary.config({
@@ -168,40 +166,68 @@ export async function sendContactMessage(formData: FormData) {
   return { success: true };
 }
 
+
 // This action runs on the server and has elevated privileges.
 export async function getOrderByCodeForValidation(code: string): Promise<{ order: Order | null; error?: string }> {
+  if (!adminDb) {
+    const errorMessage = 'La connexion à la base de données administrateur a échoué.';
+    console.error(errorMessage);
+    return { order: null, error: errorMessage };
+  }
   try {
-    const order = await getOrderByValidationCode(code);
+    const snapshot = await adminDb.collection('orders').where('validationCode', '==', code.trim()).limit(1).get();
+
+    if (snapshot.empty) {
+      return { order: null };
+    }
+    
+    const doc = snapshot.docs[0];
+    const data = doc.data();
+    const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+    
+    const order = {
+      ...data,
+      id: doc.id,
+      date: date,
+    } as Order;
+
     return { order };
   } catch (error: any) {
     console.error("Erreur détaillée côté serveur lors de la recherche de commande:", error);
-    // Avoid leaking detailed error messages to the client
     return { order: null, error: 'Impossible de récupérer la commande.' };
   }
 }
+
 
 // This action runs on the server and has elevated privileges.
 export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {
   if (!userId) {
     return { orders: null, error: 'User ID non fourni.' };
   }
+   if (!adminDb) {
+    const errorMessage = 'La connexion à la base de données administrateur a échoué.';
+    console.error(errorMessage);
+    return { orders: null, error: errorMessage };
+  }
   try {
-    const orderCollection = collection(db, 'orders');
-    const q = query(orderCollection, where("userId", "==", userId));
-    const snapshot = await getDocs(q);
+    const snapshot = await adminDb.collection('orders').where('userId', '==', userId).get();
 
-    const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Order => {
-        const data = snapshot.data();
-        const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-        return {
-            ...data,
-            id: snapshot.id,
-            date: date,
-            validationCode: String(data.validationCode || '').trim()
-        } as Order;
+    if (snapshot.empty) {
+      return { orders: [] };
     }
 
-    const orders = snapshot.docs.map(fromFirestore);
+    const orders = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Firestore Timestamps need to be converted to serializable format (ISO string)
+      const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
+      return {
+        ...data,
+        id: doc.id,
+        date: date,
+        validationCode: String(data.validationCode || '').trim()
+      } as Order;
+    });
+
     return { orders };
   } catch (error: any) {
     console.error("Erreur détaillée côté serveur lors de la récupération des commandes:", error);

@@ -1,7 +1,7 @@
 
 import { db } from '@/firebase';
 import type { Order, OrderStatus } from '@/lib/types';
-import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc, limit } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, DocumentData, QueryDocumentSnapshot, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -145,21 +145,3 @@ export const validateOrderDelivery = async (orderId: string, code: string): Prom
         return { success: false, error: "Échec de la recherche ou de la mise à jour de la commande." };
     }
 };
-
-export const getOrderByValidationCode = async (code: string): Promise<Order | null> => {
-    const q = query(collection(db, "orders"), where("validationCode", "==", code));
-    try {
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-            return null;
-        }
-        return fromFirestore(snapshot.docs[0]);
-    } catch (e) {
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: getOrderCollection().path,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        throw contextualError;
-    }
-}
