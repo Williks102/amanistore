@@ -66,13 +66,31 @@ export default function OrderConfirmationPage() {
     fetchOrder();
   }, [orderId]);
   
-  const handleCopyToClipboard = () => {
-    if(order?.validationCode) {
-      navigator.clipboard.writeText(order.validationCode);
+  const handleCopyToClipboard = async () => {
+    if (!order?.validationCode) return;
+
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      toast({
+        title: "Copie non supportée",
+        description: "Votre navigateur ou cet environnement ne permet pas la copie automatique.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(order.validationCode);
       toast({
         title: "Copié !",
         description: "Le code de validation a été copié dans le presse-papiers.",
-      })
+      });
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+      toast({
+        title: "Erreur de copie",
+        description: "Impossible de copier le code. Veuillez le copier manuellement.",
+        variant: "destructive",
+      });
     }
   }
 
@@ -231,3 +249,5 @@ export default function OrderConfirmationPage() {
     </div>
   );
 }
+
+    
