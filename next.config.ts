@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-us114.gitpod.io',
       '**.' + process.env.CS_HOSTNAME,
       '**.cloudworkstations.dev',
+      '9003-firebase-studio-1759095904226.cluster-ikslh4rdsnbqsvu5nw3v4dqjj2.cloudworkstations.dev'
     ],
   },
   typescript: {
