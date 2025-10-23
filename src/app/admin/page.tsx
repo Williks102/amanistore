@@ -969,7 +969,7 @@ const AdminDashboard = () => {
         <SidebarProvider>
             <Sidebar>
                 <SidebarHeader>
-                    <h1 className="text-xl font.headline font-bold text-primary">Amani'store</h1>
+                    <h1 className="text-xl font.headline font-bold text-primary">Amani's</h1>
                 </SidebarHeader>
                 <SidebarContent>
                     <SidebarMenu>

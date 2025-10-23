@@ -97,7 +97,7 @@ export default function OrderConfirmationPage() {
   const handleShareOnWhatsApp = () => {
     if (!order) return;
 
-    let message = `Bonjour, voici le résumé de ma commande Amani'store :\n\n`;
+    let message = `Bonjour, voici le résumé de ma commande Amani's :\n\n`;
     message += `*Commande n°:* ${order.id.substring(0, 7)}\n`;
     message += `*Client:* ${order.customerName}\n\n`;
     message += `*Articles commandés:*\n`;

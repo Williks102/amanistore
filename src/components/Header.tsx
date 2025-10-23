@@ -236,7 +236,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
             </div>
             {/* Logo */}
             <Link href="/" className="text-xl font-headline font-bold text-primary">
-              Amani'store
+              Amani's
             </Link>
           </div>
 

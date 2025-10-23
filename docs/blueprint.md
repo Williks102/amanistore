@@ -1,4 +1,4 @@
-# **App Name**: Amani'store
+# **App Name**: Amani's
 
 ## Core Features:
 

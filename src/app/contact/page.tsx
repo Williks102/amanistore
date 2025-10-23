@@ -16,19 +16,19 @@ import type { Category } from '@/lib/types';
 
 const locations = [
   {
-    name: "Amani'store - Palm Club",
+    name: "Amani's - Palm Club",
     address: "Cocody, Cité des arts",
     phone: "+225 07 01 02 03 04",
     googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=Palm+Club+Hotel+Cocody+Abidjan"
   },
   {
-    name: "Amani'store - Rond-point ADO",
+    name: "Amani's - Rond-point ADO",
     address: "Cocody, Riviera Bonoumin",
     phone: "+225 07 02 03 04 05",
     googleMapsUrl: "https://maps.app.goo.gl/bCi2L4faK7EkJPeh6"
   },
   {
-    name: "Amani'store - Marcory",
+    name: "Amani's - Marcory",
     address: "Marcory, près du centre commercial",
     phone: "+225 07 03 04 05 06",
     googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=Cap+Sud+Marcory+Abidjan"
