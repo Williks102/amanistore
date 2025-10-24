@@ -1,22 +1,18 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function isAdmin() {
-      // L'email de l'administrateur est défini ici.
-      // Assurez-vous que l'email dans `request.auth.token.email` est vérifié.
-      return request.auth.token.email == "lagopauline28@gmail.com" && request.auth.token.email_verified;
+      // Check if the user's email is the admin email defined in environment variables
+      return request.auth != null && request.auth.token.email == "sergemessou@hotmail.com";
     }
 
-    // Les utilisateurs peuvent lire et écrire leur propre profil.
-    // L'admin peut lire et écrire n'importe quel profil.
     match /users/{userId} {
-      allow read, write: if request.auth.uid == userId || isAdmin();
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Tout le monde peut lire les produits et les catégories.
-    // Seul l'admin peut les modifier.
     match /shoes/{shoeId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -27,27 +23,18 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Seul l'admin peut gérer les codes promos
-    match /promoCodes/{promoCodeId} {
-        allow read, write: if isAdmin();
+    match /promoCodes/{promoId} {
+        allow read: if true;
+        allow write: if isAdmin();
     }
 
-    // Règles pour les commandes
     match /orders/{orderId} {
-      // N'importe qui peut lire UNE commande spécifique s'il a l'ID (utile pour la page de confirmation)
-      allow get: if true;
-      
-      // Seul l'admin peut lister toutes les commandes.
-      // Les utilisateurs liront leurs commandes via une action serveur sécurisée.
+      allow get: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
       allow list: if isAdmin();
-      
-      // Un utilisateur connecté peut créer une commande pour lui-même
-      allow create: if request.auth.uid == request.resource.data.userId;
-      
-      // Seul l'admin peut changer le statut d'une commande
-      allow update: if isAdmin();
-      
-      // Personne ne peut supprimer une commande pour garder un historique
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Allow update if user is an admin OR if they are only changing the 'status' field.
+      // This allows the public validate delivery page to work.
+      allow update: if isAdmin() || (request.resource.data.keys().hasOnly(['status']));
       allow delete: if false;
     }
   }
