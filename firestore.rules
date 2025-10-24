@@ -1,65 +1,69 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin role
+    // 🔐 Fonction utilitaire pour vérifier si l'utilisateur est admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == "sergemessou@hotmail.com";
+      // Vérifie si l'utilisateur authentifié a le rôle 'admin' dans son document utilisateur.
+      // C'est une méthode sécurisée et scalable pour gérer les permissions.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Default deny all reads/writes
+    // 🔒 Par défaut, interdire tout accès. Règle de sécurité fondamentale.
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // This rule allows unauthenticated clients to list the collections
-    // at the root of the database. This is necessary for the homepage
-    // to fetch categories, products, and collections.
+    
+    // ✅ Autoriser la LECTURE de la LISTE des collections à la racine.
+    // Essentiel pour que l'application puisse découvrir les collections comme 'shoes', 'categories', etc.
+    // sans être bloquée par la règle de sécurité par défaut.
     match /databases/{database}/documents {
-      allow list: if true;
+      allow list: if request.auth == null || request.auth != null; // Autorise tout le monde, authentifié ou non
     }
 
-    // Users can only read/write their own data
+    // 👤 Règles pour la collection 'users'
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Un utilisateur ne peut lire et écrire que son propre document.
+      allow read, write: if request.auth.uid == userId;
+      // Un admin peut lire le document de n'importe quel utilisateur (utile pour le support).
+      allow get: if isAdmin();
     }
 
-    // Products are publicly readable, but only admins can modify them
+    // 👟 Produits : lecture publique, modification réservée aux admins
     match /shoes/{shoeId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Categories are publicly readable, but only admins can modify them
+    // 🗂️ Catégories : lecture publique, modification réservée aux admins
     match /categories/{categoryId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Collections are publicly readable, but only admins can modify them
+    // 🎯 Collections : lecture publique, modification réservée aux admins
     match /collections/{collectionId} {
       allow get, list: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Orders can be read by the user who owns it or by an admin.
-    // Only admins can update status.
-    // Users can create their own orders.
+    // 🧾 Commandes :
     match /orders/{orderId} {
-      allow get: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
-      allow list: if request.auth != null && isAdmin();
+      // Un utilisateur connecté peut créer une commande.
       allow create: if request.auth != null;
-      // Allow status-only updates for anyone, but full updates only for admins.
-      // This is less secure and we should rely on server-side actions.
-      allow update: if isAdmin() || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
-      allow delete: if isAdmin();
+      // Seul l'admin peut lire, mettre à jour ou supprimer des commandes.
+      // La lecture est restreinte pour que les utilisateurs ne voient pas les commandes des autres.
+      // Le suivi de commande se fait via une action serveur sécurisée (getOrdersForUser).
+      allow read, update, delete: if isAdmin();
+      // Un utilisateur peut lire ses propres commandes.
+      allow list: if request.auth != null && request.auth.uid == resource.data.userId;
     }
 
-    // Promo codes are read-only for users, but writable by admins.
+    // 🎟️ Codes promo : accès réservé aux admins
     match /promoCodes/{promoCodeId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }

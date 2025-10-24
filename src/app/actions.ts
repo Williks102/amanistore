@@ -10,6 +10,7 @@ import { addCollection as addCollectionInDb } from '@/services/collectionService
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order, Collection } from '@/lib/types';
 import { adminDb } from '@/firebase/admin';
+import { getAuth } from 'firebase-admin/auth';
 
 
 cloudinary.config({
@@ -278,4 +279,16 @@ export async function getOrdersForUser(userId: string): Promise<{ orders: Order[
     console.error("Erreur détaillée côté serveur lors de la récupération des commandes:", error);
     return { orders: null, error: 'Impossible de récupérer vos commandes.' };
   }
+}
+
+// Function to check if a user is an admin based on their UID
+async function checkAdminPrivileges(uid: string): Promise<boolean> {
+  if (!adminDb) return false;
+  const userDoc = await adminDb.collection('users').doc(uid).get();
+  if (userDoc.exists && userDoc.data()?.role === 'admin') {
+    return true;
+  }
+  // Fallback to email check if role is not present for backward compatibility
+  const userAuth = await getAuth().getUser(uid);
+  return userAuth.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 }
