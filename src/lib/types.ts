@@ -18,6 +18,13 @@ export type Category = {
   imageUrl?: string;
 };
 
+export type Collection = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  categoryIds: string[];
+};
+
 export type Shoe = {
   id: string; // Changed to string for Firestore ID
   name:string;

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
@@ -27,10 +26,10 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode } from '@/lib/types';
+import type { Order, OrderStatus, Shoe, ShoeColor, Category, PromoCode, Collection } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, KeyRound, Sun } from 'lucide-react';
+import { Pencil, Trash2, X, ImageIcon, Loader2, DollarSign, Package, ShoppingCart, Ticket, LayoutDashboard, ListOrdered, Tag, Home, KeyRound, Sun, Library } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -39,20 +38,23 @@ import Image from 'next/image';
 import { getOrders, updateOrderStatus, validateOrderDelivery } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
+import { getCollections, deleteCollection } from '@/services/collectionService';
 import { getPromoCodes } from '@/services/promoCodeService';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode } from '@/app/actions';
+import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode, createCollection } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarSeparator, SidebarTrigger } from '@/components/ui/sidebar';
 import Link from 'next/link';
+import { Checkbox } from '@/components/ui/checkbox';
 
-type AdminView = 'dashboard' | 'orders' | 'products' | 'create' | 'categories' | 'promo';
+type AdminView = 'dashboard' | 'orders' | 'products' | 'create' | 'categories' | 'collections' | 'promo';
 
 const AdminDashboard = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,6 +73,10 @@ const AdminDashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
 
+  // State for creating a collection
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [selectedCategoryIdsForCollection, setSelectedCategoryIdsForCollection] = useState<string[]>([]);
+
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   
@@ -79,16 +85,18 @@ const AdminDashboard = () => {
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [fetchedOrders, fetchedCategories, fetchedPromoCodes, fetchedProducts] = await Promise.all([
+      const [fetchedOrders, fetchedCategories, fetchedPromoCodes, fetchedProducts, fetchedCollections] = await Promise.all([
         getOrders(),
         getCategories(),
         getPromoCodes(),
-        getProducts()
+        getProducts(),
+        getCollections(),
       ]);
       setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setShoes(fetchedProducts);
       setCategories(fetchedCategories);
       setPromoCodes(fetchedPromoCodes);
+      setCollections(fetchedCollections);
     } catch (error) {
       console.error("Failed to fetch data:", error);
       toast({
@@ -406,6 +414,69 @@ const AdminDashboard = () => {
       toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
     }
   }
+
+  const handleCreateCollection = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    const formData = new FormData(event.currentTarget);
+    const name = formData.get('collection-name') as string;
+    const imageFile = formData.get('collection-image') as File;
+
+    if (!name.trim()) {
+        toast({ title: 'Nom manquant', description: 'Veuillez donner un nom à la collection.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+    if (!imageFile || imageFile.size === 0) {
+        toast({ title: 'Image manquante', description: 'Veuillez sélectionner une image pour la collection.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+    if (selectedCategoryIdsForCollection.length === 0) {
+        toast({ title: 'Aucune catégorie', description: 'Veuillez sélectionner au moins une catégorie pour cette collection.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+    
+    const uploadFormData = new FormData();
+    uploadFormData.append('image', imageFile);
+    const uploadResult = await uploadImage(uploadFormData);
+    if (uploadResult.error || !uploadResult.secure_url) {
+        toast({ title: 'Échec de l\'upload', description: uploadResult.error || 'Impossible de téléverser l\'image.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+
+    const newCollectionData: Omit<Collection, 'id'> = {
+      name: name.trim(),
+      imageUrl: uploadResult.secure_url,
+      categoryIds: selectedCategoryIdsForCollection,
+    };
+
+    const creationResult = await createCollection(newCollectionData);
+    if(creationResult.success){
+      toast({ title: 'Succès', description: `La collection "${newCollectionData.name}" a été créée.` });
+      setNewCollectionName('');
+      setSelectedCategoryIdsForCollection([]);
+      (event.target as HTMLFormElement).reset();
+      fetchAllData();
+    } else {
+      toast({ title: 'Erreur', description: creationResult.error || 'La création de la collection a échoué.', variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+  
+  const handleDeleteCollection = async (collectionId: string) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette collection ?')) return;
+    try {
+      await deleteCollection(collectionId);
+      toast({ title: 'Succès', description: 'Collection supprimée.' });
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message || 'La suppression de la collection a échoué.', variant: 'destructive' });
+    }
+  };
+
 
   const handleValidationCodeChange = (orderId: string, code: string) => {
     setValidationCodes(prev => ({ ...prev, [orderId]: code }));
@@ -870,6 +941,97 @@ const AdminDashboard = () => {
               </Card>
             </div>
         );
+      case 'collections':
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ajouter une collection</CardTitle>
+                  <CardDescription>Créez une nouvelle collection ou marque.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreateCollection} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="collection-name">Nom de la collection</Label>
+                      <Input id="collection-name" name="collection-name" placeholder="Ex: Unisa" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="collection-image">Image de la collection</Label>
+                        <Input id="collection-image" name="collection-image" type="file" accept="image/*" />
+                    </div>
+                    <div className="space-y-4">
+                      <Label>Catégories associées</Label>
+                      <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
+                        {categories.map((category) => (
+                          <div key={category.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`cat-${category.id}`}
+                              checked={selectedCategoryIdsForCollection.includes(category.id)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? setSelectedCategoryIdsForCollection([...selectedCategoryIdsForCollection, category.id])
+                                  : setSelectedCategoryIdsForCollection(selectedCategoryIdsForCollection.filter((id) => id !== category.id));
+                              }}
+                            />
+                            <label htmlFor={`cat-${category.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                              {category.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...</> : 'Créer la collection'}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Collections existantes</CardTitle>
+                  <CardDescription>Gérez les collections actuelles.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Image</TableHead>
+                          <TableHead>Nom</TableHead>
+                          <TableHead>Catégories</TableHead>
+                          <TableHead className="text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {collections.map((collection) => (
+                          <TableRow key={collection.id}>
+                            <TableCell>
+                              <Image
+                                src={collection.imageUrl}
+                                alt={collection.name}
+                                width={40}
+                                height={40}
+                                className="rounded-md object-cover"
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{collection.name}</TableCell>
+                            <TableCell className="text-xs">
+                                {collection.categoryIds.map(id => categories.find(c => c.id === id)?.name).filter(Boolean).join(', ')}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="destructive" size="icon" onClick={() => handleDeleteCollection(collection.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+        );
       case 'promo':
         return (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1004,6 +1166,12 @@ const AdminDashboard = () => {
                             <SidebarMenuButton onClick={() => setActiveView('create')} isActive={activeView === 'create'}>
                                 <Package />
                                 Créer un produit
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton onClick={() => setActiveView('collections')} isActive={activeView === 'collections'}>
+                                <Library />
+                                Collections
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>

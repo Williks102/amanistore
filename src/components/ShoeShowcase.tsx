@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import type { Shoe, Category } from '@/lib/types';
+import type { Shoe, Category, Collection } from '@/lib/types';
 import ProductCard from './ProductCard';
 import ProductModal from './ProductModal';
 import type { PriceRange } from '@/app/page';
@@ -10,6 +10,8 @@ import type { PriceRange } from '@/app/page';
 interface ShoeShowcaseProps {
   shoes: Shoe[];
   selectedCategory: Category | null;
+  selectedCollection: Collection | null;
+  categories: Category[];
   searchTerm: string;
   priceRange: PriceRange;
   selectedSizes: number[];
@@ -20,6 +22,8 @@ interface ShoeShowcaseProps {
 const ShoeShowcase = ({
   shoes,
   selectedCategory,
+  selectedCollection,
+  categories,
   searchTerm,
   priceRange,
   selectedSizes,
@@ -54,6 +58,12 @@ const ShoeShowcase = ({
       if (selectedCategory && shoe.categoryId !== selectedCategory.id) {
         return false;
       }
+      
+      // Collection filter
+      if (selectedCollection && !selectedCollection.categoryIds.includes(shoe.categoryId)) {
+        return false;
+      }
+
       // Search term filter
       if (searchTerm && !shoe.name.toLowerCase().includes(searchTerm.toLowerCase())) {
         return false;
@@ -72,7 +82,7 @@ const ShoeShowcase = ({
       }
       return true;
     });
-  }, [shoes, selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors, filtersubset]);
+  }, [shoes, selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors, filtersubset]);
 
   return (
     <>

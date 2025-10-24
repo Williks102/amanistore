@@ -4,14 +4,16 @@
 import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/Header';
 import ShoeShowcase from '@/components/ShoeShowcase';
-import type { Category, Shoe } from '@/lib/types';
+import type { Category, Shoe, Collection } from '@/lib/types';
 import Hero from '@/components/Hero';
 import { Sidebar } from '@/components/Sidebar';
 import { Separator } from '@/components/ui/separator';
 import CategoryCarousel from '@/components/CategoryCarousel';
+import CollectionCarousel from '@/components/CollectionCarousel';
 import { AnimatedSection } from '@/components/AnimatedSection';
 import { getProducts } from '@/services/productService';
 import { getCategories } from '@/services/categoryService';
+import { getCollections } from '@/services/collectionService';
 import { Skeleton } from '@/components/ui/skeleton';
 
 
@@ -23,8 +25,10 @@ export type PriceRange = {
 export default function Home() {
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: 100000 });
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
@@ -35,9 +39,14 @@ export default function Home() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [products, fetchedCategories] = await Promise.all([getProducts(), getCategories()]);
+        const [products, fetchedCategories, fetchedCollections] = await Promise.all([
+            getProducts(), 
+            getCategories(),
+            getCollections()
+        ]);
         setShoes(products);
         setCategories(fetchedCategories);
+        setCollections(fetchedCollections);
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {
@@ -68,6 +77,16 @@ export default function Home() {
   const bestSellers = useMemo(() => shoes.slice(-3).reverse(), [shoes]);
   const recommended = useMemo(() => shoes.slice(-3).reverse(), [shoes]);
 
+  const handleSelectCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setSelectedCollection(null); // Reset collection filter when category is selected
+  }
+
+  const handleSelectCollection = (collection: Collection) => {
+    setSelectedCollection(collection);
+    setSelectedCategory(null); // Reset category filter when collection is selected
+  }
+
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
       {[...Array(3)].map((_, i) => (
@@ -95,7 +114,14 @@ export default function Home() {
           <AnimatedSection>
             <section id="categories" className="py-12">
               <h2 className="text-3xl font-bold text-center mb-8">Catégories</h2>
-              <CategoryCarousel categories={categories} onSelectCategory={setSelectedCategory} />
+              <CategoryCarousel categories={categories} onSelectCategory={handleSelectCategory} />
+            </section>
+          </AnimatedSection>
+          
+          <AnimatedSection>
+            <section id="collections" className="py-12">
+              <h2 className="text-3xl font-bold text-center mb-8">Collections</h2>
+              <CollectionCarousel collections={collections} onSelectCollection={handleSelectCollection} />
             </section>
           </AnimatedSection>
 
@@ -119,6 +145,8 @@ export default function Home() {
                     <ShoeShowcase
                       shoes={shoes}
                       selectedCategory={selectedCategory}
+                      selectedCollection={selectedCollection}
+                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}
@@ -138,6 +166,8 @@ export default function Home() {
                     <ShoeShowcase
                       shoes={shoes}
                       selectedCategory={selectedCategory}
+                      selectedCollection={selectedCollection}
+                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}
@@ -157,6 +187,8 @@ export default function Home() {
                     <ShoeShowcase
                       shoes={shoes}
                       selectedCategory={selectedCategory}
+                      selectedCollection={selectedCollection}
+                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}

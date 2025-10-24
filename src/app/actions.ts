@@ -6,8 +6,9 @@ import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
+import { addCollection as addCollectionInDb } from '@/services/collectionService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
-import type { Shoe, Category, PromoCode, Order } from '@/lib/types';
+import type { Shoe, Category, PromoCode, Order, Collection } from '@/lib/types';
 import { adminDb } from '@/firebase/admin';
 
 
@@ -101,6 +102,15 @@ export async function createCategory(categoryData: Omit<Category, 'id'>) {
     try {
         const categoryId = await addCategoryInDb(categoryData);
         return { success: true, categoryId };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createCollection(collectionData: Omit<Collection, 'id'>) {
+    try {
+        const collectionId = await addCollectionInDb(collectionData);
+        return { success: true, collectionId };
     } catch (error: any) {
         return { success: false, error: error.message };
     }
