@@ -109,39 +109,3 @@ export const updateOrderStatus = async (id: string, status: OrderStatus) => {
         throw contextualError;
     }
 };
-
-
-export const validateOrderDelivery = async (orderId: string, code: string): Promise<{ success: boolean; error?: string }> => {
-    const orderDocRef = doc(db, 'orders', orderId);
-    try {
-        const docSnap = await getDoc(orderDocRef);
-        if (!docSnap.exists()) {
-            return { success: false, error: "Commande non trouvée." };
-        }
-        
-        const order = fromFirestore(docSnap as QueryDocumentSnapshot<DocumentData>);
-
-        if (order.validationCode !== code.trim()) {
-            return { success: false, error: "Le code de validation est incorrect." };
-        }
-        if (order.status === 'Livré') {
-            return { success: false, error: 'Erreur : code déjà utilisé.' };
-        }
-        if (order.status === 'Annulé') {
-            return { success: false, error: 'Cette commande a été annulée.' };
-        }
-        
-        await updateOrderStatus(order.id, 'Livré');
-        return { success: true };
-
-    } catch (error: any) {
-        console.error("Error validating delivery:", error);
-        // This function is called from the admin panel, so permission errors should be handled.
-        const contextualError = new FirestorePermissionError({
-          operation: 'get', // Or 'update' depending on where it failed
-          path: orderDocRef.path,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        return { success: false, error: "Échec de la recherche ou de la mise à jour de la commande." };
-    }
-};

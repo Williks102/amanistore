@@ -198,6 +198,41 @@ export async function getOrderByCodeForValidation(code: string): Promise<{ order
   }
 }
 
+export async function validateOrderDelivery(orderId: string, code: string): Promise<{ success: boolean; error?: string }> {
+    if (!adminDb) {
+        return { success: false, error: "La connexion à la base de données administrateur a échoué." };
+    }
+
+    const orderDocRef = adminDb.collection('orders').doc(orderId);
+    
+    try {
+        const docSnap = await orderDocRef.get();
+
+        if (!docSnap.exists) {
+            return { success: false, error: "Commande non trouvée." };
+        }
+        
+        const order = docSnap.data() as Order;
+
+        if (order.validationCode !== code.trim()) {
+            return { success: false, error: "Le code de validation est incorrect." };
+        }
+        if (order.status === 'Livré') {
+            return { success: false, error: 'Erreur : code déjà utilisé.' };
+        }
+        if (order.status === 'Annulé') {
+            return { success: false, error: 'Cette commande a été annulée.' };
+        }
+        
+        await orderDocRef.update({ status: 'Livré' });
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error validating delivery:", error);
+        return { success: false, error: "Échec de la recherche ou de la mise à jour de la commande." };
+    }
+};
+
 
 // This action runs on the server and has elevated privileges.
 export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {

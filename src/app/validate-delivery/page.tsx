@@ -8,8 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { updateOrderStatus } from '@/services/orderService';
-import { getOrderByCodeForValidation } from '@/app/actions';
+import { getOrderByCodeForValidation, validateOrderDelivery } from '@/app/actions';
 import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
@@ -90,14 +89,22 @@ export default function ValidateDeliveryPage() {
     setIsSubmitting(true);
     
     try {
-        await updateOrderStatus(order.id, 'Livré');
-        setOrder(null);
-        setCode('');
-        setValidationSuccess(true);
-        toast({
-            title: 'Livraison validée !',
-            description: 'Le statut de la commande a été mis à jour.',
-        });
+        const result = await validateOrderDelivery(order.id, code.trim());
+        if (result.success) {
+            setOrder(null);
+            setCode('');
+            setValidationSuccess(true);
+            toast({
+                title: 'Livraison validée !',
+                description: 'Le statut de la commande a été mis à jour.',
+            });
+        } else {
+            toast({
+                title: 'Erreur de validation',
+                description: result.error || 'La mise à jour du statut a échoué.',
+                variant: 'destructive',
+            });
+        }
     } catch (error: any) {
          toast({
             title: 'Erreur de validation',
