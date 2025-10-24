@@ -38,10 +38,10 @@ const Hero = () => {
                 <div className="absolute inset-0 bg-black/40" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-4">
                   <h2 className="text-4xl md:text-6xl font-headline font-bold">
-                    Find Your Perfect Pair
+                  Trouvez votre paire parfaite
                   </h2>
                   <p className="mt-2 text-lg md:text-xl">
-                    Style, Comfort, and Quality in Every Step.
+                  Style, confort et qualité à chaque pas.
                   </p>
                 </div>
               </div>
