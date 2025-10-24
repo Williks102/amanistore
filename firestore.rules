@@ -1,40 +1,52 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper function to check if a user is an admin
     function isAdmin() {
-      return request.auth != null && request.auth.token.email == "sergemessou@hotmail.com";
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Default to denying all access
+    match /{document=**} {
+      allow read, write: if false;
     }
-    
+
+    // Users can only read and write their own documents
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+
+    // Products are publicly readable, but only admins can modify them
     match /shoes/{shoeId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
     }
-    
+
+    // Categories are publicly readable, but only admins can modify them
     match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
     }
-    
+
+    // Collections are publicly readable, but only admins can modify them
     match /collections/{collectionId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
     }
 
-    match /promoCodes/{promoCodeId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
+    // Orders can be created by any authenticated user.
+    // Reading/listing is restricted. Admins can do anything.
     match /orders/{orderId} {
       allow create: if request.auth != null;
-      allow read: if request.auth != null && (isAdmin() || request.auth.uid == resource.data.userId);
-      allow update: if isAdmin();
+      allow read, update, delete: if isAdmin();
+    }
+    
+    // Promo codes are only manageable by admins.
+    match /promoCodes/{promoCodeId} {
+        allow read, write: if isAdmin();
     }
   }
 }
