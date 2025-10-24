@@ -276,9 +276,9 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                   </NavigationMenuTrigger>
                 <NavigationMenuContent>
                   <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-                    {categories.map((component) => (
-                      <ListItem key={component.name} title={component.name} href={`/shop?category=${component.id}`}>
-                          Découvrez notre sélection de {component.name.toLowerCase()}
+                    {categories.map((category) => (
+                      <ListItem key={category.id} title={category.name} href={`/shop?category=${category.id}`}>
+                          Découvrez notre sélection de {category.name.toLowerCase()}
                       </ListItem>
                     ))}
                   </ul>
@@ -323,5 +323,3 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
 };
 
 export default Header;
-
-    
