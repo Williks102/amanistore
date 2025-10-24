@@ -19,9 +19,15 @@ service cloud.firestore {
     // ✅ Autoriser la LECTURE de la LISTE des collections à la racine.
     // Essentiel pour que l'application puisse découvrir les collections comme 'shoes', 'categories', etc.
     // sans être bloquée par la règle de sécurité par défaut.
-    match /databases/{database}/documents {
-      allow list: if request.auth == null || request.auth != null; // Autorise tout le monde, authentifié ou non
-    }
+    match /collections/{collectionId} {
+  allow get, list: if true;
+  allow create, update, delete: if isAdmin();
+}
+
+match /{document=**} {
+  allow list: if true;
+  allow read, write: if false;
+}
 
     // 👤 Règles pour la collection 'users'
     match /users/{userId} {
