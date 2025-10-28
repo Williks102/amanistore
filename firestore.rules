@@ -1,75 +1,33 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // 🔐 Fonction utilitaire pour vérifier si l'utilisateur est admin
-    function isAdmin() {
-      // Vérifie si l'utilisateur authentifié a le rôle 'admin' dans son document utilisateur.
-      // C'est une méthode sécurisée et scalable pour gérer les permissions.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    match /shoes/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == "admin@example.com";
     }
 
-    // 🔒 Par défaut, interdire tout accès. Règle de sécurité fondamentale.
-    match /{document=**} {
-      allow read, write: if false;
+    match /categories/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == "admin@example.com";
     }
     
-    // ✅ Autoriser la LECTURE de la LISTE des collections à la racine.
-    // Essentiel pour que l'application puisse découvrir les collections comme 'shoes', 'categories', etc.
-    // sans être bloquée par la règle de sécurité par défaut.
-    match /collections/{collectionId} {
-  allow get, list: if true;
-  allow create, update, delete: if isAdmin();
-}
-
-match /{document=**} {
-  allow list: if true;
-  allow read, write: if false;
-}
-
-    // 👤 Règles pour la collection 'users'
-    match /users/{userId} {
-      // Un utilisateur ne peut lire et écrire que son propre document.
-      allow read, write: if request.auth.uid == userId;
-      // Un admin peut lire le document de n'importe quel utilisateur (utile pour le support).
-      allow get: if isAdmin();
+    match /collections/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == "admin@example.com";
     }
 
-    // 👟 Produits : lecture publique, modification réservée aux admins
-    match /shoes/{shoeId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
+    match /orders/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // 🗂️ Catégories : lecture publique, modification réservée aux admins
-    match /categories/{categoryId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // 🎯 Collections : lecture publique, modification réservée aux admins
-    match /collections/{collectionId} {
-      allow get, list: if true;
-      allow create, update, delete: if isAdmin();
-    }
-
-    // 🧾 Commandes :
-    match /orders/{orderId} {
-      // Un utilisateur connecté peut créer une commande.
-      allow create: if request.auth != null;
-      // Seul l'admin peut lire, mettre à jour ou supprimer des commandes.
-      // La lecture est restreinte pour que les utilisateurs ne voient pas les commandes des autres.
-      // Le suivi de commande se fait via une action serveur sécurisée (getOrdersForUser).
-      allow read, update, delete: if isAdmin();
-      // Un utilisateur peut lire ses propres commandes.
-      allow list: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-
-    // 🎟️ Codes promo : accès réservé aux admins
-    match /promoCodes/{promoCodeId} {
-      allow read, write: if isAdmin();
+    match /promoCodes/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == "admin@example.com";
     }
   }
 }
