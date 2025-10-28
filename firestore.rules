@@ -1,43 +1,91 @@
-
+/**
+ * @fileOverview Firestore Security Rules for Amani's
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user profiles and preferences,
+ * and allows public read access to shoe product information. Write access to shoe data
+ * is implicitly restricted (DBAC not yet defined, but write operations are denied).
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information. Only the user with the matching
+ *   userId can read or write their profile.
+ * - /shoes/{shoeId}: Stores shoe product information. This data is publicly readable.
+ * - /categories/{categoryId}: Stores category information. This data is publicly readable.
+ * - /collections/{collectionId}: Stores collection information. This data is publicly readable.
+ * - /orders/{orderId}: Stores order information.
+ * - /users/{userId}/preferences/{preferenceId}: Stores user preferences. Only the user
+ *   with the matching userId can read or write their preferences.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Publicly readable collections
-    match /shoes/{shoeId} {
-      allow read;
-      // Allow write only for admins (future implementation)
-      allow write: if false; 
-    }
-
-    match /categories/{categoryId} {
-      allow read;
-      allow write: if false;
-    }
-
-    match /collections/{collectionId} {
-      allow read;
-      allow write: if false;
-    }
-    
-    match /promoCodes/{promoId} {
-      allow read;
-      allow write: if false;
-    }
-
-    // User-specific data
+    /**
+     * @description Controls access to user profile documents.
+     */
     match /users/{userId} {
-      // Users can read and write their own data
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
-    
-    // Orders can be created by any authenticated user
-    // Reading an order should be restricted
+
+    /**
+     * @description Controls access to shoe product documents. Allows public read access.
+     */
+    match /shoes/{shoeId} {
+      allow get, list: if true;
+      allow write: if false; // Explicitly deny writes for now
+    }
+
+    /**
+     * @description Controls access to category documents. Allows public read access.
+     */
+    match /categories/{categoryId} {
+        allow get, list: if true;
+        allow write: if false; // Explicitly deny writes for now
+    }
+
+    /**
+     * @description Controls access to collection documents. Allows public read access.
+     */
+    match /collections/{collectionId} {
+        allow get, list: if true;
+        allow write: if false; // Explicitly deny writes for now
+    }
+
+    /**
+     * @description Controls access to promo code documents.
+     * Read is public for code validation, write is restricted.
+     */
+    match /promoCodes/{promoCodeId} {
+        allow get, list: if true;
+        allow write: if false; // Managed by admin actions, deny direct client write
+    }
+
+    /**
+     * @description Controls access to user preference documents.
+     */
+    match /users/{userId}/preferences/{preferenceId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    /**
+     * @description Controls access to order documents.
+     * Users can create orders.
+     * Users can only read their own orders.
+     * Admin can read all orders (not implemented in rules, relies on server-side logic).
+     */
     match /orders/{orderId} {
-       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-       // Allow user to read their own orders. Admins could be added later.
-       allow read, update: if request.auth != null && (request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow create: if isSignedIn();
+      allow get: if resource.data.userId == request.auth.uid;
+      allow list, update, delete: if false; // List is done via server action for security
     }
+  }
+
+  // --- Helper functions ---
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth != null && request.auth.uid == userId;
   }
 }
