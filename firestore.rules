@@ -1,41 +1,43 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // Publicly readable collections
     match /shoes/{shoeId} {
       allow read;
-      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
+      // Allow write only for admins (future implementation)
+      allow write: if false; 
     }
 
     match /categories/{categoryId} {
       allow read;
-      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
+      allow write: if false;
     }
 
     match /collections/{collectionId} {
       allow read;
-      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
+      allow write: if false;
     }
     
     match /promoCodes/{promoId} {
-      allow get: if true;
-      allow list, create, update, delete: if request.auth != null && request.auth.token.email == resource.data.adminEmail;
+      allow read;
+      allow write: if false;
     }
 
     // User-specific data
     match /users/{userId} {
-      // Users can read and write their own data.
+      // Users can read and write their own data
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Orders can be created by any authenticated user
+    // Reading an order should be restricted
     match /orders/{orderId} {
-        // Allow user to create order
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-        // Allow user to read their own orders
-        allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-        // Allow admin to update status
-        allow update: if request.auth != null && request.auth.token.email == resource.data.adminEmail;
+       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+       // Allow user to read their own orders. Admins could be added later.
+       allow read, update: if request.auth != null && (request.auth.uid == resource.data.userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
   }
 }
