@@ -2,38 +2,40 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Les données publiques : tout le monde peut lire.
+    // Publicly readable collections
     match /shoes/{shoeId} {
       allow read;
-      // Les écritures doivent être gérées par des fonctions backend (admin)
-      allow write: if false; 
+      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
     }
 
     match /categories/{categoryId} {
       allow read;
-      allow write: if false;
+      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
     }
 
     match /collections/{collectionId} {
       allow read;
-      allow write: if false;
+      allow write: if request.auth != null && request.auth.token.email == resource.data.adminEmail; // Example admin write rule
+    }
+    
+    match /promoCodes/{promoId} {
+      allow get: if true;
+      allow list, create, update, delete: if request.auth != null && request.auth.token.email == resource.data.adminEmail;
     }
 
-    // Les codes promo sont gérés côté admin, mais peuvent être lus par le backend
-    match /promoCodes/{promoCodeId} {
-      allow read, write: if request.auth != null && request.auth.token.email == "sergemessou@hotmail.com"; // Admin only
-    }
-
-    // Les données utilisateur : seul l'utilisateur concerné peut lire/écrire.
+    // User-specific data
     match /users/{userId} {
+      // Users can read and write their own data.
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Les commandes : seul l'utilisateur concerné peut créer et lire ses commandes.
+    
     match /orders/{orderId} {
-      allow read, create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      // La mise à jour et la suppression sont gérées côté admin
-      allow update, delete: if request.auth != null && request.auth.token.email == "sergemessou@hotmail.com";
+        // Allow user to create order
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+        // Allow user to read their own orders
+        allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+        // Allow admin to update status
+        allow update: if request.auth != null && request.auth.token.email == resource.data.adminEmail;
     }
   }
 }
