@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
-import { addCollection as addCollectionInDb } from '@/services/collectionService';
+import { addCollection as addCollectionInDb, deleteCollection as deleteCollectionInDb } from '@/services/collectionService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order, Collection } from '@/lib/types';
 import { adminDb } from '@/firebase/admin';
@@ -115,6 +115,39 @@ export async function createCollection(collectionData: Omit<Collection, 'id'>) {
     } catch (error: any) {
         return { success: false, error: error.message };
     }
+}
+
+export async function deleteCollection(collectionId: string) {
+    try {
+        await deleteCollectionInDb(collectionId);
+        return { success: true };
+    } catch (error: any) {
+        console.error("Erreur lors de la suppression de la collection:", error);
+        return { success: false, error: 'Impossible de supprimer la collection.' };
+    }
+}
+
+export async function getCollectionsForClient(): Promise<{ collections: Collection[] | null; error?: string }> {
+  if (!adminDb) {
+    return { collections: null, error: 'Connexion à la base de données administrateur a échoué.' };
+  }
+  try {
+    const snapshot = await adminDb.collection('collections').get();
+    if (snapshot.empty) {
+        return { collections: [] };
+    }
+    const collections = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        id: doc.id,
+      } as Collection;
+    });
+    return { collections };
+  } catch (error: any) {
+    console.error("Erreur détaillée côté serveur lors de la récupération des collections:", error);
+    return { collections: null, error: 'Impossible de récupérer les collections.' };
+  }
 }
 
 export async function validatePromoCode(code: string) {

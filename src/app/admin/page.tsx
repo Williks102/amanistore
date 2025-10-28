@@ -35,13 +35,13 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
-import { getOrders, updateOrderStatus, validateOrderDelivery } from '@/services/orderService';
+import { getOrders, updateOrderStatus } from '@/services/orderService';
 import { getProducts, deleteProduct } from '@/services/productService';
 import { getCategories, deleteCategory } from '@/services/categoryService';
-import { getCollections, deleteCollection } from '@/services/collectionService';
+import { getCollections } from '@/services/collectionService';
 import { getPromoCodes } from '@/services/promoCodeService';
 import { useToast } from '@/hooks/use-toast';
-import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode, createCollection } from '@/app/actions';
+import { uploadImage, createProduct, createCategory, updateProduct, createPromoCode, togglePromoCodeStatus, removePromoCode, createCollection, deleteCollection, validateOrderDelivery } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
 import { Switch } from '@/components/ui/switch';
 import { Sidebar, SidebarContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarSeparator, SidebarTrigger } from '@/components/ui/sidebar';
@@ -468,12 +468,12 @@ const AdminDashboard = () => {
   
   const handleDeleteCollection = async (collectionId: string) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette collection ?')) return;
-    try {
-      await deleteCollection(collectionId);
+    const result = await deleteCollection(collectionId);
+    if (result.success) {
       toast({ title: 'Succès', description: 'Collection supprimée.' });
       fetchAllData();
-    } catch (error: any) {
-      toast({ title: 'Erreur', description: error.message || 'La suppression de la collection a échoué.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
     }
   };
 

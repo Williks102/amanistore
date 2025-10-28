@@ -146,7 +146,6 @@ export default function Home() {
                       shoes={shoes}
                       selectedCategory={selectedCategory}
                       selectedCollection={selectedCollection}
-                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}
@@ -167,7 +166,6 @@ export default function Home() {
                       shoes={shoes}
                       selectedCategory={selectedCategory}
                       selectedCollection={selectedCollection}
-                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}
@@ -188,7 +186,6 @@ export default function Home() {
                       shoes={shoes}
                       selectedCategory={selectedCategory}
                       selectedCollection={selectedCollection}
-                      categories={categories}
                       searchTerm={searchTerm}
                       priceRange={priceRange}
                       selectedSizes={selectedSizes}

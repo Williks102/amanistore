@@ -11,7 +11,6 @@ interface ShoeShowcaseProps {
   shoes: Shoe[];
   selectedCategory: Category | null;
   selectedCollection: Collection | null;
-  categories: Category[];
   searchTerm: string;
   priceRange: PriceRange;
   selectedSizes: number[];
@@ -23,7 +22,6 @@ const ShoeShowcase = ({
   shoes,
   selectedCategory,
   selectedCollection,
-  categories,
   searchTerm,
   priceRange,
   selectedSizes,
