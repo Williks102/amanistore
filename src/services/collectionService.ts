@@ -31,5 +31,3 @@ export const deleteCollection = async (id: string) => {
     const collectionDoc = doc(db, 'collections', id);
     await deleteDoc(collectionDoc);
 };
-
-    

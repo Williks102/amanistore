@@ -329,5 +329,3 @@ async function checkAdminPrivileges(uid: string): Promise<boolean> {
   const userAuth = await getAuth().getUser(uid);
   return userAuth.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 }
-
-    
