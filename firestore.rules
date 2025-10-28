@@ -1,46 +1,39 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Les données publiques : tout le monde peut lire.
     match /shoes/{shoeId} {
-      // Shoes are publicly readable
       allow read;
-      // Writing to shoes requires admin privileges (not defined in rules, but could be done via backend)
+      // Les écritures doivent être gérées par des fonctions backend (admin)
       allow write: if false; 
     }
 
-    match /collections/{collectionId} {
-      // Collections are publicly readable
+    match /categories/{categoryId} {
       allow read;
-      // Writing to collections requires admin privileges (backend controlled)
       allow write: if false;
     }
 
-    match /categories/{categoryId} {
-      // Categories are publicly readable
+    match /collections/{collectionId} {
       allow read;
-      allow write: if false; // Admin only
+      allow write: if false;
     }
 
+    // Les codes promo sont gérés côté admin, mais peuvent être lus par le backend
     match /promoCodes/{promoCodeId} {
-      // Promo codes can be read by admins (backend) or validated by users
-      allow read; 
-      allow write: if false; // Admin only
+      allow read, write: if request.auth != null && request.auth.token.email == "sergemessou@hotmail.com"; // Admin only
     }
 
-    match /orders/{orderId} {
-      // Users can create their own orders
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-      // Users can read their own orders, admins can read any
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      // Only admins can update orders (e.g., status)
-      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      allow delete: if false; // Orders should not be deleted
-    }
-
-     match /users/{userId} {
-      // Users can read and write to their own user document
+    // Les données utilisateur : seul l'utilisateur concerné peut lire/écrire.
+    match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Les commandes : seul l'utilisateur concerné peut créer et lire ses commandes.
+    match /orders/{orderId} {
+      allow read, create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // La mise à jour et la suppression sont gérées côté admin
+      allow update, delete: if request.auth != null && request.auth.token.email == "sergemessou@hotmail.com";
     }
   }
 }
