@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
 import { addCategory as addCategoryInDb } from '@/services/categoryService';
-import { addCollection as addCollectionInDb, deleteCollection as deleteCollectionInDb } from '@/services/collectionService';
+import { deleteCollection as deleteCollectionInDb } from '@/services/collectionService';
 import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order, Collection } from '@/lib/types';
 import { adminDb } from '@/firebase/admin';
@@ -109,11 +109,15 @@ export async function createCategory(categoryData: Omit<Category, 'id'>) {
 }
 
 export async function createCollection(collectionData: Omit<Collection, 'id'>) {
+    if (!adminDb) {
+        return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+    }
     try {
-        const collectionId = await addCollectionInDb(collectionData);
-        return { success: true, collectionId };
+        const docRef = await adminDb.collection('collections').add(collectionData);
+        return { success: true, collectionId: docRef.id };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error("Erreur lors de la création de la collection:", error);
+        return { success: false, error: 'Impossible de créer la collection.' };
     }
 }
 
@@ -325,3 +329,5 @@ async function checkAdminPrivileges(uid: string): Promise<boolean> {
   const userAuth = await getAuth().getUser(uid);
   return userAuth.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 }
+
+    

@@ -1,8 +1,8 @@
 
 import { db } from '@/firebase';
 import type { Collection } from '@/lib/types';
-import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
-import { getCollectionsForClient } from '@/app/actions';
+import { collection, deleteDoc, doc } from 'firebase/firestore';
+import { getCollectionsForClient, createCollection as createCollectionAction } from '@/app/actions';
 
 const getCollectionRef = () => collection(db, 'collections');
 
@@ -18,10 +18,12 @@ export const getCollections = async (): Promise<Collection[]> => {
 };
 
 export const addCollection = async (collectionData: Omit<Collection, 'id'>) => {
-    // This function remains a client-side call, but it's now wrapped in a server action `createCollection`.
-    // It's kept here for structural consistency.
-    const docRef = await addDoc(getCollectionRef(), collectionData);
-    return docRef.id;
+    // This function now calls the server action, ensuring writes happen on the server.
+    const result = await createCollectionAction(collectionData);
+    if (!result.success || !result.collectionId) {
+        throw new Error(result.error || 'Failed to create collection via server action.');
+    }
+    return result.collectionId;
 };
 
 export const deleteCollection = async (id: string) => {
@@ -29,3 +31,5 @@ export const deleteCollection = async (id: string) => {
     const collectionDoc = doc(db, 'collections', id);
     await deleteDoc(collectionDoc);
 };
+
+    

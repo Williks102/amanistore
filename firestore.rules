@@ -1,91 +1,67 @@
-/**
- * @fileOverview Firestore Security Rules for Amani's
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles and preferences,
- * and allows public read access to shoe product information. Write access to shoe data
- * is implicitly restricted (DBAC not yet defined, but write operations are denied).
- *
- * Data Structure:
- * - /users/{userId}: Stores user profile information. Only the user with the matching
- *   userId can read or write their profile.
- * - /shoes/{shoeId}: Stores shoe product information. This data is publicly readable.
- * - /categories/{categoryId}: Stores category information. This data is publicly readable.
- * - /collections/{collectionId}: Stores collection information. This data is publicly readable.
- * - /orders/{orderId}: Stores order information.
- * - /users/{userId}/preferences/{preferenceId}: Stores user preferences. Only the user
- *   with the matching userId can read or write their preferences.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Controls access to user profile documents.
-     */
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    function isAdmin() {
+      // Production: Check for a custom claim `admin: true` on the user's token.
+      // return request.auth.token.admin == true;
+      // For this prototype, we check against a specific admin email.
+      return request.auth.token.email == "sergemessou@hotmail.com";
+    }
+
+    // PUBLIC COLLECTIONS
+    // Shoes, Categories, and Collections are publicly readable by anyone.
+    // Writes are disallowed from the client to enforce use of server-side logic (e.g., for admin actions).
+    match /shoes/{shoeId} {
+      allow get, list: if true;
+      allow write: if false; // Secure: All writes must go through server actions.
+    }
+    
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow write: if false; // Secure: All writes must go through server actions.
+    }
+
+    match /collections/{collectionId} {
+      allow get, list: if true;
+      allow write: if false; // Secure: All writes must go through server actions.
+    }
+    
+    match /promoCodes/{promoId} {
+      allow get, list: if true; // Promo codes can be read by clients to validate
+      allow write: if false; // Must be managed by admin via server actions
+    }
+
+    // USER-SPECIFIC COLLECTIONS
+    // Users can only access their own documents in these collections.
     match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
-
-    /**
-     * @description Controls access to shoe product documents. Allows public read access.
-     */
-    match /shoes/{shoeId} {
-      allow get, list: if true;
-      allow write: if false; // Explicitly deny writes for now
-    }
-
-    /**
-     * @description Controls access to category documents. Allows public read access.
-     */
-    match /categories/{categoryId} {
-        allow get, list: if true;
-        allow write: if false; // Explicitly deny writes for now
-    }
-
-    /**
-     * @description Controls access to collection documents. Allows public read access.
-     */
-    match /collections/{collectionId} {
-        allow get, list: if true;
-        allow write: if false; // Explicitly deny writes for now
-    }
-
-    /**
-     * @description Controls access to promo code documents.
-     * Read is public for code validation, write is restricted.
-     */
-    match /promoCodes/{promoCodeId} {
-        allow get, list: if true;
-        allow write: if false; // Managed by admin actions, deny direct client write
-    }
-
-    /**
-     * @description Controls access to user preference documents.
-     */
+    
     match /users/{userId}/preferences/{preferenceId} {
       allow read, write: if isOwner(userId);
     }
 
-    /**
-     * @description Controls access to order documents.
-     * Users can create orders.
-     * Users can only read their own orders.
-     * Admin can read all orders (not implemented in rules, relies on server-side logic).
-     */
+    // ORDERS
+    // Users can create their own orders.
+    // Only authenticated users can read an order, but the specific logic
+    // of *which* order they can read should be handled by server-side queries.
+    // Listing all orders from the client is forbidden.
     match /orders/{orderId} {
       allow create: if isSignedIn();
-      allow get: if resource.data.userId == request.auth.uid;
-      allow list, update, delete: if false; // List is done via server action for security
+      allow read: if isSignedIn(); 
+      allow update, delete: if false; // Order updates (e.g., status change) must be via server actions.
+      allow list: if false; // Users should not be able to list all orders.
     }
   }
-
-  // --- Helper functions ---
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  function isOwner(userId) {
-    return request.auth != null && request.auth.uid == userId;
-  }
 }
+
+    
