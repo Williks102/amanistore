@@ -68,29 +68,43 @@ export default function OrderConfirmationPage() {
   
   const handleCopyToClipboard = async () => {
     if (!order?.validationCode) return;
-
-    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    
+    // Check for Clipboard API and permissions
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
       toast({
         title: "Copie non supportée",
-        description: "Votre navigateur ou cet environnement ne permet pas la copie automatique.",
+        description: "Votre navigateur ne permet pas la copie automatique. Veuillez copier manuellement.",
         variant: "destructive",
       });
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(order.validationCode);
-      toast({
-        title: "Copié !",
-        description: "Le code de validation a été copié dans le presse-papiers.",
-      });
+        // The Permissions API is the modern way to check capabilities.
+        const permission = await navigator.permissions.query({ name: 'clipboard-write' as PermissionName });
+        if (permission.state === 'denied') {
+            toast({
+                title: "Permission refusée",
+                description: "La copie automatique est bloquée. Veuillez copier le code manuellement.",
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        // If granted or prompt, attempt to copy.
+        await navigator.clipboard.writeText(order.validationCode);
+        toast({
+            title: "Copié !",
+            description: "Le code de validation a été copié dans le presse-papiers.",
+        });
     } catch (err) {
-      console.error("Failed to copy text: ", err);
-      toast({
-        title: "Erreur de copie",
-        description: "Impossible de copier le code. Veuillez le copier manuellement.",
-        variant: "destructive",
-      });
+        console.error("Clipboard API failed:", err);
+        // This catch block will handle environments where the API is blocked by policy
+        toast({
+            title: "Copie automatique bloquée",
+            description: "Veuillez copier le code manuellement.",
+            variant: "destructive",
+        });
     }
   }
 
@@ -249,5 +263,3 @@ export default function OrderConfirmationPage() {
     </div>
   );
 }
-
-    
