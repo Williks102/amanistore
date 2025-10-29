@@ -1,16 +1,16 @@
 {
   "placeholderImages": [
     {
-      "id": "urban-stride-sneaker-grid",
-      "description": "Main grid image for Urban Stride Sneaker",
-      "imageUrl": "https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739458/Découvrez_la_collection_1_hn4mma.png",
-      "imageHint": "stylish sneaker"
+      "id": "hero-new-collection",
+      "description": "Hero image for the new collection",
+      "imageUrl": "https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739482/D%C3%A9couvrez_la_collection_son5ea.png",
+      "imageHint": "shoe collection"
     },
     {
-      "id": "urban-stride-sneaker-1",
-      "description": "Detail image 1 for Urban Stride Sneaker",
-      "imageUrl": "https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739482/Découvrez_la_collection_son5ea.png",
-      "imageHint": "sneaker side"
+      "id": "hero-image-2",
+      "description": "Second hero image showing a stylish shoe",
+      "imageUrl": "https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739458/D%C3%A9couvrez_la_collection_1_hn4mma.png",
+      "imageHint": "women fashion"
     },
 
 
