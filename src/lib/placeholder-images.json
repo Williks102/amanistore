@@ -3,15 +3,20 @@
     {
       "id": "urban-stride-sneaker-grid",
       "description": "Main grid image for Urban Stride Sneaker",
-      "imageUrl": "https://images.unsplash.com/photo-1742390671595-29fae0a07ea2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzdHlsaXNoJTIwc25lYWtlcnxlbnwwfHx8fDE3NTkwOTc2MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739458/Découvrez_la_collection_1_hn4mma.png
+",
       "imageHint": "stylish sneaker"
     },
     {
       "id": "urban-stride-sneaker-1",
       "description": "Detail image 1 for Urban Stride Sneaker",
-      "imageUrl": "https://images.unsplash.com/photo-1527706005773-ae5d75e90c0e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c25lYWtlciUyMHNpZGV8ZW58MHx8fHwxNzU4OTk3MTAyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "Delivery URL:
+https://res.cloudinary.com/db4hmbdv3/image/upload/v1761739482/Découvrez_la_collection_son5ea.png
+",
       "imageHint": "sneaker side"
     },
+
+
     {
       "id": "urban-stride-sneaker-2",
       "description": "Detail image 2 for Urban Stride Sneaker",
