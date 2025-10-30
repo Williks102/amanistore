@@ -66,7 +66,7 @@ export default function LoginPage() {
           router.push('/dashboard');
       }
     } catch (error: any) {
-      let errorMessage = "Une erreur est survenue lors de la connexion.";
+      let errorMessage = "Une erreur est survenue lors d la connexion.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Email ou mot de passe incorrect.";
       }
