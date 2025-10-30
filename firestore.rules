@@ -3,65 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
-    function isSignedIn() {
+    function isAuth() {
       return request.auth != null;
     }
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
+
     function isAdmin() {
-      // Production: Check for a custom claim `admin: true` on the user's token.
-      // return request.auth.token.admin == true;
-      // For this prototype, we check against a specific admin email.
-      return request.auth.token.email == "sergemessou@hotmail.com";
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // PUBLIC COLLECTIONS
-    // Shoes, Categories, and Collections are publicly readable by anyone.
-    // Writes are disallowed from the client to enforce use of server-side logic (e.g., for admin actions).
-    match /shoes/{shoeId} {
-      allow get, list: if true;
-      allow write: if false; // Secure: All writes must go through server actions.
-    }
-    
-    match /categories/{categoryId} {
-      allow get, list: if true;
-      allow write: if false; // Secure: All writes must go through server actions.
-    }
-
-    match /collections/{collectionId} {
-      allow get, list: if true;
-      allow write: if false; // Secure: All writes must go through server actions.
-    }
-    
-    match /promoCodes/{promoId} {
-      allow get, list: if true; // Promo codes can be read by clients to validate
-      allow write: if false; // Must be managed by admin via server actions
-    }
-
-    // USER-SPECIFIC COLLECTIONS
-    // Users can only access their own documents in these collections.
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-    }
-    
-    match /users/{userId}/preferences/{preferenceId} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // ORDERS
-    // Users can create their own orders.
-    // Only authenticated users can read an order, but the specific logic
-    // of *which* order they can read should be handled by server-side queries.
-    // Listing all orders from the client is forbidden.
-    match /orders/{orderId} {
-      allow create: if isSignedIn();
-      allow read: if isSignedIn(); 
-      allow update, delete: if false; // Order updates (e.g., status change) must be via server actions.
-      allow list: if false; // Users should not be able to list all orders.
+    match /{document=**} {
+      allow read, write: if isAuth() && isAdmin();
     }
   }
 }
-
-    

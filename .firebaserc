@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "studio-6877234553-fd6c1"
-  }
+    "default": "studio-6877234553-fd6c1",
+    "amanis": "studio-6877234553-fd6c1"
+  },
+  "targets": {},
+  "etags": {}
 }

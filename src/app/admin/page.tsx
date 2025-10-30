@@ -1151,6 +1151,14 @@ const AdminDashboard = () => {
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
+                            <SidebarMenuButton asChild>
+                            <Link href="/admin/roles">
+                                <KeyRound />
+                                Roles
+                            </Link>
+                            </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        <SidebarMenuItem>
                             <SidebarMenuButton onClick={() => setActiveView('orders')} isActive={activeView === 'orders'}>
                                 <ListOrdered />
                                 Commandes
@@ -1193,6 +1201,7 @@ const AdminDashboard = () => {
                                 Valider Livraison
                             </Link>
                             </SidebarMenuButton>
+                            
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarContent>
