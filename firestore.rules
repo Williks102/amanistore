@@ -3,16 +3,79 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
+    // Helper functions
+    function isSignedIn() {
       return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Function to get user roles from the 'roles' collection.
+    function getRoles() {
+      // access a document in the 'roles' collection where the doc ID is the user's UID.
+      return get(/databases/$(database)/documents/roles/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Check for the 'admin' field in the user's role document.
+      return getRoles().admin == true;
     }
 
-    match /{document=**} {
-      allow read, write: if isAuth() && isAdmin();
+    function isProductManager() {
+      // Check for the 'productManager' field in the user's role document.
+      return getRoles().productManager == true;
+    }
+    function isOrderManager() {
+      // Check for the 'orderManager' field in the user's role document.
+      return getRoles().orderManager == true;
+    }
+
+    // ROLES COLLECTION
+    // This collection stores user roles. Only admins can modify it.
+    match /roles/{userId} {
+      allow read, write: if isAdmin();
+    }
+
+    // PUBLIC COLLECTIONS
+    match /shoes/{shoeId} {
+      allow get, list: if true;
+      allow write: if isAdmin() || isProductManager(); // Admins or Product Managers can write.
+    }
+    
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow write: if isAdmin(); // Only admins can write.
+    }
+
+    match /collections/{collectionId} {
+      allow get, list: if true;
+      allow write: if isAdmin(); // Only admins can write.
+    }
+    
+    match /promoCodes/{promoId} {
+      allow get, list: if true;
+      allow write: if isAdmin(); // Only admins can write.
+    }
+
+    // USER-SPECIFIC COLLECTIONS
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    
+    match /users/{userId}/preferences/{preferenceId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ORDERS
+    match /orders/{orderId} {
+      allow create: if isSignedIn();
+      // An order can be read by its owner, an admin, or an order manager.
+      allow read: if (resource.data.userId == request.auth.uid) || isAdmin() || isOrderManager(); 
+      // Order status can be updated by an admin or order manager.
+      allow update, delete: if isAdmin() || isOrderManager();
+      // All orders can be listed by an admin or order manager.
+      allow list: if isAdmin() || isOrderManager();
     }
   }
 }
