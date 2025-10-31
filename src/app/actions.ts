@@ -1,13 +1,8 @@
-
 'use server';
 
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
-import { updateProduct as updateProductInDb, addProduct as addProductInDb } from '@/services/productService';
-import { addCategory as addCategoryInDb } from '@/services/categoryService';
-import { deleteCollection as deleteCollectionInDb } from '@/services/collectionService';
-import { getPromoCodeByCode, addPromoCode as addPromoCodeInDb, updatePromoCode as updatePromoCodeInDb, deletePromoCode as deletePromoCodeInDb } from '@/services/promoCodeService';
 import type { Shoe, Category, PromoCode, Order, Collection } from '@/lib/types';
 import { adminDb } from '@/firebase/admin';
 import { getAuth } from 'firebase-admin/auth';
@@ -80,34 +75,48 @@ export async function uploadImage(formData: FormData) {
   }
 }
 
+// ============ PRODUCT ACTIONS ============
 export async function createProduct(newShoeData: Omit<Shoe, 'id'>) {
     try {
-        const productId = await addProductInDb(newShoeData);
-        return { success: true, productId };
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        const docRef = await adminDb.collection('shoes').add(newShoeData);
+        return { success: true, productId: docRef.id };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error('Error creating product:', error);
+        return { success: false, error: error.message || 'Erreur lors de la création du produit' };
     }
 }
 
 export async function updateProduct(shoeId: string, updatedShoeData: Partial<Shoe>) {
     try {
-        await updateProductInDb(shoeId, updatedShoeData);
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        await adminDb.collection('shoes').doc(shoeId).update(updatedShoeData);
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error('Error updating product:', error);
+        return { success: false, error: error.message || 'Erreur lors de la mise à jour du produit' };
     }
 }
 
-
+// ============ CATEGORY ACTIONS ============
 export async function createCategory(categoryData: Omit<Category, 'id'>) {
     try {
-        const categoryId = await addCategoryInDb(categoryData);
-        return { success: true, categoryId };
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        const docRef = await adminDb.collection('categories').add(categoryData);
+        return { success: true, categoryId: docRef.id };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error("Erreur lors de la création de la catégorie:", error);
+        return { success: false, error: error.message || 'Impossible de créer la catégorie.' };
     }
 }
 
+// ============ COLLECTION ACTIONS ============
 export async function createCollection(collectionData: Omit<Collection, 'id'>) {
     if (!adminDb) {
         return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
@@ -117,17 +126,20 @@ export async function createCollection(collectionData: Omit<Collection, 'id'>) {
         return { success: true, collectionId: docRef.id };
     } catch (error: any) {
         console.error("Erreur lors de la création de la collection:", error);
-        return { success: false, error: 'Impossible de créer la collection.' };
+        return { success: false, error: error.message || 'Impossible de créer la collection.' };
     }
 }
 
 export async function deleteCollection(collectionId: string) {
     try {
-        await deleteCollectionInDb(collectionId);
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        await adminDb.collection('collections').doc(collectionId).delete();
         return { success: true };
     } catch (error: any) {
         console.error("Erreur lors de la suppression de la collection:", error);
-        return { success: false, error: 'Impossible de supprimer la collection.' };
+        return { success: false, error: error.message || 'Impossible de supprimer la collection.' };
     }
 }
 
@@ -137,74 +149,141 @@ export async function getCollectionsForClient(): Promise<{ collections: Collecti
   }
   try {
     const snapshot = await adminDb.collection('collections').get();
-    if (snapshot.empty) {
-        return { collections: [] };
-    }
-    const collections = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        ...data,
-        id: doc.id,
-      } as Collection;
-    });
+    const collections = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Collection[];
     return { collections };
   } catch (error: any) {
-    console.error("Erreur détaillée côté serveur lors de la récupération des collections:", error);
+    console.error("Erreur lors de la récupération des collections:", error);
     return { collections: null, error: 'Impossible de récupérer les collections.' };
   }
 }
 
-export async function validatePromoCode(code: string) {
-    try {
-        const promoCode = await getPromoCodeByCode(code);
-        if (promoCode && promoCode.isActive) {
-            return { success: true, promoCode };
-        }
-        return { success: false, error: 'Code promo invalide ou expiré.' };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-}
-
+// ============ PROMO CODE ACTIONS ============
 export async function createPromoCode(promoCodeData: Omit<PromoCode, 'id'>) {
     try {
-        const existingCode = await getPromoCodeByCode(promoCodeData.code);
-        if (existingCode) {
-            return { success: false, error: 'Ce code promo existe déjà.' };
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
         }
-        const promoCodeId = await addPromoCodeInDb(promoCodeData);
-        return { success: true, promoCodeId };
+        const docRef = await adminDb.collection('promoCodes').add(promoCodeData);
+        return { success: true, promoCodeId: docRef.id };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error("Erreur lors de la création du code promo:", error);
+        return { success: false, error: error.message || 'Impossible de créer le code promo.' };
     }
 }
 
-export async function togglePromoCodeStatus(id: string, currentStatus: boolean) {
+export async function togglePromoCodeStatus(promoCodeId: string, isActive: boolean) {
     try {
-        await updatePromoCodeInDb(id, { isActive: !currentStatus });
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        await adminDb.collection('promoCodes').doc(promoCodeId).update({ isActive });
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error("Erreur lors de la mise à jour du statut du code promo:", error);
+        return { success: false, error: error.message || 'Impossible de mettre à jour le statut.' };
     }
 }
 
-export async function removePromoCode(id: string) {
+export async function removePromoCode(promoCodeId: string) {
     try {
-        await deletePromoCodeInDb(id);
+        if (!adminDb) {
+            return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+        }
+        await adminDb.collection('promoCodes').doc(promoCodeId).delete();
         return { success: true };
     } catch (error: any) {
-        return { success: false, error: error.message };
+        console.error("Erreur lors de la suppression du code promo:", error);
+        return { success: false, error: error.message || 'Impossible de supprimer le code promo.' };
     }
 }
 
-export async function sendContactMessage(formData: FormData) {
-  const name = formData.get('name');
-  const email = formData.get('email');
-  const subject = formData.get('subject');
-  const message = formData.get('message');
+export async function validatePromoCode(code: string): Promise<{
+  success: boolean;
+  promoCode?: PromoCode;
+  error?: string;
+}> {
+  try {
+    if (!adminDb) {
+      return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+    }
+    
+    const snapshot = await adminDb.collection('promoCodes')
+      .where('code', '==', code.toUpperCase())
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return { success: false, error: 'Code promo invalide.' };
+    }
+
+    const promoDoc = snapshot.docs[0];
+    const promoCode = { id: promoDoc.id, ...promoDoc.data() } as PromoCode;
+
+    if (!promoCode.isActive) {
+      return { success: false, error: 'Ce code promo n\'est plus actif.' };
+    }
+
+    return { success: true, promoCode };
+  } catch (error: any) {
+    console.error('Erreur lors de la validation du code promo:', error);
+    return { success: false, error: 'Une erreur est survenue lors de la validation du code promo.' };
+  }
+}
+
+export async function applyPromoCode(code: string, cartTotal: number): Promise<{
+  success: boolean;
+  discount?: number;
+  error?: string;
+}> {
+  try {
+    if (!adminDb) {
+        return { success: false, error: 'Connexion à la base de données administrateur a échoué.' };
+    }
+    
+    const snapshot = await adminDb.collection('promoCodes')
+      .where('code', '==', code.toUpperCase())
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      return { success: false, error: 'Code promo invalide.' };
+    }
+
+    const promoDoc = snapshot.docs[0];
+    const promo = { id: promoDoc.id, ...promoDoc.data() } as PromoCode;
+
+    if (!promo.isActive) {
+      return { success: false, error: 'Ce code promo n\'est plus actif.' };
+    }
+
+    let discount = 0;
+    if (promo.discountType === 'percentage') {
+      discount = (cartTotal * promo.value) / 100;
+    } else {
+      discount = promo.value;
+    }
+
+    return { success: true, discount };
+  } catch (error: any) {
+    console.error('Erreur lors de l\'application du code promo:', error);
+    return { success: false, error: 'Une erreur est survenue lors de l\'application du code promo.' };
+  }
+}
+
+// ============ CONTACT FORM ============
+export async function submitContactForm(formData: { 
+  name: string; 
+  email: string; 
+  subject: string; 
+  message: string; 
+}) {
+  const { name, email, subject, message } = formData;
   
   if (!name || !email || !subject || !message) {
-    return { success: false, error: 'Veuillez remplir tous les champs.' };
+    return { success: false, error: 'Tous les champs sont requis.' };
   }
   
   console.log('New contact message:', { name, email, subject, message });
@@ -214,8 +293,7 @@ export async function sendContactMessage(formData: FormData) {
   return { success: true };
 }
 
-
-// This action runs on the server and has elevated privileges.
+// ============ ORDER ACTIONS ============
 export async function getOrderByCodeForValidation(code: string): Promise<{ order: Order | null; error?: string }> {
   if (!adminDb) {
     const errorMessage = 'La connexion à la base de données administrateur a échoué.';
@@ -279,10 +357,8 @@ export async function validateOrderDelivery(orderId: string, code: string): Prom
         console.error("Error validating delivery:", error);
         return { success: false, error: "Échec de la recherche ou de la mise à jour de la commande." };
     }
-};
+}
 
-
-// This action runs on the server and has elevated privileges.
 export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {
   if (!userId) {
     return { orders: null, error: 'User ID non fourni.' };
@@ -301,7 +377,6 @@ export async function getOrdersForUser(userId: string): Promise<{ orders: Order[
 
     const orders = snapshot.docs.map(doc => {
       const data = doc.data();
-      // Firestore Timestamps need to be converted to serializable format (ISO string)
       const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
       return {
         ...data,
@@ -318,14 +393,12 @@ export async function getOrdersForUser(userId: string): Promise<{ orders: Order[
   }
 }
 
-// Function to check if a user is an admin based on their UID
 async function checkAdminPrivileges(uid: string): Promise<boolean> {
   if (!adminDb) return false;
   const userDoc = await adminDb.collection('users').doc(uid).get();
   if (userDoc.exists && userDoc.data()?.role === 'admin') {
     return true;
   }
-  // Fallback to email check if role is not present for backward compatibility
   const userAuth = await getAuth().getUser(uid);
   return userAuth.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 }
