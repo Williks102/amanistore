@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/Header';
 import ShoeShowcase from '@/components/ShoeShowcase';
 import type { Category, Shoe, Collection } from '@/lib/types';
-import Hero from '@/components/Hero';
+import Hero from '@/components/Hero-clean';
 import { Sidebar } from '@/components/Sidebar';
 import { Separator } from '@/components/ui/separator';
 import CategoryCarousel from '@/components/CategoryCarousel';
