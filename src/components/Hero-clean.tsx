@@ -25,18 +25,17 @@ const heroImages = [
 
 const Hero = () => {
   return (
-    <section className="w-full h-[60vh] relative">
-      <Carousel className="w-full h-full" opts={{ loop: true }}>
+    <section className="w-full relative">
+      <Carousel className="w-full" opts={{ loop: true }}>
         <CarouselContent>
           {heroImages.map((image, index) => (
             <CarouselItem key={image.id}>
-              <div className="h-[60vh] w-full relative">
-                <Image
+              {/* Image responsive en pleine largeur */}
+              <div className="w-full relative">
+                <img
                   src={image.imageUrl}
                   alt={image.alt}
-                  fill
-                  className="object-cover"
-                  priority={index === 0}
+                  className="w-full h-auto"
                 />
               </div>
             </CarouselItem>
