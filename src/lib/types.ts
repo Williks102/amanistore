@@ -30,7 +30,7 @@ export type Shoe = {
   description: string;
   price: number;
   categoryId: string; 
-  collectionId?: string;
+  collectionIds: string[]; // Made this field mandatory
   gridImage: ShoeImage;
   availableSizes: number[];
   availableColors: ShoeColor[];

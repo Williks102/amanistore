@@ -15,9 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import type { Shoe, ShoeColor, Category } from '@/lib/types';
+import type { Shoe, ShoeColor, Category, Collection, ShoeImage } from '@/lib/types';
 import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
 import Image from 'next/image';
@@ -27,19 +28,23 @@ interface EditProductModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   categories: Category[];
+  collections: Collection[];
   onProductUpdate: () => void;
 }
 
-export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onProductUpdate }: EditProductModalProps) => {
+export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, collections, onProductUpdate }: EditProductModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(shoe.name);
   const [description, setDescription] = useState(shoe.description);
   const [price, setPrice] = useState(shoe.price);
   const [categoryId, setCategoryId] = useState(shoe.categoryId);
+  const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(shoe.collectionIds || []);
   const [availableSizes, setAvailableSizes] = useState(shoe.availableSizes.join(', '));
   const [availableColors, setAvailableColors] = useState<ShoeColor[]>(shoe.availableColors);
-  const [gridImageUrl, setGridImageUrl] = useState(shoe.gridImage.url);
-  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  
+  const [existingImages, setExistingImages] = useState<ShoeImage[]>([]);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
   const [currentColorName, setCurrentColorName] = useState('');
   const [currentColorHex, setCurrentColorHex] = useState('#000000');
@@ -52,10 +57,17 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
       setDescription(shoe.description);
       setPrice(shoe.price);
       setCategoryId(shoe.categoryId);
+      setSelectedCollectionIds(shoe.collectionIds || []); // Ensure it's an array
       setAvailableSizes(shoe.availableSizes.join(', '));
       setAvailableColors(shoe.availableColors);
-      setGridImageUrl(shoe.gridImage.url);
-      setNewImageFile(null);
+      const allImages = [shoe.gridImage, ...(shoe.detailImages || [])];
+      const uniqueImages = allImages.filter((img, index, self) => 
+          img && index === self.findIndex((t) => t.url === img.url)
+      );
+      setExistingImages(uniqueImages);
+      
+      setNewImageFiles([]);
+      setNewImagePreviews([]);
     }
   }, [shoe]);
 
@@ -73,56 +85,92 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
     setAvailableColors(availableColors.filter((c) => c.name !== colorNameToRemove));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleNewImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (files) {
+      const fileArray = Array.from(files);
+      setNewImageFiles(prev => [...prev, ...fileArray]);
+      const previews = fileArray.map(file => URL.createObjectURL(file));
+      setNewImagePreviews(prev => [...prev, ...previews]);
+    }
+  };
+  
+  const handleRemoveExistingImage = (index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+  };
+  
+  const handleRemoveNewImage = (index: number) => {
+    setNewImageFiles(prev => prev.filter((_, i) => i !== index));
+    setNewImagePreviews(prev => {
+      if(prev[index]) URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+ const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsSubmitting(true);
-    let finalImageUrl = gridImageUrl;
 
-    // 1. Upload new image if provided
-    if (newImageFile) {
-      const formData = new FormData();
-      formData.append('image', newImageFile);
-      const uploadResult = await uploadImage(formData);
-      if (uploadResult.error || !uploadResult.secure_url) {
-        toast({ title: "Échec de l'upload de l'image", description: uploadResult.error, variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-      }
-      finalImageUrl = uploadResult.secure_url;
-    }
-
-    // 2. Prepare updated data
     const sizesArray = availableSizes.split(',').map((s) => Number(s.trim())).filter((s) => !isNaN(s) && s > 0);
     if (sizesArray.length === 0) {
-      toast({ title: 'Tailles invalides', description: 'Veuillez entrer des tailles valides.', variant: 'destructive' });
-      setIsSubmitting(false);
-      return;
+        toast({ title: 'Tailles invalides', description: 'Veuillez entrer des tailles valides.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
     }
 
-    const updatedShoeData: Omit<Shoe, 'id'> = {
-      name,
-      description,
-      price,
-      categoryId,
-      availableSizes: sizesArray,
-      availableColors,
-      gridImage: { ...shoe.gridImage, url: finalImageUrl },
-      detailImages: [{ ...shoe.detailImages[0], url: finalImageUrl }], // Assuming first detail image is same as grid
+    if (existingImages.length === 0 && newImageFiles.length === 0) {
+        toast({ title: 'Images manquantes', description: 'Le produit doit avoir au moins une image.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+
+    const uploadedImageUrls: string[] = [];
+    for (const imageFile of newImageFiles) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const uploadResult = await uploadImage(formData);
+        
+        if (uploadResult.error || !uploadResult.secure_url) {
+            toast({ title: "Échec de l'upload de l'image", description: uploadResult.error, variant: 'destructive' });
+            setIsSubmitting(false);
+            return;
+        }
+        uploadedImageUrls.push(uploadResult.secure_url);
+    }
+
+    const existingImageObjects = existingImages;
+    const newImageObjects = uploadedImageUrls.map((url, index) => ({
+        id: `image-new-${Date.now()}-${index}`,
+        url: url,
+        hint: "shoe"
+    }));
+    const allImages = [...existingImageObjects, ...newImageObjects];
+
+    const updatedShoeData: Partial<Shoe> = {
+        name,
+        description,
+        price,
+        categoryId,
+        collectionIds: selectedCollectionIds,
+        availableSizes: sizesArray,
+        availableColors,
+        gridImage: allImages[0],
+        detailImages: allImages.slice(1),
     };
 
-    // 3. Call server action to update product
     const result = await updateProduct(shoe.id, updatedShoeData);
 
     if (result.success) {
-      toast({ title: 'Succès', description: 'Produit mis à jour avec succès.' });
-      onProductUpdate();
-      onOpenChange(false);
+        toast({ title: 'Succès', description: 'Produit mis à jour avec succès.' });
+        onProductUpdate();
+        onOpenChange(false);
     } else {
-      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+        toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
     }
 
     setIsSubmitting(false);
   };
+
 
   if (!shoe) return null;
 
@@ -159,6 +207,33 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
                     </Select>
                 </div>
             </div>
+
+            <div className="space-y-2">
+                <Label>Collections (optionnel)</Label>
+                <p className="text-xs text-muted-foreground mb-2">Associez ce produit à une ou plusieurs collections</p>
+                <div className="space-y-2 rounded-md border p-4 max-h-48 overflow-y-auto">
+                {collections.map((collection) => (
+                    <div key={collection.id} className="flex items-center space-x-2">
+                    <Checkbox
+                        id={`edit-coll-${collection.id}`}
+                        checked={selectedCollectionIds.includes(collection.id)}
+                        onCheckedChange={(checked) => {
+                        return checked
+                            ? setSelectedCollectionIds([...selectedCollectionIds, collection.id])
+                            : setSelectedCollectionIds(selectedCollectionIds.filter(id => id !== collection.id));
+                        }}
+                    />
+                    <label
+                        htmlFor={`edit-coll-${collection.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                        {collection.name}
+                    </label>
+                    </div>
+                ))}
+                </div>
+            </div>
+
             <div className="space-y-2">
                 <Label htmlFor="edit-product-sizes">Tailles disponibles</Label>
                 <Input id="edit-product-sizes" value={availableSizes} onChange={(e) => setAvailableSizes(e.target.value)} />
@@ -185,12 +260,81 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
                 )}
             </div>
 
-            <div className="space-y-2">
-                <Label>Image actuelle</Label>
-                <Image src={gridImageUrl} alt="Aperçu" width={100} height={100} className="rounded-md object-cover border" />
-                <Label htmlFor="edit-product-image">Changer l'image</Label>
-                <Input id="edit-product-image" type="file" accept="image/*" onChange={(e) => setNewImageFile(e.target.files ? e.target.files[0] : null)} />
+            <div className="space-y-3">
+              <Label>Images du produit</Label>
+              
+              {existingImages.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Images actuelles</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {existingImages.map((image, index) => (
+                      <div key={image.id} className="relative group">
+                        <img 
+                          src={image.url} 
+                          alt={`Existing ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-md border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveExistingImage(index)}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                        {index === 0 && (
+                          <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
+                            Principal
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="edit-new-images" className="text-sm">Ajouter de nouvelles images</Label>
+                <Input 
+                  id="edit-new-images" 
+                  type="file" 
+                  accept="image/*" 
+                  multiple
+                  onChange={handleNewImageChange}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ajoutez de nouvelles images (ajoutées après les existantes)
+                </p>
+              </div>
+
+              {newImagePreviews.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Nouvelles images</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {newImagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img 
+                          src={preview} 
+                          alt={`New ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-md border border-dashed border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNewImage(index)}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                        <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">
+                          Nouveau
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
+
         </form>
         <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
@@ -202,5 +346,3 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, onPro
     </Dialog>
   );
 };
-
-    

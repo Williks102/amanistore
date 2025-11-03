@@ -1,33 +1,39 @@
 
+'use client'
+
 import { db } from '@/firebase';
 import type { Collection } from '@/lib/types';
-import { collection, deleteDoc, doc } from 'firebase/firestore';
-import { getCollectionsForClient, createCollection as createCollectionAction } from '@/app/actions';
+import { deleteDoc, doc } from 'firebase/firestore';
+// Import the new getCollections function and alias it to avoid name collision
+import { getCollections as getCollectionsAction, createCollection as createCollectionAction, deleteCollection as deleteCollectionAction } from '@/app/actions';
 
-const getCollectionRef = () => collection(db, 'collections');
-
+/**
+ * Fetches all collections from the backend.
+ * This is a client-side service function that calls a server action.
+ */
 export const getCollections = async (): Promise<Collection[]> => {
-    const { collections, error } = await getCollectionsForClient();
-    if (error) {
-        console.error(error);
-        // On an error, we'll return an empty array to prevent the app from crashing.
-        // The error is already logged in the server action.
-        return [];
+    try {
+        // The getCollectionsAction now directly returns the array of collections.
+        const collections = await getCollectionsAction();
+        return collections;
+    } catch (error) {
+        console.error("Error fetching collections in service:", error);
+        return []; // Return empty array on error to prevent app crash
     }
-    return collections || [];
 };
 
-export const addCollection = async (collectionData: Omit<Collection, 'id'>) => {
-    // This function now calls the server action, ensuring writes happen on the server.
-    const result = await createCollectionAction(collectionData);
-    if (!result.success || !result.collectionId) {
-        throw new Error(result.error || 'Failed to create collection via server action.');
-    }
-    return result.collectionId;
+/**
+ * Creates a new collection.
+ * This is a client-side service function that calls a server action.
+ */
+export const createCollection = async (collectionData: Omit<Collection, 'id'>): Promise<{ success: boolean; collectionId?: string; error?: string }> => {
+    return await createCollectionAction(collectionData);
 };
 
-export const deleteCollection = async (id: string) => {
-    // This function remains a client-side call, but it's now wrapped in a server action `deleteCollection`.
-    const collectionDoc = doc(db, 'collections', id);
-    await deleteDoc(collectionDoc);
-};
+/**
+ * Deletes a collection.
+ * This is a client-side service function that calls a server action.
+ */
+export const deleteCollection = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    return await deleteCollectionAction(id);
+}
