@@ -1,5 +1,4 @@
 
-
 export type ShoeColor = {
   name: string;
   hex: string;
@@ -12,7 +11,7 @@ export type ShoeImage = {
 };
 
 export type Category = {
-  id: string; // Changed to string for Firestore ID
+  id: string; 
   name: string;
   imageId: string;
   imageUrl?: string;
@@ -26,11 +25,12 @@ export type Collection = {
 };
 
 export type Shoe = {
-  id: string; // Changed to string for Firestore ID
+  id: string; 
   name:string;
   description: string;
   price: number;
-  categoryId: string; // Changed to string for Firestore ID
+  categoryId: string; 
+  collectionId?: string;
   gridImage: ShoeImage;
   availableSizes: number[];
   availableColors: ShoeColor[];
@@ -38,7 +38,7 @@ export type Shoe = {
 };
 
 export type CartItem = {
-  id: string; // Unique ID for the cart item instance
+  id: string; 
   product: Shoe;
   quantity: number;
   size: number;
@@ -49,16 +49,16 @@ export type OrderStatus = 'En attente' | 'Prêt' | 'Livré' | 'Annulé';
 
 export type Order = {
   id: string;
-  userId: string; // Added to associate order with a user
+  userId: string; 
   customerName: string;
-  customerPhone: string; // Ajout du téléphone
-  customerEmail?: string; // Email optionnel
-  customerAddress: string; // Ajout de l'adresse
+  customerPhone: string; 
+  customerEmail?: string; 
+  customerAddress: string; 
   date: string;
   items: CartItem[];
   total: number;
   status: OrderStatus;
-  validationCode: string; // Ajout du code de validation
+  validationCode: string; 
 };
 
 export type PromoCode = {
@@ -68,5 +68,3 @@ export type PromoCode = {
   value: number;
   isActive: boolean;
 };
-
-    
