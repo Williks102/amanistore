@@ -66,6 +66,9 @@ const AdminPage = () => {
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionImageFile, setNewCollectionImageFile] = useState<File | null>(null);
   const [newCollectionCategoryIds, setNewCollectionCategoryIds] = useState<string[]>([]);
+  const [newPromoCode, setNewPromoCode] = useState('');
+  const [newPromoDiscountType, setNewPromoDiscountType] = useState<'percentage' | 'fixed'>('percentage');
+  const [newPromoValue, setNewPromoValue] = useState(0);
 
   // Edit Modal states
   const [selectedShoe, setSelectedShoe] = useState<Shoe | null>(null);
@@ -218,6 +221,150 @@ const AdminPage = () => {
     setIsValidationLoading(false);
   }
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setNewShoeImageFiles(files);
+    setNewShoeImagePreviews(files.map((file) => URL.createObjectURL(file)));
+  };
+
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newShoeName || !newShoeDescription || !newShoeCategoryId || newShoePrice <= 0 || newShoeImageFiles.length === 0) {
+      toast({ title: 'Champs manquants', description: 'Veuillez remplir tous les champs du produit.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const uploadedUrls: string[] = [];
+      for (const imageFile of newShoeImageFiles) {
+        const fd = new FormData();
+        fd.append('image', imageFile);
+        const uploadResult = await uploadImage(fd);
+        if (uploadResult.error || !uploadResult.secure_url) {
+          toast({ title: 'Erreur d\'upload', description: uploadResult.error, variant: 'destructive' });
+          setIsSubmitting(false);
+          return;
+        }
+        uploadedUrls.push(uploadResult.secure_url);
+      }
+
+      const parsedSizes = newShoeSizes
+        .split(',')
+        .map((s) => Number(s.trim()))
+        .filter((n) => !Number.isNaN(n) && n > 0);
+
+      if (parsedSizes.length === 0) {
+        toast({ title: 'Pointures invalides', description: 'Entrez des pointures valides séparées par des virgules.', variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const detailImages = uploadedUrls.map((url, idx) => ({ id: `img-${idx}`, url, hint: newShoeName }));
+      const payload: Omit<Shoe, 'id'> = {
+        name: newShoeName,
+        description: newShoeDescription,
+        price: newShoePrice,
+        categoryId: newShoeCategoryId,
+        collectionIds: newShoeCollectionIds,
+        gridImage: detailImages[0],
+        detailImages,
+        availableSizes: parsedSizes,
+        availableColors: newShoeColors,
+      };
+
+      const result = await createProduct(payload);
+      if (!result.success) {
+        toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+      } else {
+        toast({ title: 'Succès', description: 'Produit créé avec succès.' });
+        setNewShoeName('');
+        setNewShoeDescription('');
+        setNewShoePrice(0);
+        setNewShoeCategoryId('');
+        setNewShoeCollectionIds([]);
+        setNewShoeSizes('');
+        setNewShoeColors([]);
+        setNewShoeImageFiles([]);
+        setNewShoeImagePreviews([]);
+        fetchData();
+      }
+    } catch (error: any) {
+      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleAddColor = () => {
+    if (!newColorName.trim()) return;
+    setNewShoeColors((prev) => [...prev, { name: newColorName.trim(), hex: newColorHex }]);
+    setNewColorName('');
+    setNewColorHex('#000000');
+  };
+
+  const handleRemoveColor = (colorName: string) => {
+    setNewShoeColors((prev) => prev.filter((color) => color.name !== colorName));
+  };
+
+  const handleOrderStatusChange = async (orderId: string, status: OrderStatus) => {
+    const result = await updateOrderStatus(orderId, status);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Statut de commande mis à jour.' });
+      fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleCreatePromoCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPromoCode.trim() || newPromoValue <= 0) {
+      toast({ title: 'Champs manquants', description: 'Veuillez renseigner un code et une valeur.', variant: 'destructive' });
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await createPromoCode({
+      code: newPromoCode.toUpperCase().trim(),
+      discountType: newPromoDiscountType,
+      value: newPromoValue,
+      isActive: true,
+    });
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Code promo créé.' });
+      setNewPromoCode('');
+      setNewPromoValue(0);
+      fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handlePromoStatusToggle = async (promo: PromoCode) => {
+    const result = await updatePromoCode(promo.id, { isActive: !promo.isActive });
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Statut promo mis à jour.' });
+      fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleDeletePromo = async (promoId: string) => {
+    const result = await deletePromoCode(promoId);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Code promo supprimé.' });
+      fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const filteredOrders = useMemo(() => {
+    if (orderStatusFilter === 'all') return orders;
+    return orders.filter((order) => order.status === orderStatusFilter);
+  }, [orders, orderStatusFilter]);
+
   const renderContent = () => {
     if (isLoading) {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
@@ -225,7 +372,14 @@ const AdminPage = () => {
 
     switch (activeView) {
       case 'dashboard':
-        return <div>Dashboard Content</div>; // Placeholder
+        return (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card><CardHeader><CardDescription>Produits</CardDescription><CardTitle>{shoes.length}</CardTitle></CardHeader></Card>
+            <Card><CardHeader><CardDescription>Commandes</CardDescription><CardTitle>{orders.length}</CardTitle></CardHeader></Card>
+            <Card><CardHeader><CardDescription>Catégories</CardDescription><CardTitle>{categories.length}</CardTitle></CardHeader></Card>
+            <Card><CardHeader><CardDescription>Promotions</CardDescription><CardTitle>{promoCodes.length}</CardTitle></CardHeader></Card>
+          </div>
+        );
       
       case 'products':
         return (
@@ -265,12 +419,110 @@ const AdminPage = () => {
         );
 
       case 'create-product':
-        // The form for creating a new product is lengthy, so it's omitted for brevity in this thought block
-        // But the full implementation is in the final code.
-        return <p>Create Product Form Placeholder</p>; // This will be the full form
+        return (
+          <Card>
+            <CardHeader><CardTitle>Créer un produit</CardTitle><CardDescription>Ajoutez un nouveau produit au catalogue.</CardDescription></CardHeader>
+            <CardContent>
+              <form onSubmit={handleCreateProduct} className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label>Nom</Label><Input value={newShoeName} onChange={(e) => setNewShoeName(e.target.value)} required/></div>
+                  <div className="space-y-2"><Label>Prix (XOF)</Label><Input type="number" min={0} value={newShoePrice} onChange={(e) => setNewShoePrice(Number(e.target.value))} required/></div>
+                </div>
+                <div className="space-y-2"><Label>Description</Label><Textarea value={newShoeDescription} onChange={(e) => setNewShoeDescription(e.target.value)} required/></div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Catégorie</Label>
+                    <Select value={newShoeCategoryId} onValueChange={setNewShoeCategoryId}>
+                      <SelectTrigger><SelectValue placeholder="Choisir une catégorie"/></SelectTrigger>
+                      <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Pointures (ex: 40,41,42)</Label><Input value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required/></div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Collections</Label>
+                  <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
+                    {collections.map((col) => (
+                      <label key={col.id} className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={newShoeCollectionIds.includes(col.id)} onCheckedChange={(checked) => setNewShoeCollectionIds((prev) => checked ? [...prev, col.id] : prev.filter((id) => id !== col.id))}/>
+                        <span>{col.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Couleurs</Label>
+                  <div className="flex gap-2">
+                    <Input placeholder="Nom couleur" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} />
+                    <Input type="color" value={newColorHex} onChange={(e) => setNewColorHex(e.target.value)} className="w-16 p-1"/>
+                    <Button type="button" variant="outline" onClick={handleAddColor}>Ajouter</Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {newShoeColors.map((color) => (
+                      <Badge key={color.name} variant="secondary" className="gap-2">{color.name}<button type="button" onClick={() => handleRemoveColor(color.name)}><X className="h-3 w-3"/></button></Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Images</Label>
+                  <Input type="file" accept="image/*" multiple onChange={handleImageFileChange} required/>
+                  <div className="flex flex-wrap gap-2">{newShoeImagePreviews.map((src, i) => <Image key={i} src={src} alt={`preview-${i}`} width={64} height={64} className="rounded-md object-cover"/>)}</div>
+                </div>
+                <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : 'Créer le produit'}</Button>
+              </form>
+            </CardContent>
+          </Card>
+        );
 
       case 'orders':
-         return <p>Orders View Placeholder</p>; // This will be the full orders view
+         return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Commandes</CardTitle>
+              <CardDescription>Gérez les statuts des commandes.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="max-w-xs">
+                <Select value={orderStatusFilter} onValueChange={(v) => setOrderStatusFilter(v as OrderStatus | 'all')}>
+                  <SelectTrigger><SelectValue placeholder="Filtrer par statut" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous</SelectItem>
+                    <SelectItem value="En attente">En attente</SelectItem>
+                    <SelectItem value="Prêt">Prêt</SelectItem>
+                    <SelectItem value="Livré">Livré</SelectItem>
+                    <SelectItem value="Annulé">Annulé</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Table>
+                <TableHeader><TableRow><TableHead>Client</TableHead><TableHead>Total</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>
+                        <div className="font-medium">{order.customerName}</div>
+                        <div className="text-xs text-muted-foreground">{order.customerPhone}</div>
+                      </TableCell>
+                      <TableCell>{order.total.toLocaleString('fr-FR')} XOF</TableCell>
+                      <TableCell>
+                        <Select value={order.status} onValueChange={(v) => handleOrderStatusChange(order.id, v as OrderStatus)}>
+                          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="En attente">En attente</SelectItem>
+                            <SelectItem value="Prêt">Prêt</SelectItem>
+                            <SelectItem value="Livré">Livré</SelectItem>
+                            <SelectItem value="Annulé">Annulé</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>{new Date(order.date).toLocaleDateString('fr-FR')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+         );
 
       case 'categories':
         return (
@@ -429,6 +681,53 @@ const AdminPage = () => {
                     </CardContent>
                 </Card>
             );
+
+      case 'promotions':
+        return (
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader><CardTitle>Créer un code promo</CardTitle></CardHeader>
+              <CardContent>
+                <form onSubmit={handleCreatePromoCode} className="space-y-4">
+                  <div className="space-y-2"><Label>Code</Label><Input value={newPromoCode} onChange={(e) => setNewPromoCode(e.target.value.toUpperCase())} required/></div>
+                  <div className="space-y-2">
+                    <Label>Type de remise</Label>
+                    <Select value={newPromoDiscountType} onValueChange={(v) => setNewPromoDiscountType(v as 'percentage' | 'fixed')}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="percentage">Pourcentage (%)</SelectItem>
+                        <SelectItem value="fixed">Montant fixe (XOF)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2"><Label>Valeur</Label><Input type="number" min={1} value={newPromoValue} onChange={(e) => setNewPromoValue(Number(e.target.value))} required/></div>
+                  <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : 'Créer le code'}</Button>
+                </form>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle>Codes existants</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Remise</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {promoCodes.map((promo) => (
+                      <TableRow key={promo.id}>
+                        <TableCell className="font-medium">{promo.code}</TableCell>
+                        <TableCell>{promo.discountType === 'percentage' ? `${promo.value}%` : `${promo.value.toLocaleString('fr-FR')} XOF`}</TableCell>
+                        <TableCell><Badge variant={promo.isActive ? 'default' : 'secondary'}>{promo.isActive ? 'Actif' : 'Inactif'}</Badge></TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handlePromoStatusToggle(promo)}>{promo.isActive ? 'Désactiver' : 'Activer'}</Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDeletePromo(promo.id)}>Supprimer</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        );
 
       default:
         return <div>Sélectionnez une vue</div>;
