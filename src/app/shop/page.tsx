@@ -100,6 +100,7 @@ export default function ShopPage() {
                 <ShoeShowcase
                   shoes={shoes}
                   selectedCategory={selectedCategory}
+                  selectedCollection={null}
                   searchTerm={searchTerm}
                   priceRange={priceRange}
                   selectedSizes={selectedSizes}
