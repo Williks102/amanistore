@@ -114,7 +114,7 @@ const AdminPage = () => {
   const handleCreateCategory = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newCategoryName || !newCategoryImageFile) {
-          toast({ title: 'Champs manquants', description: 'Le nom et l'image sont requis.', variant: 'destructive' });
+          toast({ title: 'Champs manquants', description: "Le nom et l'image sont requis.", variant: 'destructive' });
           return;
       }
       setIsSubmitting(true);
@@ -151,7 +151,7 @@ const AdminPage = () => {
   const handleCreateCollection = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newCollectionName || !newCollectionImageFile) {
-          toast({ title: 'Champs manquants', description: 'Le nom et l'image sont requis.', variant: 'destructive' });
+          toast({ title: 'Champs manquants', description: "Le nom et l'image sont requis.", variant: 'destructive' });
           return;
       }
       setIsSubmitting(true);

@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/sheet';
 import { Slider } from '@/components/ui/slider';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
 import type { PriceRange } from '@/app/page';
 import type { ShoeColor } from '@/lib/types';
@@ -24,6 +24,9 @@ interface SidebarProps {
   availableColors: ShoeColor[];
   selectedColors: string[];
   onSelectedColorsChange: (colors: string[]) => void;
+  searchTerm?: string;
+  onSearchTermChange?: (term: string) => void;
+  resultCount?: number;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -37,7 +40,12 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
   availableColors,
   selectedColors,
   onSelectedColorsChange,
+  searchTerm,
+  onSearchTermChange,
+  resultCount,
 }) => {
+  const safeSearchTerm = searchTerm ?? "";
+
   const handleSizeClick = (size: number) => {
     const newSizes = selectedSizes.includes(size)
       ? selectedSizes.filter((s) => s !== size)
@@ -56,10 +64,41 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
     onPriceRangeChange({ min: 0, max: 100000 });
     onSelectedSizesChange([]);
     onSelectedColorsChange([]);
+    onSearchTermChange?.('');
   };
+
+  const activeFilters = [
+    ...(safeSearchTerm ? ['Recherche: ' + safeSearchTerm] : []),
+    ...(priceRange.max < 100000 ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
+    ...selectedSizes.map((size) => 'Pointure: ' + size),
+    ...selectedColors.map((color) => 'Couleur: ' + color),
+  ];
 
   return (
     <div className="space-y-8">
+      <div className="space-y-3">
+        <h3 className="text-lg font-semibold">Recherche</h3>
+        <Input
+          value={safeSearchTerm}
+          onChange={(event) => onSearchTermChange?.(event.target.value)}
+          placeholder="Rechercher un modèle"
+        />
+      </div>
+
+      <div className="rounded-md border p-3 text-sm">
+        <p className="font-medium">{resultCount ?? 0} résultat(s)</p>
+        {activeFilters.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {activeFilters.map((filter) => (
+              <span key={filter} className="rounded-full bg-muted px-2 py-1 text-xs">
+                {filter}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 text-muted-foreground">Aucun filtre actif.</p>
+        )}
+      </div>
       <div>
         <h3 className="text-lg font-semibold mb-4">Prix</h3>
         <Slider

@@ -209,6 +209,39 @@ export async function validateOrderDelivery(orderId: string): Promise<{ success:
 
 // ============ USER-FACING ACTIONS (UNCHANGED) ============
 
+
+export async function sendContactMessage(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  const name = formData.get('name')?.toString().trim() || '';
+  const email = formData.get('email')?.toString().trim() || '';
+  const subject = formData.get('subject')?.toString().trim() || '';
+  const message = formData.get('message')?.toString().trim() || '';
+
+  if (!name || !email || !subject || !message) {
+    return { success: false, error: 'Tous les champs sont requis.' };
+  }
+
+  const emailSchema = z.string().email();
+  const emailValidation = emailSchema.safeParse(email);
+  if (!emailValidation.success) {
+    return { success: false, error: 'Adresse e-mail invalide.' };
+  }
+
+  if (!adminDb) return { success: false, error: 'DB connection failed.' };
+
+  try {
+    await adminDb.collection('contactMessages').add({
+      name,
+      email,
+      subject,
+      message,
+      createdAt: new Date().toISOString(),
+    });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: "Impossible d'envoyer votre message pour le moment." };
+  }
+}
+
 export async function getOrdersForUser(userId: string): Promise<{ orders: Order[] | null; error?: string }> {
   if (!adminDb) return { orders: null, error: 'DB connection failed.' };
   try {
