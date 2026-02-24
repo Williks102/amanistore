@@ -111,10 +111,134 @@ const AdminPage = () => {
     }
   }
 
+  const resetCreateProductForm = () => {
+    setNewShoeName('');
+    setNewShoeDescription('');
+    setNewShoePrice(0);
+    setNewShoeCategoryId('');
+    setNewShoeCollectionIds([]);
+    setNewShoeSizes('');
+    setNewShoeColors([]);
+    setNewColorName('');
+    setNewColorHex('#000000');
+    setNewShoeImageFiles([]);
+    setNewShoeImagePreviews((prev) => {
+      prev.forEach((preview) => URL.revokeObjectURL(preview));
+      return [];
+    });
+  }
+
+  const handleNewShoeImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+    setNewShoeImageFiles((prev) => [...prev, ...fileList]);
+    setNewShoeImagePreviews((prev) => [...prev, ...fileList.map((file) => URL.createObjectURL(file))]);
+    event.target.value = '';
+  }
+
+  const handleRemoveNewShoeImage = (indexToRemove: number) => {
+    setNewShoeImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    setNewShoeImagePreviews((prev) => {
+      if (prev[indexToRemove]) {
+        URL.revokeObjectURL(prev[indexToRemove]);
+      }
+      return prev.filter((_, index) => index !== indexToRemove);
+    });
+  }
+
+  const handleAddNewShoeColor = () => {
+    if (!newColorName.trim()) {
+      toast({ title: 'Nom de couleur manquant', description: 'Veuillez entrer un nom de couleur.', variant: 'destructive' });
+      return;
+    }
+    if (newShoeColors.some((color) => color.name.toLowerCase() === newColorName.trim().toLowerCase())) {
+      toast({ title: 'Couleur déjà ajoutée', description: 'Cette couleur existe déjà.', variant: 'destructive' });
+      return;
+    }
+    setNewShoeColors((prev) => [...prev, { name: newColorName.trim(), hex: newColorHex }]);
+    setNewColorName('');
+    setNewColorHex('#000000');
+  }
+
+  const handleRemoveNewShoeColor = (colorNameToRemove: string) => {
+    setNewShoeColors((prev) => prev.filter((color) => color.name !== colorNameToRemove));
+  }
+
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!newShoeName || !newShoeDescription || newShoePrice <= 0 || !newShoeCategoryId || newShoeImageFiles.length === 0) {
+      toast({
+        title: 'Champs manquants',
+        description: 'Nom, description, prix, catégorie et au moins une image sont requis.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const sizesArray = newShoeSizes
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((s) => !isNaN(s) && s > 0);
+
+    if (sizesArray.length === 0) {
+      toast({ title: 'Tailles invalides', description: 'Veuillez entrer au moins une taille valide.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    const uploadedUrls: string[] = [];
+
+    try {
+      for (const imageFile of newShoeImageFiles) {
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        const uploadResult = await uploadImage(formData);
+
+        if (uploadResult.error || !uploadResult.secure_url) {
+          toast({ title: 'Erreur d\'upload', description: uploadResult.error, variant: 'destructive' });
+          setIsSubmitting(false);
+          return;
+        }
+        uploadedUrls.push(uploadResult.secure_url);
+      }
+
+      const shoeImages = uploadedUrls.map((url, index) => ({
+        id: `image-${Date.now()}-${index}`,
+        url,
+        hint: newShoeName.toLowerCase().slice(0, 20) || 'shoe',
+      }));
+
+      const result = await createProduct({
+        name: newShoeName,
+        description: newShoeDescription,
+        price: Number(newShoePrice),
+        categoryId: newShoeCategoryId,
+        collectionIds: newShoeCollectionIds,
+        availableSizes: sizesArray,
+        availableColors: newShoeColors,
+        gridImage: shoeImages[0],
+        detailImages: shoeImages.slice(1),
+      });
+
+      if (result.success) {
+        toast({ title: 'Succès', description: 'Produit créé avec succès.' });
+        resetCreateProductForm();
+        fetchData();
+        setActiveView('products');
+      } else {
+        toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   const handleCreateCategory = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newCategoryName || !newCategoryImageFile) {
-          toast({ title: 'Champs manquants', description: 'Le nom et l'image sont requis.', variant: 'destructive' });
+          toast({ title: 'Champs manquants', description: "Le nom et l'image sont requis.", variant: 'destructive' });
           return;
       }
       setIsSubmitting(true);
@@ -151,7 +275,7 @@ const AdminPage = () => {
   const handleCreateCollection = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!newCollectionName || !newCollectionImageFile) {
-          toast({ title: 'Champs manquants', description: 'Le nom et l'image sont requis.', variant: 'destructive' });
+          toast({ title: 'Champs manquants', description: "Le nom et l'image sont requis.", variant: 'destructive' });
           return;
       }
       setIsSubmitting(true);
@@ -265,9 +389,139 @@ const AdminPage = () => {
         );
 
       case 'create-product':
-        // The form for creating a new product is lengthy, so it's omitted for brevity in this thought block
-        // But the full implementation is in the final code.
-        return <p>Create Product Form Placeholder</p>; // This will be the full form
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Créer un produit</CardTitle>
+              <CardDescription>Ajoutez un nouveau produit avec plusieurs images.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form id="create-product-form" onSubmit={handleCreateProduct} className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-shoe-name">Nom</Label>
+                    <Input id="new-shoe-name" value={newShoeName} onChange={(e) => setNewShoeName(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-shoe-price">Prix (XOF)</Label>
+                    <Input id="new-shoe-price" type="number" min={0} value={newShoePrice} onChange={(e) => setNewShoePrice(Number(e.target.value))} required />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-shoe-description">Description</Label>
+                  <Textarea id="new-shoe-description" value={newShoeDescription} onChange={(e) => setNewShoeDescription(e.target.value)} required />
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Catégorie</Label>
+                    <Select value={newShoeCategoryId} onValueChange={setNewShoeCategoryId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choisir une catégorie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-shoe-sizes">Tailles (séparées par des virgules)</Label>
+                    <Input id="new-shoe-sizes" placeholder="41, 42, 43" value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Collections (optionnel)</Label>
+                  <div className="space-y-2 rounded-md border p-4 max-h-40 overflow-y-auto">
+                    {collections.length === 0 && (
+                      <p className="text-sm text-muted-foreground">Aucune collection disponible.</p>
+                    )}
+                    {collections.map((collection) => (
+                      <div key={collection.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`new-shoe-coll-${collection.id}`}
+                          checked={newShoeCollectionIds.includes(collection.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setNewShoeCollectionIds((prev) => [...prev, collection.id]);
+                            } else {
+                              setNewShoeCollectionIds((prev) => prev.filter((id) => id !== collection.id));
+                            }
+                          }}
+                        />
+                        <label htmlFor={`new-shoe-coll-${collection.id}`} className="text-sm">{collection.name}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3 rounded-md border p-4">
+                  <Label className="font-semibold">Couleurs disponibles</Label>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="space-y-1 flex-1 min-w-44">
+                      <Label htmlFor="new-color-name">Nom</Label>
+                      <Input id="new-color-name" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="new-color-hex">Code</Label>
+                      <Input id="new-color-hex" type="color" className="w-16 p-1 h-10" value={newColorHex} onChange={(e) => setNewColorHex(e.target.value)} />
+                    </div>
+                    <Button type="button" onClick={handleAddNewShoeColor}>Ajouter la couleur</Button>
+                  </div>
+                  {newShoeColors.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {newShoeColors.map((color) => (
+                        <Badge key={color.name} variant="secondary" className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full border" style={{ backgroundColor: color.hex }} />
+                          {color.name}
+                          <button type="button" onClick={() => handleRemoveNewShoeColor(color.name)}>
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="new-shoe-images">Images du produit</Label>
+                  <Input id="new-shoe-images" type="file" accept="image/*" multiple onChange={handleNewShoeImageChange} />
+                  <p className="text-sm text-muted-foreground">
+                    Vous pouvez sélectionner plusieurs images. La première image sera utilisée comme image principale.
+                  </p>
+
+                  {newShoeImagePreviews.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {newShoeImagePreviews.map((preview, index) => (
+                        <div key={`${preview}-${index}`} className="relative group rounded-md overflow-hidden border">
+                          <img src={preview} alt={`Aperçu ${index + 1}`} className="h-28 w-full object-cover" />
+                          {index === 0 && (
+                            <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">Principale</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewShoeImage(index)}
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </form>
+            </CardContent>
+            <CardFooter className="border-t pt-4">
+              <Button type="submit" form="create-product-form" disabled={isSubmitting}>
+                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Création...</> : 'Créer le produit'}
+              </Button>
+            </CardFooter>
+          </Card>
+        );
 
       case 'orders':
          return <p>Orders View Placeholder</p>; // This will be the full orders view
