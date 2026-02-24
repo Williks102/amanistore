@@ -87,7 +87,7 @@ export default function Home() {
 
   const { filteredShoes, hasActiveFilters } = useProductFilters(shoes, filters);
 
-  const newArrivals = useMemo(() => shoes.slice(0, 3), [shoes]);
+  const newArrivals = useMemo(() => shoes.slice(0, 6), [shoes]);
   const bestSellers = useMemo(() => shoes.slice(-3).reverse(), [shoes]);
   const recommended = useMemo(() => shoes.slice(-6, -3).reverse(), [shoes]);
 

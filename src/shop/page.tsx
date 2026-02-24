@@ -9,6 +9,8 @@ import { Sidebar } from '@/components/Sidebar';
 import { getProducts } from '@/services/productService';
 import { getCategories } from '@/services/categoryService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEFAULT_MAX_PRICE, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
 
 export type PriceRange = {
@@ -26,6 +28,7 @@ export default function ShopPage() {
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc'>('newest');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +90,13 @@ export default function ShopPage() {
   );
 
   const { filteredShoes } = useProductFilters(shoes, filters);
+  const sortedShoes = useMemo(() => {
+    const products = [...filteredShoes];
+    if (sortBy === 'price-asc') return products.sort((a, b) => a.price - b.price);
+    if (sortBy === 'price-desc') return products.sort((a, b) => b.price - a.price);
+    return products.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  }, [filteredShoes, sortBy]);
+
 
   const renderSkeleton = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -107,7 +117,23 @@ export default function ShopPage() {
       <Header categories={categories} onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-8">
-          <h1 className="text-4xl font-bold text-center mb-12">Boutique</h1>
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-4xl font-bold">Boutique</h1>
+              <p className="text-muted-foreground mt-1">{sortedShoes.length} produit(s) disponibles</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setSidebarOpen(true)}>Filtres</Button>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as "newest" | "price-asc" | "price-desc")}>
+                <SelectTrigger className="w-[210px]"><SelectValue placeholder="Trier par" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Plus récents</SelectItem>
+                  <SelectItem value="price-asc">Prix: croissant</SelectItem>
+                  <SelectItem value="price-desc">Prix: décroissant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <Sidebar
             priceRange={priceRange}
@@ -125,7 +151,7 @@ export default function ShopPage() {
             onOpenChange={setSidebarOpen}
           />
 
-          <div className="w-full">{loading ? renderSkeleton() : <ShoeShowcase shoes={filteredShoes} />}</div>
+          <div className="w-full">{loading ? renderSkeleton() : <ShoeShowcase shoes={sortedShoes} />}</div>
         </div>
       </main>
     </div>
