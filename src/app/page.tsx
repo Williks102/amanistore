@@ -16,11 +16,30 @@ import { getCategories } from '@/services/categoryService';
 import { getCollections } from '@/services/collectionService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { DEFAULT_MAX_PRICE, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
 
 export type PriceRange = {
   min: number;
   max: number;
+};
+
+const MAX_PRICE = 100000;
+
+const matchesFilters = (
+  shoe: Shoe,
+  selectedCategory: Category | null,
+  selectedCollection: Collection | null,
+  searchTerm: string,
+  priceRange: PriceRange,
+  selectedSizes: number[],
+  selectedColors: string[]
+) => {
+  if (selectedCategory && shoe.categoryId !== selectedCategory.id) return false;
+  if (selectedCollection && !selectedCollection.categoryIds.includes(shoe.categoryId)) return false;
+  if (searchTerm && !shoe.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+  if (shoe.price < priceRange.min || shoe.price > priceRange.max) return false;
+  if (selectedSizes.length > 0 && !selectedSizes.some((size) => shoe.availableSizes.includes(size))) return false;
+  if (selectedColors.length > 0 && !selectedColors.some((colorName) => shoe.availableColors.some((c) => c.name === colorName))) return false;
+  return true;
 };
 
 export default function Home() {
@@ -31,7 +50,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: DEFAULT_MAX_PRICE });
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: MAX_PRICE });
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -73,29 +92,31 @@ export default function Home() {
     return Array.from(uniqueColors.values());
   }, [shoes]);
 
-  const filters = useMemo<ProductFilters>(
-    () => ({
-      selectedCategory,
-      selectedCollection,
-      searchTerm,
-      priceRange,
-      selectedSizes,
-      selectedColors,
-    }),
-    [selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors]
+  const filteredShoes = useMemo(
+    () =>
+      shoes.filter((shoe) =>
+        matchesFilters(shoe, selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors)
+      ),
+    [shoes, selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors]
   );
 
-  const { filteredShoes, hasActiveFilters } = useProductFilters(shoes, filters);
-
-  const newArrivals = useMemo(() => shoes.slice(0, 6), [shoes]);
+  const newArrivals = useMemo(() => shoes.slice(0, 3), [shoes]);
   const bestSellers = useMemo(() => shoes.slice(-3).reverse(), [shoes]);
   const recommended = useMemo(() => shoes.slice(-6, -3).reverse(), [shoes]);
+
+  const hasActiveFilters =
+    !!selectedCategory ||
+    !!selectedCollection ||
+    searchTerm.trim().length > 0 ||
+    priceRange.max < MAX_PRICE ||
+    selectedSizes.length > 0 ||
+    selectedColors.length > 0;
 
   const clearAllFilters = () => {
     setSelectedCategory(null);
     setSelectedCollection(null);
     setSearchTerm('');
-    setPriceRange({ min: 0, max: DEFAULT_MAX_PRICE });
+    setPriceRange({ min: 0, max: MAX_PRICE });
     setSelectedSizes([]);
     setSelectedColors([]);
   };
@@ -187,7 +208,19 @@ export default function Home() {
                       Réinitialiser tous les filtres
                     </Button>
                   </div>
-                  {loading ? renderSkeleton() : <ShoeShowcase shoes={filteredShoes} />}
+                  {loading ? (
+                    renderSkeleton()
+                  ) : (
+                    <ShoeShowcase
+                      shoes={shoes}
+                      selectedCategory={selectedCategory}
+                      selectedCollection={selectedCollection}
+                      searchTerm={searchTerm}
+                      priceRange={priceRange}
+                      selectedSizes={selectedSizes}
+                      selectedColors={selectedColors}
+                    />
+                  )}
                 </section>
               </AnimatedSection>
             )}
@@ -197,7 +230,20 @@ export default function Home() {
                 <AnimatedSection>
                   <section id="new-arrivals" className="py-12">
                     <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
-                    {loading ? renderSkeleton() : <ShoeShowcase shoes={newArrivals} />}
+                    {loading ? (
+                      renderSkeleton()
+                    ) : (
+                      <ShoeShowcase
+                        shoes={shoes}
+                        selectedCategory={null}
+                        selectedCollection={null}
+                        searchTerm=""
+                        priceRange={{ min: 0, max: MAX_PRICE }}
+                        selectedSizes={[]}
+                        selectedColors={[]}
+                        filtersubset={newArrivals.map((s) => s.id)}
+                      />
+                    )}
                   </section>
                 </AnimatedSection>
 
@@ -206,7 +252,20 @@ export default function Home() {
                 <AnimatedSection>
                   <section id="best-sellers" className="py-12">
                     <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
-                    {loading ? renderSkeleton() : <ShoeShowcase shoes={bestSellers} />}
+                    {loading ? (
+                      renderSkeleton()
+                    ) : (
+                      <ShoeShowcase
+                        shoes={shoes}
+                        selectedCategory={null}
+                        selectedCollection={null}
+                        searchTerm=""
+                        priceRange={{ min: 0, max: MAX_PRICE }}
+                        selectedSizes={[]}
+                        selectedColors={[]}
+                        filtersubset={bestSellers.map((s) => s.id)}
+                      />
+                    )}
                   </section>
                 </AnimatedSection>
 
@@ -215,7 +274,20 @@ export default function Home() {
                 <AnimatedSection>
                   <section id="recommended" className="py-12">
                     <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
-                    {loading ? renderSkeleton() : <ShoeShowcase shoes={recommended} />}
+                    {loading ? (
+                      renderSkeleton()
+                    ) : (
+                      <ShoeShowcase
+                        shoes={shoes}
+                        selectedCategory={null}
+                        selectedCollection={null}
+                        searchTerm=""
+                        priceRange={{ min: 0, max: MAX_PRICE }}
+                        selectedSizes={[]}
+                        selectedColors={[]}
+                        filtersubset={recommended.map((s) => s.id)}
+                      />
+                    )}
                   </section>
                 </AnimatedSection>
               </>

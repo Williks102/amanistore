@@ -69,7 +69,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
 
   const activeFilters = [
     ...(safeSearchTerm ? ['Recherche: ' + safeSearchTerm] : []),
-    ...(priceRange.max < DEFAULT_MAX_PRICE ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
+    ...(priceRange.max < 100000 ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
     ...selectedSizes.map((size) => 'Pointure: ' + size),
     ...selectedColors.map((color) => 'Couleur: ' + color),
   ];

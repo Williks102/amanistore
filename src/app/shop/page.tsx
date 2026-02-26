@@ -149,8 +149,20 @@ export default function ShopPage() {
             isOpen={isSidebarOpen}
             onOpenChange={setSidebarOpen}
           />
-
-          <div className="w-full">{loading ? renderSkeleton() : <ShoeShowcase shoes={sortedShoes} />}</div>
+          
+          <div className="w-full">
+            {loading ? renderSkeleton() : (
+                <ShoeShowcase
+                  shoes={shoes}
+                  selectedCategory={selectedCategory}
+                  selectedCollection={null}
+                  searchTerm={searchTerm}
+                  priceRange={priceRange}
+                  selectedSizes={selectedSizes}
+                  selectedColors={selectedColors}
+                />
+            )}
+          </div>
         </div>
       </main>
     </div>
