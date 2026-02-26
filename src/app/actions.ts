@@ -57,13 +57,13 @@ export async function uploadImage(formData: FormData) {
 export async function getProducts() {
     if (!adminDb) return [];
     const snapshot = await adminDb.collection('shoes').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Shoe[];
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Shoe).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 }
 
 export async function createProduct(newShoeData: Omit<Shoe, 'id'>) {
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
-        const docRef = await adminDb.collection('shoes').add(newShoeData);
+        const docRef = await adminDb.collection('shoes').add({ ...newShoeData, createdAt: new Date().toISOString() });
         return { success: true, productId: docRef.id };
     } catch (error: any) { return { success: false, error: error.message }; }
 }

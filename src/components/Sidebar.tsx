@@ -12,12 +12,12 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
-import type { PriceRange } from '@/app/page';
 import type { ShoeColor } from '@/lib/types';
+import { DEFAULT_MAX_PRICE, type UnifiedPriceRange } from '@/hooks/use-product-filters';
 
 interface SidebarProps {
-  priceRange: PriceRange;
-  onPriceRangeChange: (value: PriceRange) => void;
+  priceRange: UnifiedPriceRange;
+  onPriceRangeChange: (value: UnifiedPriceRange) => void;
   availableSizes: number[];
   selectedSizes: number[];
   onSelectedSizesChange: (sizes: number[]) => void;
@@ -61,7 +61,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
   };
 
   const clearFilters = () => {
-    onPriceRangeChange({ min: 0, max: 100000 });
+    onPriceRangeChange({ min: 0, max: DEFAULT_MAX_PRICE });
     onSelectedSizesChange([]);
     onSelectedColorsChange([]);
     onSearchTermChange?.('');
@@ -103,7 +103,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
         <h3 className="text-lg font-semibold mb-4">Prix</h3>
         <Slider
           min={0}
-          max={100000}
+          max={DEFAULT_MAX_PRICE}
           step={5000}
           value={[priceRange.max]}
           onValueChange={(value) => onPriceRangeChange({ min: 0, max: value[0] })}

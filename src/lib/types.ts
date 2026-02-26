@@ -35,6 +35,7 @@ export type Shoe = {
   availableSizes: number[];
   availableColors: ShoeColor[];
   detailImages: ShoeImage[];
+  createdAt?: string;
 };
 
 export type CartItem = {

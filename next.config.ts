@@ -2,6 +2,11 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '20mb',
+    },
+  },
   /* config options here */
   allowedDevOrigins: [
       '**.' + process.env.GITPOD_WORKSPACE_ID + '.ws-eu114.gitpod.io',

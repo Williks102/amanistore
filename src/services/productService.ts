@@ -18,7 +18,11 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Shoe => {
 export const getProducts = async (): Promise<Shoe[]> => {
     try {
         const snapshot = await getDocs(getShoeCollection());
-        return snapshot.docs.map(fromFirestore);
+        return snapshot.docs.map(fromFirestore).sort((a, b) => {
+            const aDate = new Date(a.createdAt || 0).getTime();
+            const bDate = new Date(b.createdAt || 0).getTime();
+            return bDate - aDate;
+        });
     } catch (e) {
         const contextualError = new FirestorePermissionError({
           operation: 'list',
