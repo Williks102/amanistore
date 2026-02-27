@@ -102,11 +102,15 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
     }
 
     const shopNumber = "2250172698282";
+    const productImageUrl = shoe.gridImage?.url || shoe.detailImages?.[0]?.url;
     let message = `Bonjour, je souhaiterais acheter cette chaussure : *${shoe.name}*.\n\n`;
     message += `*Options choisies :*\n`;
     message += `- Taille : ${selectedSize}\n`;
     message += `- Couleur : ${selectedColor}\n`;
-    message += `- Quantité : ${quantity}`;
+    message += `- Quantité : ${quantity}\n`;
+    if (productImageUrl) {
+      message += `\nImage du produit : ${productImageUrl}`;
+    }
     
     const whatsappUrl = `https://wa.me/${shopNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');

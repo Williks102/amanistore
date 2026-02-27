@@ -23,14 +23,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Pencil } from 'lucide-react';
 import Image from 'next/image';
 
 import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor } from '@/lib/types';
 import { 
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
-    updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
+    updatePromoCode, deletePromoCode, createCategory, updateCategory, deleteCategory, createCollection, 
     deleteCollection, getOrderByCodeForValidation, validateOrderDelivery
 } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
@@ -63,6 +63,8 @@ const AdminPage = () => {
   const [newColorHex, setNewColorHex] = useState('#000000');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryImageFile, setNewCategoryImageFile] = useState<File | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionImageFile, setNewCollectionImageFile] = useState<File | null>(null);
   const [newCollectionCategoryIds, setNewCollectionCategoryIds] = useState<string[]>([]);
@@ -149,6 +151,35 @@ const AdminPage = () => {
       } else {
           toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
       }
+  }
+
+  const startEditCategory = (category: Category) => {
+      setEditingCategoryId(category.id);
+      setEditingCategoryName(category.name);
+  }
+
+  const cancelEditCategory = () => {
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+  }
+
+  const handleUpdateCategory = async (categoryId: string) => {
+      const normalizedName = editingCategoryName.trim();
+      if (!normalizedName) {
+          toast({ title: 'Champs manquants', description: 'Le nom de la catégorie est requis.', variant: 'destructive' });
+          return;
+      }
+
+      setIsSubmitting(true);
+      const result = await updateCategory(categoryId, { name: normalizedName });
+      if (result.success) {
+          toast({ title: 'Succès', description: 'Catégorie modifiée.' });
+          cancelEditCategory();
+          fetchData();
+      } else {
+          toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+      }
+      setIsSubmitting(false);
   }
 
   const handleCreateCollection = async (e: React.FormEvent) => {
@@ -551,8 +582,38 @@ const AdminPage = () => {
                             <TableBody>
                                 {categories.map(cat => (
                                     <TableRow key={cat.id}>
-                                        <TableCell className="font-medium">{cat.name}</TableCell>
+                                        <TableCell className="font-medium">
+                                          {editingCategoryId === cat.id ? (
+                                            <Input
+                                              value={editingCategoryName}
+                                              onChange={(e) => setEditingCategoryName(e.target.value)}
+                                              className="max-w-xs"
+                                            />
+                                          ) : (
+                                            cat.name
+                                          )}
+                                        </TableCell>
                                         <TableCell className="text-right">
+                                          <div className="flex justify-end gap-2">
+                                            {editingCategoryId === cat.id ? (
+                                              <>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={() => handleUpdateCategory(cat.id)}
+                                                  disabled={isSubmitting}
+                                                >
+                                                  Enregistrer
+                                                </Button>
+                                                <Button variant="ghost" size="sm" onClick={cancelEditCategory}>
+                                                  Annuler
+                                                </Button>
+                                              </>
+                                            ) : (
+                                              <Button variant="ghost" size="icon" onClick={() => startEditCategory(cat)}>
+                                                <Pencil className="h-4 w-4" />
+                                              </Button>
+                                            )}
                                             <AlertDialog>
                                               <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                                               <AlertDialogContent>
@@ -563,6 +624,7 @@ const AdminPage = () => {
                                                 </AlertDialogFooter>
                                               </AlertDialogContent>
                                             </AlertDialog>
+                                          </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

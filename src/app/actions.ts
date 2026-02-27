@@ -14,6 +14,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
+
 // ============ AI ACTIONS ============
 const ShoeRecommendationInputSchema = z.object({
   shoeDescription: z.string(),
@@ -36,6 +38,9 @@ export async function fetchShoeRecommendations(
 export async function uploadImage(formData: FormData) {
   const file = formData.get('image') as File | null;
   if (!file || file.size === 0) return { error: 'Aucun fichier valide fourni.' };
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return { error: 'La taille maximale autorisée est de 10 Mo par image.' };
+  }
 
   try {
     const arrayBuffer = await file.arrayBuffer();
@@ -96,6 +101,14 @@ export async function createCategory(categoryData: Omit<Category, 'id'>) {
     try {
         const docRef = await adminDb.collection('categories').add(categoryData);
         return { success: true, categoryId: docRef.id };
+    } catch (error: any) { return { success: false, error: error.message }; }
+}
+
+export async function updateCategory(categoryId: string, data: Partial<Omit<Category, 'id'>>) {
+    if (!adminDb) return { success: false, error: 'DB connection failed.' };
+    try {
+        await adminDb.collection('categories').doc(categoryId).update(data);
+        return { success: true };
     } catch (error: any) { return { success: false, error: error.message }; }
 }
 
