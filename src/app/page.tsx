@@ -211,15 +211,7 @@ export default function Home() {
                   {loading ? (
                     renderSkeleton()
                   ) : (
-                    <ShoeShowcase
-                      shoes={shoes}
-                      selectedCategory={selectedCategory}
-                      selectedCollection={selectedCollection}
-                      searchTerm={searchTerm}
-                      priceRange={priceRange}
-                      selectedSizes={selectedSizes}
-                      selectedColors={selectedColors}
-                    />
+                    <ShoeShowcase shoes={filteredShoes} />
                   )}
                 </section>
               </AnimatedSection>
@@ -233,16 +225,7 @@ export default function Home() {
                     {loading ? (
                       renderSkeleton()
                     ) : (
-                      <ShoeShowcase
-                        shoes={shoes}
-                        selectedCategory={null}
-                        selectedCollection={null}
-                        searchTerm=""
-                        priceRange={{ min: 0, max: MAX_PRICE }}
-                        selectedSizes={[]}
-                        selectedColors={[]}
-                        filtersubset={newArrivals.map((s) => s.id)}
-                      />
+                      <ShoeShowcase shoes={newArrivals} />
                     )}
                   </section>
                 </AnimatedSection>
@@ -255,16 +238,7 @@ export default function Home() {
                     {loading ? (
                       renderSkeleton()
                     ) : (
-                      <ShoeShowcase
-                        shoes={shoes}
-                        selectedCategory={null}
-                        selectedCollection={null}
-                        searchTerm=""
-                        priceRange={{ min: 0, max: MAX_PRICE }}
-                        selectedSizes={[]}
-                        selectedColors={[]}
-                        filtersubset={bestSellers.map((s) => s.id)}
-                      />
+                      <ShoeShowcase shoes={bestSellers} />
                     )}
                   </section>
                 </AnimatedSection>
@@ -277,16 +251,7 @@ export default function Home() {
                     {loading ? (
                       renderSkeleton()
                     ) : (
-                      <ShoeShowcase
-                        shoes={shoes}
-                        selectedCategory={null}
-                        selectedCollection={null}
-                        searchTerm=""
-                        priceRange={{ min: 0, max: MAX_PRICE }}
-                        selectedSizes={[]}
-                        selectedColors={[]}
-                        filtersubset={recommended.map((s) => s.id)}
-                      />
+                      <ShoeShowcase shoes={recommended} />
                     )}
                   </section>
                 </AnimatedSection>
