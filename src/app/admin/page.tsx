@@ -65,6 +65,7 @@ const AdminPage = () => {
   const [newCategoryImageFile, setNewCategoryImageFile] = useState<File | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [editingCategoryImageFile, setEditingCategoryImageFile] = useState<File | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionImageFile, setNewCollectionImageFile] = useState<File | null>(null);
   const [newCollectionCategoryIds, setNewCollectionCategoryIds] = useState<string[]>([]);
@@ -156,14 +157,16 @@ const AdminPage = () => {
   const startEditCategory = (category: Category) => {
       setEditingCategoryId(category.id);
       setEditingCategoryName(category.name);
+      setEditingCategoryImageFile(null);
   }
 
   const cancelEditCategory = () => {
       setEditingCategoryId(null);
       setEditingCategoryName('');
+      setEditingCategoryImageFile(null);
   }
 
-  const handleUpdateCategory = async (categoryId: string) => {
+  const handleUpdateCategory = async (category: Category) => {
       const normalizedName = editingCategoryName.trim();
       if (!normalizedName) {
           toast({ title: 'Champs manquants', description: 'Le nom de la catégorie est requis.', variant: 'destructive' });
@@ -171,7 +174,22 @@ const AdminPage = () => {
       }
 
       setIsSubmitting(true);
-      const result = await updateCategory(categoryId, { name: normalizedName });
+      const payload: Partial<Omit<Category, 'id'>> = { name: normalizedName };
+
+      if (editingCategoryImageFile) {
+        const formData = new FormData();
+        formData.append('image', editingCategoryImageFile);
+        const uploadResult = await uploadImage(formData);
+        if (uploadResult.error || !uploadResult.secure_url) {
+          toast({ title: "Erreur d'upload", description: uploadResult.error, variant: 'destructive' });
+          setIsSubmitting(false);
+          return;
+        }
+        payload.imageUrl = uploadResult.secure_url;
+        payload.imageId = category.imageId || 'cloud';
+      }
+
+      const result = await updateCategory(category.id, payload);
       if (result.success) {
           toast({ title: 'Succès', description: 'Catégorie modifiée.' });
           cancelEditCategory();
@@ -578,10 +596,27 @@ const AdminPage = () => {
                     <CardHeader><CardTitle>Catégories existantes</CardTitle></CardHeader>
                     <CardContent>
                          <Table>
-                            <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Image</TableHead><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {categories.map(cat => (
                                     <TableRow key={cat.id}>
+                                        <TableCell>
+                                          <div className="space-y-2">
+                                            {cat.imageUrl ? (
+                                              <Image src={cat.imageUrl} alt={cat.name} width={52} height={52} className="rounded-md object-cover" />
+                                            ) : (
+                                              <div className="h-[52px] w-[52px] rounded-md bg-muted" />
+                                            )}
+                                            {editingCategoryId === cat.id && (
+                                              <Input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => setEditingCategoryImageFile(e.target.files ? e.target.files[0] : null)}
+                                                className="max-w-xs"
+                                              />
+                                            )}
+                                          </div>
+                                        </TableCell>
                                         <TableCell className="font-medium">
                                           {editingCategoryId === cat.id ? (
                                             <Input
@@ -600,7 +635,7 @@ const AdminPage = () => {
                                                 <Button
                                                   variant="outline"
                                                   size="sm"
-                                                  onClick={() => handleUpdateCategory(cat.id)}
+                                                  onClick={() => handleUpdateCategory(cat)}
                                                   disabled={isSubmitting}
                                                 >
                                                   Enregistrer
@@ -675,7 +710,7 @@ const AdminPage = () => {
                     <CardHeader><CardTitle>Collections existantes</CardTitle></CardHeader>
                     <CardContent>
                          <Table>
-                            <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Image</TableHead><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {collections.map(col => (
                                     <TableRow key={col.id}>
