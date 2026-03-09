@@ -23,14 +23,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Pencil } from 'lucide-react';
 import Image from 'next/image';
 
 import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor } from '@/lib/types';
 import { 
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
-    updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
+    updatePromoCode, deletePromoCode, createCategory, updateCategory, deleteCategory, createCollection, 
     deleteCollection, getOrderByCodeForValidation, validateOrderDelivery
 } from '@/app/actions';
 import { EditProductModal } from '@/components/EditProductModal';
@@ -63,6 +63,9 @@ const AdminPage = () => {
   const [newColorHex, setNewColorHex] = useState('#000000');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryImageFile, setNewCategoryImageFile] = useState<File | null>(null);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState('');
+  const [editingCategoryImageFile, setEditingCategoryImageFile] = useState<File | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
   const [newCollectionImageFile, setNewCollectionImageFile] = useState<File | null>(null);
   const [newCollectionCategoryIds, setNewCollectionCategoryIds] = useState<string[]>([]);
@@ -149,6 +152,52 @@ const AdminPage = () => {
       } else {
           toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
       }
+  }
+
+  const startEditCategory = (category: Category) => {
+      setEditingCategoryId(category.id);
+      setEditingCategoryName(category.name);
+      setEditingCategoryImageFile(null);
+  }
+
+  const cancelEditCategory = () => {
+      setEditingCategoryId(null);
+      setEditingCategoryName('');
+      setEditingCategoryImageFile(null);
+  }
+
+  const handleUpdateCategory = async (category: Category) => {
+      const normalizedName = editingCategoryName.trim();
+      if (!normalizedName) {
+          toast({ title: 'Champs manquants', description: 'Le nom de la catégorie est requis.', variant: 'destructive' });
+          return;
+      }
+
+      setIsSubmitting(true);
+      const payload: Partial<Omit<Category, 'id'>> = { name: normalizedName };
+
+      if (editingCategoryImageFile) {
+        const formData = new FormData();
+        formData.append('image', editingCategoryImageFile);
+        const uploadResult = await uploadImage(formData);
+        if (uploadResult.error || !uploadResult.secure_url) {
+          toast({ title: "Erreur d'upload", description: uploadResult.error, variant: 'destructive' });
+          setIsSubmitting(false);
+          return;
+        }
+        payload.imageUrl = uploadResult.secure_url;
+        payload.imageId = category.imageId || 'cloud';
+      }
+
+      const result = await updateCategory(category.id, payload);
+      if (result.success) {
+          toast({ title: 'Succès', description: 'Catégorie modifiée.' });
+          cancelEditCategory();
+          fetchData();
+      } else {
+          toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+      }
+      setIsSubmitting(false);
   }
 
   const handleCreateCollection = async (e: React.FormEvent) => {
@@ -547,12 +596,59 @@ const AdminPage = () => {
                     <CardHeader><CardTitle>Catégories existantes</CardTitle></CardHeader>
                     <CardContent>
                          <Table>
-                            <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Image</TableHead><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {categories.map(cat => (
                                     <TableRow key={cat.id}>
-                                        <TableCell className="font-medium">{cat.name}</TableCell>
+                                        <TableCell>
+                                          <div className="space-y-2">
+                                            {cat.imageUrl ? (
+                                              <Image src={cat.imageUrl} alt={cat.name} width={52} height={52} className="rounded-md object-cover" />
+                                            ) : (
+                                              <div className="h-[52px] w-[52px] rounded-md bg-muted" />
+                                            )}
+                                            {editingCategoryId === cat.id && (
+                                              <Input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => setEditingCategoryImageFile(e.target.files ? e.target.files[0] : null)}
+                                                className="max-w-xs"
+                                              />
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                          {editingCategoryId === cat.id ? (
+                                            <Input
+                                              value={editingCategoryName}
+                                              onChange={(e) => setEditingCategoryName(e.target.value)}
+                                              className="max-w-xs"
+                                            />
+                                          ) : (
+                                            cat.name
+                                          )}
+                                        </TableCell>
                                         <TableCell className="text-right">
+                                          <div className="flex justify-end gap-2">
+                                            {editingCategoryId === cat.id ? (
+                                              <>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onClick={() => handleUpdateCategory(cat)}
+                                                  disabled={isSubmitting}
+                                                >
+                                                  Enregistrer
+                                                </Button>
+                                                <Button variant="ghost" size="sm" onClick={cancelEditCategory}>
+                                                  Annuler
+                                                </Button>
+                                              </>
+                                            ) : (
+                                              <Button variant="ghost" size="icon" onClick={() => startEditCategory(cat)}>
+                                                <Pencil className="h-4 w-4" />
+                                              </Button>
+                                            )}
                                             <AlertDialog>
                                               <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                                               <AlertDialogContent>
@@ -563,6 +659,7 @@ const AdminPage = () => {
                                                 </AlertDialogFooter>
                                               </AlertDialogContent>
                                             </AlertDialog>
+                                          </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -613,7 +710,7 @@ const AdminPage = () => {
                     <CardHeader><CardTitle>Collections existantes</CardTitle></CardHeader>
                     <CardContent>
                          <Table>
-                            <TableHeader><TableRow><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                            <TableHeader><TableRow><TableHead>Image</TableHead><TableHead>Nom</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                             <TableBody>
                                 {collections.map(col => (
                                     <TableRow key={col.id}>
