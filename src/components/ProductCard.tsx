@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import type { Shoe } from '@/lib/types';
 import { Button } from './ui/button';
@@ -9,10 +10,10 @@ import { useToast } from '@/hooks/use-toast';
 
 interface ProductCardProps {
   shoe: Shoe;
-  onClick: () => void;
+  productHref: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ shoe, onClick }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ shoe, productHref }) => {
   const { addItem } = useCart();
   const { toast } = useToast();
 
@@ -34,7 +35,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ shoe, onClick }) => {
       className="overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 flex flex-col"
       aria-label={`View details for ${shoe.name}`}
     >
-      <div onClick={onClick} className="cursor-pointer">
+      <Link href={productHref} className="cursor-pointer block">
         <CardHeader className="p-0">
           <div className="aspect-square w-full relative overflow-hidden">
             <Image
@@ -50,7 +51,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ shoe, onClick }) => {
         <CardContent className="p-4">
           <h3 className="font-headline text-xl font-semibold truncate">{shoe.name}</h3>
         </CardContent>
-      </div>
+      </Link>
       <CardFooter className="p-4 pt-0 mt-auto flex justify-between items-center">
         <p className="text-lg font-semibold text-primary/80">
           {`XOF ${shoe.price.toLocaleString('fr-FR')}`}
