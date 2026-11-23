@@ -14,6 +14,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { getOrdersForUser } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
+import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -187,11 +188,15 @@ const BuyerDashboard = () => {
     <div className="container mx-auto py-10 px-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Mon Compte</h1>
-        <Button asChild>
-          <Link href="/">
-            <ShoppingBag className="mr-2 h-4 w-4" /> Faire un autre achat
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild>
+            <Link href="/shop">
+              <ShoppingBag className="mr-2 h-4 w-4" /> Faire un autre achat
+            </Link>
+          </Button>
+          <HomeButton variant="outline" />
+          <LogoutButton variant="outline" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
