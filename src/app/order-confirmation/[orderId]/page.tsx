@@ -156,7 +156,7 @@ export default function OrderConfirmationPage() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-950 min-h-screen py-12">
+    <div className="bg-background min-h-screen py-12">
       <div className="container mx-auto px-4">
         <Card className="max-w-2xl mx-auto">
           <CardHeader className="text-center">
@@ -167,18 +167,18 @@ export default function OrderConfirmationPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center">
+            <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 text-center">
               <div className="flex items-center justify-center mb-2">
-                <KeyRound className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-semibold text-blue-800 dark:text-blue-300">Votre code de validation pour la livraison</h3>
+                <KeyRound className="h-5 w-5 mr-2 text-primary" />
+                <h3 className="font-semibold text-foreground">Votre code de validation pour la livraison</h3>
               </div>
               <div className="flex justify-center items-center gap-2">
-                <p className="text-3xl font-bold tracking-widest text-blue-700 dark:text-blue-400">{order.validationCode}</p>
+                <p className="text-3xl font-bold tracking-widest text-primary">{order.validationCode}</p>
                 <Button variant="ghost" size="icon" onClick={handleCopyToClipboard}>
                     <Copy className="h-5 w-5"/>
                 </Button>
               </div>
-              <p className="text-sm text-blue-600 dark:text-blue-500 mt-1">Conservez ce code précieusement. Vous devrez le fournir au livreur.</p>
+              <p className="text-sm text-muted-foreground mt-1">Conservez ce code précieusement. Vous devrez le fournir au livreur.</p>
             </div>
             
             <Separator />
@@ -244,7 +244,7 @@ export default function OrderConfirmationPage() {
                       Suivre ma commande
                   </Link>
                 </Button>
-                <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full bg-green-500 hover:bg-green-600 text-white">
+                <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full bg-green-700 hover:bg-green-800 text-white">
                     <WhatsAppIcon className="mr-2 h-5 w-5" />
                     Partager sur WhatsApp
                 </Button>

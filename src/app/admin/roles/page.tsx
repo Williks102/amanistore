@@ -174,7 +174,7 @@ const RolesPage = () => {
         </div>
         <button
           type="submit"
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          className="bg-primary text-primary-foreground px-4 py-2 rounded hover:bg-primary/90"
         >
           Assign Role
         </button>
@@ -201,7 +201,7 @@ const RolesPage = () => {
                       </span>
                     )}
                     {user.productManager && (
-                      <span className="bg-gray-200 px-2 py-1 rounded-full text-sm flex items-center">
+                      <span className="bg-secondary px-2 py-1 rounded-full text-sm flex items-center">
                         Product Manager
                         <button
                           onClick={() =>
@@ -214,7 +214,7 @@ const RolesPage = () => {
                       </span>
                     )}
                     {user.orderManager && (
-                      <span className="bg-gray-200 px-2 py-1 rounded-full text-sm flex items-center">
+                      <span className="bg-secondary px-2 py-1 rounded-full text-sm flex items-center">
                         Order Manager
                         <button
                           onClick={() =>
@@ -230,7 +230,7 @@ const RolesPage = () => {
                 </li>
               ))
             ) : (
-              <li className="p-3 text-gray-500">No user roles found.</li>
+              <li className="p-3 text-muted-foreground">No user roles found.</li>
             )}
           </ul>
         </div>

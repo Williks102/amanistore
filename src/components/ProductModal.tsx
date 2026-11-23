@@ -332,7 +332,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               <Button size="lg" variant="secondary" className="w-full text-base h-12" onClick={handleBuyNow}>
                 Acheter
               </Button>
-               <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full h-12 bg-green-500 hover:bg-green-600 text-white">
+               <Button onClick={handleShareOnWhatsApp} variant="outline" className="w-full h-12 bg-green-700 hover:bg-green-800 text-white">
                   <WhatsAppIcon className="mr-2 h-5 w-5" />
                   Commander via WhatsApp
               </Button>

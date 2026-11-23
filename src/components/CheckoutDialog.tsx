@@ -259,7 +259,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                       <span>{`XOF ${subtotal.toLocaleString('fr-FR')}`}</span>
                   </div>
                   {discount > 0 && (
-                      <div className="flex justify-between text-green-600">
+                      <div className="flex justify-between text-green-700">
                           <span>Réduction ({appliedPromoCode?.code}):</span>
                           <span>{`- XOF ${discount.toLocaleString('fr-FR')}`}</span>
                       </div>
