@@ -38,6 +38,7 @@ import {
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
+import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
@@ -873,6 +874,10 @@ const AdminPage = () => {
       <aside className="w-64 bg-background border-r p-4 flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</h1>
         {renderNav()}
+        <div className="mt-auto pt-4 border-t flex flex-col space-y-1.5">
+          <HomeButton />
+          <LogoutButton />
+        </div>
       </aside>
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b bg-background px-4 py-3">
@@ -883,9 +888,17 @@ const AdminPage = () => {
             <SheetContent side="left" className="w-64 p-4">
               <SheetTitle className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</SheetTitle>
               {renderNav(() => setIsMobileNavOpen(false))}
+              <div className="mt-6 pt-4 border-t flex flex-col space-y-1.5">
+                <HomeButton onNavigate={() => setIsMobileNavOpen(false)} />
+                <LogoutButton onNavigate={() => setIsMobileNavOpen(false)} />
+              </div>
             </SheetContent>
           </Sheet>
           <span className="font-semibold">Amani<span className="text-primary">.</span> Admin</span>
+          <div className="ml-auto flex items-center gap-1">
+            <HomeButton iconOnly />
+            <LogoutButton iconOnly />
+          </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">
           {renderContent()}

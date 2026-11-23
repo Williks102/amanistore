@@ -4,6 +4,10 @@
 import { useState, useEffect } from "react";
 import { db } from "@/firebase";
 import { RoleGate } from '@/components/RoleGate';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import {
   collection,
   getDocs,
@@ -117,7 +121,14 @@ const RolesPage = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Role Management</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">Role Management</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline"><Link href="/admin"><ArrowLeft className="mr-2 h-4 w-4" />Retour à l&apos;admin</Link></Button>
+          <HomeButton variant="outline" />
+          <LogoutButton variant="outline" />
+        </div>
+      </div>
 
       {feedback.message && (
         <div

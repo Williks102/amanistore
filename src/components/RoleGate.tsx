@@ -7,6 +7,7 @@ import { useUser } from '@/firebase';
 import { getMyRoles } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import type { Roles } from '@/lib/server-auth';
+import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 
 type Role = keyof Roles;
 
@@ -48,7 +49,11 @@ export function RoleGate({ allow, children }: { allow: Role[]; children: ReactNo
       <div className="flex min-h-screen items-center justify-center p-4 text-center">
         <div>
           <h1 className="text-2xl font-bold mb-2">Accès refusé</h1>
-          <p className="text-muted-foreground">Vous n&apos;avez pas les droits pour accéder à cette page.</p>
+          <p className="text-muted-foreground mb-6">Vous n&apos;avez pas les droits pour accéder à cette page.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <HomeButton variant="outline" />
+            <LogoutButton variant="outline" />
+          </div>
         </div>
       </div>
     );
