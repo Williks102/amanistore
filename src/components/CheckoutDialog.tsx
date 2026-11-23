@@ -63,13 +63,14 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   
   const discount = useMemo(() => {
     if (!appliedPromoCode) return 0;
+    let raw = 0;
     if (appliedPromoCode.discountType === 'percentage') {
-      return subtotal * (appliedPromoCode.value / 100);
+      raw = subtotal * (Math.min(Math.max(appliedPromoCode.value, 0), 100) / 100);
+    } else if (appliedPromoCode.discountType === 'fixed') {
+      raw = Math.max(appliedPromoCode.value, 0);
     }
-    if (appliedPromoCode.discountType === 'fixed') {
-      return appliedPromoCode.value;
-    }
-    return 0;
+    // La remise ne peut jamais dépasser le sous-total (pas de total négatif).
+    return Math.min(raw, subtotal);
   }, [subtotal, appliedPromoCode]);
 
   const total = subtotal - discount;

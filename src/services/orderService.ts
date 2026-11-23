@@ -68,7 +68,9 @@ export const getOrders = async (): Promise<Order[]> => {
 };
 
 export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status' | 'validationCode'>): Promise<Order> => {
-    const validationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    const validationCode = (100000 + (buf[0] % 900000)).toString();
     
     const newOrderData = {
         ...order,
