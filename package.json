@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-amani-rules \"vitest run -c vitest.rules.config.ts\""
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
@@ -61,9 +62,11 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "firebase-tools": "^14.27.0",
     "genkit-cli": "^0.0.2",
     "npm-check-updates": "^19.4.1",
     "postcss": "^8",
