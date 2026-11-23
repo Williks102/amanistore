@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu } from 'lucide-react';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
 
 import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor } from '@/lib/types';
@@ -56,6 +57,7 @@ const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product',
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [roles, setRoles] = useState<Roles | null>(null);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const can = (view: View) => !!roles && (roles.admin || VIEW_ROLES[view].some((r) => roles[r]));
 
   useEffect(() => {
@@ -769,24 +771,55 @@ const AdminPage = () => {
     }
   };
 
+  const NAV_ITEMS: Array<{ view: View; label: string; icon: React.ReactNode }> = [
+    { view: 'dashboard', label: 'Dashboard', icon: <BarChart2 className="mr-2 h-4 w-4" /> },
+    { view: 'orders', label: 'Commandes', icon: <ListOrdered className="mr-2 h-4 w-4" /> },
+    { view: 'products', label: 'Produits', icon: <Box className="mr-2 h-4 w-4" /> },
+    { view: 'create-product', label: 'Créer un produit', icon: <PlusCircle className="mr-2 h-4 w-4" /> },
+    { view: 'categories', label: 'Catégories', icon: <Archive className="mr-2 h-4 w-4" /> },
+    { view: 'collections', label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
+    { view: 'promotions', label: 'Promotions', icon: <Tag className="mr-2 h-4 w-4" /> },
+    { view: 'delivery-validation', label: 'Valider Livraison', icon: <ShieldCheck className="mr-2 h-4 w-4" /> },
+  ];
+
+  const renderNav = (onSelect?: () => void) => (
+    <nav className="flex flex-col space-y-1.5">
+      {NAV_ITEMS.filter((item) => can(item.view)).map((item) => (
+        <Button
+          key={item.view}
+          variant={activeView === item.view ? 'secondary' : 'ghost'}
+          onClick={() => { setActiveView(item.view); onSelect?.(); }}
+          className="justify-start"
+        >
+          {item.icon} {item.label}
+        </Button>
+      ))}
+    </nav>
+  );
+
   return (
     <div className="flex min-h-screen bg-muted/40">
       <aside className="w-64 bg-background border-r p-4 flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</h1>
-        <nav className="flex flex-col space-y-1.5">
-            {can('dashboard') && <Button variant={activeView === 'dashboard' ? 'secondary' : 'ghost'} onClick={() => setActiveView('dashboard')} className="justify-start"><BarChart2 className="mr-2 h-4 w-4"/> Dashboard</Button>}
-            {can('orders') && <Button variant={activeView === 'orders' ? 'secondary' : 'ghost'} onClick={() => setActiveView('orders')} className="justify-start"><ListOrdered className="mr-2 h-4 w-4"/> Commandes</Button>}
-            {can('products') && <Button variant={activeView === 'products' ? 'secondary' : 'ghost'} onClick={() => setActiveView('products')} className="justify-start"><Box className="mr-2 h-4 w-4"/> Produits</Button>}
-            {can('create-product') && <Button variant={activeView === 'create-product' ? 'secondary' : 'ghost'} onClick={() => setActiveView('create-product')} className="justify-start"><PlusCircle className="mr-2 h-4 w-4"/> Créer un produit</Button>}
-            {can('categories') && <Button variant={activeView === 'categories' ? 'secondary' : 'ghost'} onClick={() => setActiveView('categories')} className="justify-start"><Archive className="mr-2 h-4 w-4"/> Catégories</Button>}
-            {can('collections') && <Button variant={activeView === 'collections' ? 'secondary' : 'ghost'} onClick={() => setActiveView('collections')} className="justify-start"><Shapes className="mr-2 h-4 w-4"/> Collections</Button>}
-            {can('promotions') && <Button variant={activeView === 'promotions' ? 'secondary' : 'ghost'} onClick={() => setActiveView('promotions')} className="justify-start"><Tag className="mr-2 h-4 w-4"/> Promotions</Button>}
-            {can('delivery-validation') && <Button variant={activeView === 'delivery-validation' ? 'secondary' : 'ghost'} onClick={() => setActiveView('delivery-validation')} className="justify-start"><ShieldCheck className="mr-2 h-4 w-4"/> Valider Livraison</Button>}
-        </nav>
+        {renderNav()}
       </aside>
-      <main className="flex-1 p-4 sm:p-6">
-        {renderContent()}
-      </main>
+      <div className="flex-1 min-w-0 flex flex-col">
+        <header className="md:hidden sticky top-0 z-30 flex items-center gap-3 border-b bg-background px-4 py-3">
+          <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon" aria-label="Ouvrir le menu"><Menu className="h-5 w-5" /></Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-64 p-4">
+              <SheetTitle className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</SheetTitle>
+              {renderNav(() => setIsMobileNavOpen(false))}
+            </SheetContent>
+          </Sheet>
+          <span className="font-semibold">Amani<span className="text-primary">.</span> Admin</span>
+        </header>
+        <main className="flex-1 p-4 sm:p-6">
+          {renderContent()}
+        </main>
+      </div>
       {selectedShoe && (
         <EditProductModal
           isOpen={isEditModalOpen}
