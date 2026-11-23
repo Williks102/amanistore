@@ -1,0 +1,21 @@
+# CLAUDE.md — Amani's (boutique de chaussures)
+
+## Stack
+Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actions), Cloudinary pour les images, Tailwind et composants shadcn/ui. Interface et messages en **français**, code en **anglais**.
+
+## Tests
+- `npm test` : tests unitaires (Server Actions, rôles, promos, stock), sans réseau.
+- `npm run test:rules` : règles Firestore avec l'émulateur.
+- Avant toute PR : `npx tsc --noEmit`, `npm test`, `npm run test:rules`, `npx next build`.
+
+## Sécurité (à ne pas défaire)
+- Toute Server Action sensible vérifie le jeton Firebase et le rôle (`src/lib/server-auth.ts`, rôles lus dans `roles/{uid}`, jamais dans `users/{uid}`).
+- Une commande se crée seulement par `createOrder` (prix, remise, stock et code de livraison calculés côté serveur).
+- Les règles Firestore refusent par défaut ; les modifier impose de mettre à jour `tests/rules`.
+
+## Interface et charte visuelle
+Objectif : une boutique **chaleureuse, moderne et utilisable au téléphone** (audit et plan : `docs/audit-interface.md`).
+- **Jetons de couleur** uniquement (`src/app/globals.css`) : pas de couleur en dur dans les écrans. Une nouvelle charte se branche en changeant ces valeurs.
+- **Mobile d'abord** (360 px puis `md`), zones tactiles de **44 px** au moins, contraste **AA** (4,5:1) vérifié par calcul, jamais l'information par la couleur seule (un badge porte du texte), rien d'accessible uniquement au survol, pas de défilement horizontal de la page.
+- Libellé toujours visible au-dessus d'un champ ; chaque liste a ses états chargement, vide et erreur ; animations de 200 ms au plus, coupées si `prefers-reduced-motion`.
+- Chaque refonte se fait **une PR par étape**, mesurée à 390, 768 et 1280 px avant et après.
