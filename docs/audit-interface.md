@@ -23,7 +23,7 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 1. **Charte visuelle** (*fait dans cette PR*) : jetons de couleur dans `globals.css` (fond crème, encre chaude, bordures beige, accent terre cuite, mode sombre chaud), `next/font` pour Playfair Display et le texte, remplacement des couleurs en dur par les jetons, suppression de la règle `Arial`. Contrastes calculés et notés (voir ci-dessous).
 2. **Mobile et tactile** (*fait*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
 3. **Boutique** (*fait*) : badges de stock sur les cartes, pointures épuisées désactivées, couleurs à 44 px avec leur nom écrit, état d'erreur « Réessayer », images dimensionnées par écran. (La barre d'achat fixe en bas de la fiche produit existait déjà: je l'avais mise au plan à tort.)
-4. **Admin** : badges d'état colorés avec texte, navigation groupée (Boutique / Ventes / Équipe), états vides, chargements en squelette.
+4. **Admin** (*fait*) : badges d'état colorés avec texte, navigation groupée (Vue d'ensemble / Ventes / Boutique / Clients / Équipe), états vides, chargements en squelette.
 5. **Détails** : logo/monogramme à la place de l'emoji, ton des messages d'erreur et des toasts.
 
 ### Palette retenue (contrastes calculés, WCAG)
@@ -70,7 +70,15 @@ Changements : boutons, champs, listes déroulantes et menus à 44 px (composants
 - **Images**: attribut `sizes` sur les cartes (le navigateur ne télécharge plus une image de 600 px pour une carte de 390 px).
 - Limite: les badges de stock ne sont vérifiés que par les tests de leur logique (3 tests), pas à l'écran, car aucun produit de la boutique n'a de stock renseigné et je ne modifie pas vos données.
 
-Pas encore fait (étape suivante) : admin. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
+### Résultat de l'étape 4
+- **Badges d'état de commande** (`OrderStatusBadge`): En attente en ambre, Prêt en terre cuite, Livré en vert, Annulé en gris, **toujours avec le texte et un point** (jamais la couleur seule). Utilisés dans l'admin (nouvelle colonne « Statut », le menu de changement de statut est séparé et étiqueté), dans la validation de livraison et dans « Mon compte ». Contrastes des deux couleurs fixes ajoutés au test.
+- **Navigation groupée**: Vue d'ensemble, Ventes (Commandes, Valider Livraison, Promotions), Boutique (Produits, Créer un produit, Catégories, Collections), Clients (Messages), et **Équipe → Rôles et accès** pour les admins (la page `/admin/roles` n'avait aucun lien dans l'interface). Chaque rôle ne voit que ses groupes.
+- **États vides** avec une phrase et la suite à donner: commandes (selon le filtre), produits, catégories, collections, codes promo, messages.
+- **Chargement en squelette** à la place de la roue.
+- **Accessibilité**: boutons de suppression (icône seule) avec un nom (« Supprimer la catégorie X »), menu de statut étiqueté par client.
+- **Non mesuré**: l'admin demande une connexion, je n'ai donc pas pu le capturer ni mesurer ses zones tactiles. Il utilise les composants de l'étape 2 (44 px). À vérifier sur votre téléphone.
+
+Pas encore fait (étape suivante) : logo et favicon. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
 ## Règles à tenir (reprises dans `CLAUDE.md`)
 Mobile d'abord (360 px puis `md`), zones tactiles de 44 px au moins, contraste AA (4,5:1), jamais l'information par la couleur seule, rien d'accessible uniquement au survol, couleurs uniquement par les jetons de `globals.css`, animations de 200 ms au plus et coupées si l'utilisateur réduit les animations, libellé toujours visible au-dessus d'un champ, trois états (chargement, vide, erreur) sur chaque liste.
