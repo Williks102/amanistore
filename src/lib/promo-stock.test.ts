@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { promoProblem, computeDiscount } from './promo';
-import { availableStock, parseStockInput, formatStockInput } from './stock';
+import { availableStock, parseStockInput, formatStockInput, stockSummary, firstAvailableSize } from './stock';
 
 const base = { discountType: 'percentage' as const, value: 10, isActive: true };
 const now = new Date('2026-06-15T12:00:00Z');
@@ -57,5 +57,22 @@ describe('stock', () => {
     expect(formatStockInput({ '40': 1, '38': 5 })).toBe('38:5, 40:1');
     expect(formatStockInput(undefined)).toBe('');
     expect(parseStockInput(formatStockInput({ '38': 5, '40': 1 })).stock).toEqual({ '38': 5, '40': 1 });
+  });
+});
+
+describe('stockSummary / firstAvailableSize', () => {
+  const sizes = [38, 39, 40];
+  it('stock non suivi: pas de badge, première pointure', () => {
+    expect(stockSummary({ availableSizes: sizes })).toEqual({ tracked: false, total: 0, soldOut: false });
+    expect(firstAvailableSize({ availableSizes: sizes })).toBe(38);
+  });
+  it('total suivi et épuisement', () => {
+    expect(stockSummary({ availableSizes: sizes, stock: { '38': 1, '40': 2 } })).toEqual({ tracked: true, total: 3, soldOut: false });
+    expect(stockSummary({ availableSizes: sizes, stock: { '38': 0 } })).toEqual({ tracked: true, total: 0, soldOut: true });
+    expect(stockSummary({ availableSizes: sizes, stock: {} }).soldOut).toBe(true);
+  });
+  it('saute les pointures épuisées', () => {
+    expect(firstAvailableSize({ availableSizes: sizes, stock: { '38': 0, '39': 0, '40': 4 } })).toBe(40);
+    expect(firstAvailableSize({ availableSizes: sizes, stock: { '38': 0 } })).toBeNull();
   });
 });

@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/Header';
+import { LoadError } from '@/components/LoadError';
 import ShoeShowcase from '@/components/ShoeShowcase';
 import type { Category, Shoe, Collection } from '@/lib/types';
 import Hero from '@/components/Hero-clean';
@@ -47,6 +48,8 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +62,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setLoadError(false);
         const [products, fetchedCategories, fetchedCollections] = await Promise.all([
           getProducts(),
           getCategories(),
@@ -69,12 +73,13 @@ export default function Home() {
         setCollections(fetchedCollections);
       } catch (error) {
         console.error('Failed to fetch data:', error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [reloadKey]);
 
   const availableSizes = useMemo(() => {
     const allSizes = shoes.flatMap((shoe) => shoe.availableSizes);
@@ -187,6 +192,11 @@ export default function Home() {
           />
 
           <div className="w-full">
+            {loadError && !loading && (
+              <div className="py-12">
+                <LoadError onRetry={() => setReloadKey((k) => k + 1)} />
+              </div>
+            )}
             {hasActiveFilters && (
               <AnimatedSection>
                 <section className="py-8">
@@ -210,7 +220,7 @@ export default function Home() {
                   </div>
                   {loading ? (
                     renderSkeleton()
-                  ) : (
+                  ) : loadError ? null : (
                     <ShoeShowcase shoes={filteredShoes} />
                   )}
                 </section>
@@ -224,7 +234,7 @@ export default function Home() {
                     <h2 className="text-3xl font-bold text-center mb-8">Nouveautés</h2>
                     {loading ? (
                       renderSkeleton()
-                    ) : (
+                    ) : loadError ? null : (
                       <ShoeShowcase shoes={newArrivals} />
                     )}
                   </section>
@@ -237,7 +247,7 @@ export default function Home() {
                     <h2 className="text-3xl font-bold text-center mb-8">Meilleures Ventes</h2>
                     {loading ? (
                       renderSkeleton()
-                    ) : (
+                    ) : loadError ? null : (
                       <ShoeShowcase shoes={bestSellers} />
                     )}
                   </section>
@@ -250,7 +260,7 @@ export default function Home() {
                     <h2 className="text-3xl font-bold text-center mb-8">Recommandations pour vous</h2>
                     {loading ? (
                       renderSkeleton()
-                    ) : (
+                    ) : loadError ? null : (
                       <ShoeShowcase shoes={recommended} />
                     )}
                   </section>

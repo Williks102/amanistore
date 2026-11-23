@@ -168,19 +168,25 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             <div className="space-y-6">
               {/* Color Selection */}
               <div>
-                <Label className="text-lg font-semibold">Couleur</Label>
+                <Label className="text-lg font-semibold">Couleur{selectedColor ? <span className="font-normal text-muted-foreground"> : {selectedColor}</span> : null}</Label>
                 <div className="flex items-center gap-3 mt-2">
                   {shoe.availableColors.map((color) => (
                     <button
                       key={color.name}
+                      type="button"
                       onClick={() => setSelectedColor(color.name)}
-                      className={cn(
-                        'w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 focus:outline-none',
-                        selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary' : 'border-border'
-                      )}
-                      style={{ backgroundColor: color.hex }}
-                      aria-label={`Select color ${color.name}`}
-                    />
+                      aria-label={`Couleur ${color.name}`}
+                      aria-pressed={selectedColor === color.name}
+                      className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span
+                          className={cn(
+                            'block h-8 w-8 rounded-full border-2 transition-transform hover:scale-110',
+                            selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary' : 'border-border'
+                          )}
+                          style={{ backgroundColor: color.hex }}
+                        />
+                      </button>
                   ))}
                 </div>
               </div>
@@ -244,19 +250,25 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
           <div className="md:hidden space-y-6">
             {/* Color Selection */}
             <div>
-              <Label className="text-lg font-semibold">Couleur</Label>
+              <Label className="text-lg font-semibold">Couleur{selectedColor ? <span className="font-normal text-muted-foreground"> : {selectedColor}</span> : null}</Label>
               <div className="flex items-center gap-3 mt-2">
                 {shoe.availableColors.map((color) => (
                   <button
                     key={color.name}
+                    type="button"
                     onClick={() => setSelectedColor(color.name)}
-                    className={cn(
-                      'w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 focus:outline-none',
-                      selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary' : 'border-border'
-                    )}
-                    style={{ backgroundColor: color.hex }}
-                    aria-label={`Select color ${color.name}`}
-                  />
+                    aria-label={`Couleur ${color.name}`}
+                    aria-pressed={selectedColor === color.name}
+                    className="flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <span
+                        className={cn(
+                          'block h-8 w-8 rounded-full border-2 transition-transform hover:scale-110',
+                          selectedColor === color.name ? 'ring-2 ring-offset-2 ring-primary' : 'border-border'
+                        )}
+                        style={{ backgroundColor: color.hex }}
+                      />
+                    </button>
                 ))}
               </div>
             </div>
@@ -313,7 +325,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             {/* Total Display */}
             <div className="bg-muted rounded-lg p-4 border">
               <p className="text-2xl font-bold text-center">
-                Total: {(shoe.price * quantity).toLocaleString('fr-FR')} CFA
+                Total : {(shoe.price * quantity).toLocaleString('fr-FR')} XOF
               </p>
             </div>
 

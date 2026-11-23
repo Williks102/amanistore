@@ -15,15 +15,28 @@ const fromFirestore = (snapshot: QueryDocumentSnapshot<DocumentData>): Shoe => {
     } as Shoe;
 }
 
+/**
+ * Erreur « données indisponibles »: Firestore n'a pas répondu (réseau coupé ou serveur injoignable).
+ * Une réponse vide venant du cache n'est pas « aucun produit »: les pages affichent un état d'erreur avec « Réessayer ».
+ */
+export class DataUnavailableError extends Error {
+    constructor() {
+        super('Données indisponibles: le serveur ne répond pas.');
+        this.name = 'DataUnavailableError';
+    }
+}
+
 export const getProducts = async (): Promise<Shoe[]> => {
     try {
         const snapshot = await getDocs(getShoeCollection());
+        if (snapshot.empty && snapshot.metadata.fromCache) throw new DataUnavailableError();
         return snapshot.docs.map(fromFirestore).sort((a, b) => {
             const aDate = new Date(a.createdAt || 0).getTime();
             const bDate = new Date(b.createdAt || 0).getTime();
             return bDate - aDate;
         });
     } catch (e) {
+        if (e instanceof DataUnavailableError) throw e; // pas une erreur de permission
         const contextualError = new FirestorePermissionError({
           operation: 'list',
           path: getShoeCollection().path,
