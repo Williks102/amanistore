@@ -67,34 +67,6 @@ export const getOrders = async (): Promise<Order[]> => {
     }
 };
 
-export const addOrder = async (order: Omit<Order, 'id' | 'date' | 'status' | 'validationCode'>): Promise<Order> => {
-    const validationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    const newOrderData = {
-        ...order,
-        date: serverTimestamp(),
-        status: 'En attente' as OrderStatus,
-        validationCode,
-    };
-
-    try {
-        const docRef = await addDoc(getOrderCollection(), newOrderData);
-        return {
-            ...newOrderData,
-            id: docRef.id,
-            date: new Date().toISOString(), // Use client date for immediate object return
-        };
-    } catch (e) {
-        const contextualError = new FirestorePermissionError({
-          operation: 'create',
-          path: getOrderCollection().path,
-          requestResourceData: newOrderData,
-        });
-        errorEmitter.emit('permission-error', contextualError);
-        throw contextualError;
-    }
-};
-
 export const updateOrderStatus = async (id: string, status: OrderStatus) => {
     const orderDoc = doc(db, 'orders', id);
     try {

@@ -31,14 +31,47 @@ import {
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
     updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
-    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery
+    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles
 } from '@/app/actions';
+import { getIdToken } from '@/lib/get-id-token';
+import { RoleGate } from '@/components/RoleGate';
+import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
 type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'delivery-validation';
 
+const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
+  // Un tableau vide = réservé aux admins (l'admin passe toujours).
+  dashboard: ['orderManager'],
+  orders: ['orderManager'],
+  products: ['productManager'],
+  'create-product': ['productManager'],
+  categories: [],
+  collections: [],
+  promotions: [],
+  'delivery-validation': ['orderManager'],
+};
+const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'delivery-validation'];
+
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
+  const [roles, setRoles] = useState<Roles | null>(null);
+  const can = (view: View) => !!roles && (roles.admin || VIEW_ROLES[view].some((r) => roles[r]));
+
+  useEffect(() => {
+    (async () => {
+      const { roles: fetched } = await getMyRoles(await getIdToken());
+      setRoles(fetched);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (roles && !can(activeView)) {
+      const first = VIEW_ORDER.find((v) => can(v));
+      if (first) setActiveView(first);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles]);
   // Data states
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -86,8 +119,9 @@ const AdminPage = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      const token = await getIdToken();
       const [shoesData, categoriesData, collectionsData, ordersData, promoCodesData] = await Promise.all([
-        getProducts(), getCategories(), getCollections(), getOrders(), getPromoCodes()
+        getProducts(), getCategories(), getCollections(), getOrders(token), getPromoCodes(token)
       ]);
       setShoes(shoesData as Shoe[]);
       setCategories(categoriesData as Category[]);
@@ -105,7 +139,7 @@ const AdminPage = () => {
   // ---- ENTITY HANDLERS (Create, Delete) ----
 
   const handleDeleteProduct = async (shoeId: string) => {
-    const result = await deleteProduct(shoeId);
+    const result = await deleteProduct(await getIdToken(), shoeId);
     if (result.success) {
       toast({ title: 'Succès', description: 'Produit supprimé.' });
       fetchData();
@@ -123,13 +157,13 @@ const AdminPage = () => {
       setIsSubmitting(true);
       const formData = new FormData();
       formData.append('image', newCategoryImageFile);
-      const uploadResult = await uploadImage(formData);
+      const uploadResult = await uploadImage(await getIdToken(), formData);
       if (uploadResult.error || !uploadResult.secure_url) {
           toast({ title: 'Erreur d\'upload', description: uploadResult.error, variant: 'destructive' });
           setIsSubmitting(false);
           return;
       }
-      const result = await createCategory({ name: newCategoryName, imageId: 'cloud', imageUrl: uploadResult.secure_url });
+      const result = await createCategory(await getIdToken(), { name: newCategoryName, imageId: 'cloud', imageUrl: uploadResult.secure_url });
       if (result.success) {
           toast({ title: 'Succès', description: 'Catégorie créée.'});
           setNewCategoryName('');
@@ -142,7 +176,7 @@ const AdminPage = () => {
   }
 
   const handleDeleteCategory = async (categoryId: string) => {
-      const result = await deleteCategory(categoryId);
+      const result = await deleteCategory(await getIdToken(), categoryId);
       if (result.success) {
           toast({ title: 'Succès', description: 'Catégorie supprimée.' });
           fetchData();
@@ -160,13 +194,13 @@ const AdminPage = () => {
       setIsSubmitting(true);
       const formData = new FormData();
       formData.append('image', newCollectionImageFile);
-      const uploadResult = await uploadImage(formData);
+      const uploadResult = await uploadImage(await getIdToken(), formData);
        if (uploadResult.error || !uploadResult.secure_url) {
           toast({ title: 'Erreur d\'upload', description: uploadResult.error, variant: 'destructive' });
           setIsSubmitting(false);
           return;
       }
-      const result = await createCollection({ name: newCollectionName, imageUrl: uploadResult.secure_url, categoryIds: newCollectionCategoryIds });
+      const result = await createCollection(await getIdToken(), { name: newCollectionName, imageUrl: uploadResult.secure_url, categoryIds: newCollectionCategoryIds });
        if (result.success) {
           toast({ title: 'Succès', description: 'Collection créée.'});
           setNewCollectionName('');
@@ -180,7 +214,7 @@ const AdminPage = () => {
   }
 
     const handleDeleteCollection = async (collectionId: string) => {
-      const result = await deleteCollection(collectionId);
+      const result = await deleteCollection(await getIdToken(), collectionId);
       if (result.success) {
           toast({ title: 'Succès', description: 'Collection supprimée.' });
           fetchData();
@@ -195,7 +229,7 @@ const AdminPage = () => {
     setIsValidationLoading(true);
     setFoundOrder(null);
     setValidationError(null);
-    const { order, error } = await getOrderByCodeForValidation(validationCode);
+    const { order, error } = await getOrderByCodeForValidation(await getIdToken(), validationCode);
     if (error) {
       setValidationError(error);
     } else if (order) {
@@ -208,7 +242,7 @@ const AdminPage = () => {
 
   const handleValidateDelivery = async (orderId: string) => {
     setIsValidationLoading(true);
-    const { success, error } = await validateOrderDelivery(orderId);
+    const { success, error } = await validateOrderDelivery(await getIdToken(), orderId);
     if (success) {
       toast({ title: 'Succès', description: 'Livraison validée!' });
       setFoundOrder(null);
@@ -240,7 +274,7 @@ const AdminPage = () => {
       for (const imageFile of newShoeImageFiles) {
         const fd = new FormData();
         fd.append('image', imageFile);
-        const uploadResult = await uploadImage(fd);
+        const uploadResult = await uploadImage(await getIdToken(), fd);
         if (uploadResult.error || !uploadResult.secure_url) {
           toast({ title: 'Erreur d\'upload', description: uploadResult.error, variant: 'destructive' });
           setIsSubmitting(false);
@@ -273,7 +307,7 @@ const AdminPage = () => {
         availableColors: newShoeColors,
       };
 
-      const result = await createProduct(payload);
+      const result = await createProduct(await getIdToken(), payload);
       if (!result.success) {
         toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
       } else {
@@ -307,7 +341,7 @@ const AdminPage = () => {
   };
 
   const handleOrderStatusChange = async (orderId: string, status: OrderStatus) => {
-    const result = await updateOrderStatus(orderId, status);
+    const result = await updateOrderStatus(await getIdToken(), orderId, status);
     if (result.success) {
       toast({ title: 'Succès', description: 'Statut de commande mis à jour.' });
       fetchData();
@@ -323,7 +357,7 @@ const AdminPage = () => {
       return;
     }
     setIsSubmitting(true);
-    const result = await createPromoCode({
+    const result = await createPromoCode(await getIdToken(), {
       code: newPromoCode.toUpperCase().trim(),
       discountType: newPromoDiscountType,
       value: newPromoValue,
@@ -341,7 +375,7 @@ const AdminPage = () => {
   };
 
   const handlePromoStatusToggle = async (promo: PromoCode) => {
-    const result = await updatePromoCode(promo.id, { isActive: !promo.isActive });
+    const result = await updatePromoCode(await getIdToken(), promo.id, { isActive: !promo.isActive });
     if (result.success) {
       toast({ title: 'Succès', description: 'Statut promo mis à jour.' });
       fetchData();
@@ -351,7 +385,7 @@ const AdminPage = () => {
   };
 
   const handleDeletePromo = async (promoId: string) => {
-    const result = await deletePromoCode(promoId);
+    const result = await deletePromoCode(await getIdToken(), promoId);
     if (result.success) {
       toast({ title: 'Succès', description: 'Code promo supprimé.' });
       fetchData();
@@ -366,6 +400,7 @@ const AdminPage = () => {
   }, [orders, orderStatusFilter]);
 
   const renderContent = () => {
+    if (!can(activeView)) return null;
     if (isLoading) {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
@@ -739,14 +774,14 @@ const AdminPage = () => {
       <aside className="w-64 bg-background border-r p-4 flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</h1>
         <nav className="flex flex-col space-y-1.5">
-            <Button variant={activeView === 'dashboard' ? 'secondary' : 'ghost'} onClick={() => setActiveView('dashboard')} className="justify-start"><BarChart2 className="mr-2 h-4 w-4"/> Dashboard</Button>
-            <Button variant={activeView === 'orders' ? 'secondary' : 'ghost'} onClick={() => setActiveView('orders')} className="justify-start"><ListOrdered className="mr-2 h-4 w-4"/> Commandes</Button>
-            <Button variant={activeView === 'products' ? 'secondary' : 'ghost'} onClick={() => setActiveView('products')} className="justify-start"><Box className="mr-2 h-4 w-4"/> Produits</Button>
-            <Button variant={activeView === 'create-product' ? 'secondary' : 'ghost'} onClick={() => setActiveView('create-product')} className="justify-start"><PlusCircle className="mr-2 h-4 w-4"/> Créer un produit</Button>
-            <Button variant={activeView === 'categories' ? 'secondary' : 'ghost'} onClick={() => setActiveView('categories')} className="justify-start"><Archive className="mr-2 h-4 w-4"/> Catégories</Button>
-            <Button variant={activeView === 'collections' ? 'secondary' : 'ghost'} onClick={() => setActiveView('collections')} className="justify-start"><Shapes className="mr-2 h-4 w-4"/> Collections</Button>
-            <Button variant={activeView === 'promotions' ? 'secondary' : 'ghost'} onClick={() => setActiveView('promotions')} className="justify-start"><Tag className="mr-2 h-4 w-4"/> Promotions</Button>
-            <Button variant={activeView === 'delivery-validation' ? 'secondary' : 'ghost'} onClick={() => setActiveView('delivery-validation')} className="justify-start"><ShieldCheck className="mr-2 h-4 w-4"/> Valider Livraison</Button>
+            {can('dashboard') && <Button variant={activeView === 'dashboard' ? 'secondary' : 'ghost'} onClick={() => setActiveView('dashboard')} className="justify-start"><BarChart2 className="mr-2 h-4 w-4"/> Dashboard</Button>}
+            {can('orders') && <Button variant={activeView === 'orders' ? 'secondary' : 'ghost'} onClick={() => setActiveView('orders')} className="justify-start"><ListOrdered className="mr-2 h-4 w-4"/> Commandes</Button>}
+            {can('products') && <Button variant={activeView === 'products' ? 'secondary' : 'ghost'} onClick={() => setActiveView('products')} className="justify-start"><Box className="mr-2 h-4 w-4"/> Produits</Button>}
+            {can('create-product') && <Button variant={activeView === 'create-product' ? 'secondary' : 'ghost'} onClick={() => setActiveView('create-product')} className="justify-start"><PlusCircle className="mr-2 h-4 w-4"/> Créer un produit</Button>}
+            {can('categories') && <Button variant={activeView === 'categories' ? 'secondary' : 'ghost'} onClick={() => setActiveView('categories')} className="justify-start"><Archive className="mr-2 h-4 w-4"/> Catégories</Button>}
+            {can('collections') && <Button variant={activeView === 'collections' ? 'secondary' : 'ghost'} onClick={() => setActiveView('collections')} className="justify-start"><Shapes className="mr-2 h-4 w-4"/> Collections</Button>}
+            {can('promotions') && <Button variant={activeView === 'promotions' ? 'secondary' : 'ghost'} onClick={() => setActiveView('promotions')} className="justify-start"><Tag className="mr-2 h-4 w-4"/> Promotions</Button>}
+            {can('delivery-validation') && <Button variant={activeView === 'delivery-validation' ? 'secondary' : 'ghost'} onClick={() => setActiveView('delivery-validation')} className="justify-start"><ShieldCheck className="mr-2 h-4 w-4"/> Valider Livraison</Button>}
         </nav>
       </aside>
       <main className="flex-1 p-4 sm:p-6">
@@ -766,4 +801,10 @@ const AdminPage = () => {
   );
 };
 
-export default AdminPage;
+export default function ProtectedAdminPage() {
+  return (
+    <RoleGate allow={['admin', 'productManager', 'orderManager']}>
+      <AdminPage />
+    </RoleGate>
+  );
+}

@@ -30,8 +30,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
-import { addOrder } from '@/services/orderService';
-import { validatePromoCode } from '@/app/actions';
+import { createOrder, validatePromoCode } from '@/app/actions';
+import { getIdToken } from '@/lib/get-id-token';
 import type { PromoCode } from '@/lib/types';
 import { useUser } from '@/firebase';
 
@@ -63,13 +63,14 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   
   const discount = useMemo(() => {
     if (!appliedPromoCode) return 0;
+    let raw = 0;
     if (appliedPromoCode.discountType === 'percentage') {
-      return subtotal * (appliedPromoCode.value / 100);
+      raw = subtotal * (Math.min(Math.max(appliedPromoCode.value, 0), 100) / 100);
+    } else if (appliedPromoCode.discountType === 'fixed') {
+      raw = Math.max(appliedPromoCode.value, 0);
     }
-    if (appliedPromoCode.discountType === 'fixed') {
-      return appliedPromoCode.value;
-    }
-    return 0;
+    // La remise ne peut jamais dépasser le sous-total (pas de total négatif).
+    return Math.min(raw, subtotal);
   }, [subtotal, appliedPromoCode]);
 
   const total = subtotal - discount;
@@ -133,20 +134,18 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
         return;
     }
     
-    const orderData = {
-        userId: user.uid,
-        customerName: values.name,
-        customerPhone: values.phone,
-        customerEmail: values.email,
-        customerAddress: values.address,
-        items: items,
-        subtotal,
-        discount,
-        total,
-    }
-
     try {
-        const newOrder = await addOrder(orderData as any);
+        const result = await createOrder(await getIdToken(), {
+            name: values.name,
+            phone: values.phone,
+            email: values.email || '',
+            address: values.address,
+            promoCode: appliedPromoCode?.code,
+            items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity, size: i.size, color: i.color })),
+        });
+        if (!result.success || !result.orderId) {
+            throw new Error(result.error || 'Commande refusée.');
+        }
         toast({
             title: 'Commande passée avec succès !',
             description: 'Vous allez être redirigé vers la page de confirmation.',
@@ -156,12 +155,12 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
         form.reset();
         setPromoCodeInput('');
         setAppliedPromoCode(null);
-        router.push(`/order-confirmation/${newOrder.id}`);
+        router.push(`/order-confirmation/${result.orderId}`);
     } catch (error) {
         console.error('Order submission failed', error);
         toast({
             title: 'Erreur',
-            description: 'Impossible de passer la commande. Veuillez réessayer.',
+            description: error instanceof Error && error.message ? error.message : 'Impossible de passer la commande. Veuillez réessayer.',
             variant: 'destructive',
         });
     } finally {

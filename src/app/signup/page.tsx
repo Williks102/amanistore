@@ -26,7 +26,7 @@ import { Loader2 } from 'lucide-react';
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Adresse e-mail invalide." }),
-  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères." }),
+  password: z.string().min(8, { message: "Le mot de passe doit contenir au moins 8 caractères." }),
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;

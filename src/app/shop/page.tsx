@@ -152,15 +152,7 @@ export default function ShopPage() {
           
           <div className="w-full">
             {loading ? renderSkeleton() : (
-                <ShoeShowcase
-                  shoes={shoes}
-                  selectedCategory={selectedCategory}
-                  selectedCollection={null}
-                  searchTerm={searchTerm}
-                  priceRange={priceRange}
-                  selectedSizes={selectedSizes}
-                  selectedColors={selectedColors}
-                />
+                <ShoeShowcase shoes={sortedShoes} />
             )}
           </div>
         </div>

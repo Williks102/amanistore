@@ -2,6 +2,7 @@
 'use client'
 
 import { db } from '@/firebase';
+import { getIdToken } from '@/lib/get-id-token';
 import type { Collection } from '@/lib/types';
 import { deleteDoc, doc } from 'firebase/firestore';
 // Import the new getCollections function and alias it to avoid name collision
@@ -27,7 +28,7 @@ export const getCollections = async (): Promise<Collection[]> => {
  * This is a client-side service function that calls a server action.
  */
 export const createCollection = async (collectionData: Omit<Collection, 'id'>): Promise<{ success: boolean; collectionId?: string; error?: string }> => {
-    return await createCollectionAction(collectionData);
+    return await createCollectionAction(await getIdToken(), collectionData);
 };
 
 /**
@@ -35,5 +36,5 @@ export const createCollection = async (collectionData: Omit<Collection, 'id'>): 
  * This is a client-side service function that calls a server action.
  */
 export const deleteCollection = async (id: string): Promise<{ success: boolean; error?: string }> => {
-    return await deleteCollectionAction(id);
+    return await deleteCollectionAction(await getIdToken(), id);
 }

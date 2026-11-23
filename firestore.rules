@@ -53,14 +53,21 @@ service cloud.firestore {
       allow write: if isAdmin(); // Only admins can write.
     }
     
+    // Les codes promo ne sont plus lisibles publiquement: la validation passe par
+    // la Server Action validatePromoCode (Admin SDK, avec limite de débit).
     match /promoCodes/{promoId} {
-      allow get, list: if true;
-      allow write: if isAdmin(); // Only admins can write.
+      allow read, write: if isAdmin();
     }
 
     // USER-SPECIFIC COLLECTIONS
+    // Un utilisateur ne peut jamais s'attribuer de rôle via son propre profil.
     match /users/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && !request.resource.data.keys().hasAny(['role', 'admin', 'roles']);
+      allow update: if (isOwner(userId)
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'admin', 'roles']))
+                    || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
     }
     
     match /users/{userId}/preferences/{preferenceId} {
@@ -69,7 +76,9 @@ service cloud.firestore {
 
     // ORDERS
     match /orders/{orderId} {
-      allow create: if isSignedIn();
+      // Création uniquement via la Server Action createOrder (prix, remise, statut
+      // et code de livraison calculés côté serveur). Aucune création côté client.
+      allow create: if false;
       // An order can be read by its owner, an admin, or an order manager.
       allow read: if (resource.data.userId == request.auth.uid) || isAdmin() || isOrderManager(); 
       // Order status can be updated by an admin or order manager.
