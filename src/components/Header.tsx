@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRoles } from '@/hooks/use-roles';
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from './ui/button';
 import { Menu, ShoppingBag, Search, User, LogOut, X, KeyRound, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
@@ -75,7 +76,8 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
   const { onOpen, items } = useCart();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, isUserLoading } = useUser();
-  const { hasStaffAccess } = useRoles();
+  const { hasStaffAccess, roles } = useRoles();
+  const canValidateDelivery = !!roles && (roles.admin || roles.orderManager);
   const auth = useAuth();
   const pathname = usePathname();
 
@@ -108,7 +110,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Button variant="ghost" className="relative h-11 w-11 rounded-full">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || 'User'} />
               <AvatarFallback>{(user.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
@@ -154,12 +156,14 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
               <p className="text-sm font-medium text-muted-foreground">Accès rapide</p>
               <div className="flex flex-col items-start gap-2">
                  <UserMenu />
-                 <Button variant="ghost" asChild>
-                    <Link href="/validate-delivery" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-base">
-                      <KeyRound className="h-5 w-5" />
-                      Valider Livraison
-                    </Link>
-                 </Button>
+                 {canValidateDelivery && (
+                   <Button variant="ghost" asChild>
+                      <Link href="/validate-delivery" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-base">
+                        <KeyRound className="h-5 w-5" />
+                        Valider Livraison
+                      </Link>
+                   </Button>
+                 )}
               </div>
             </div>
             <Separator />
@@ -168,7 +172,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                 <Link
                     key={link.href}
                     href={link.href}
-                    className="block text-lg font-medium text-foreground hover:text-primary"
+                    className="flex min-h-11 items-center text-lg font-medium text-foreground hover:text-primary"
                     onClick={() => setMobileMenuOpen(false)}
                 >
                     {link.label}
@@ -180,12 +184,12 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
                 <AccordionItem value="categories">
                     <AccordionTrigger className="text-lg font-medium">Catégories</AccordionTrigger>
                     <AccordionContent className="pl-4">
-                        <div className="flex flex-col space-y-3 mt-2">
+                        <div className="flex flex-col mt-2">
                         {categories.map((category) => (
                             <Link
                                 key={category.id}
                                 href={`/shop?category=${category.id}`}
-                                className="text-base text-muted-foreground hover:text-primary"
+                                className="flex min-h-11 items-center text-base text-muted-foreground hover:text-primary"
                                 onClick={() => setMobileMenuOpen(false)}
                             >
                                 {category.name}
@@ -206,14 +210,18 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
     <header className="sticky top-0 z-50">
       {/* Top Bar */}
       <div className="bg-muted text-muted-foreground text-sm hidden md:block">
-        <div className="container mx-auto px-4 flex justify-end items-center h-10 gap-4">
-           <Button variant="ghost" asChild size="sm">
-            <Link href="/validate-delivery" className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4" />
-              Valider Livraison
-            </Link>
-          </Button>
-          <Separator orientation="vertical" className="h-6"/>
+        <div className="container mx-auto px-4 flex justify-end items-center h-12 gap-4">
+           {canValidateDelivery && (
+            <>
+              <Button variant="ghost" asChild size="sm">
+                <Link href="/validate-delivery" className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" />
+                  Valider Livraison
+                </Link>
+              </Button>
+              <Separator orientation="vertical" className="h-6"/>
+            </>
+          )}
           <UserMenu />
         </div>
       </div>
@@ -237,7 +245,8 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
               </Sheet>
             </div>
             {/* Logo */}
-            <Link href="/" className="text-xl font-headline font-bold text-primary">
+            <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-xl font-headline font-bold text-primary">
+              <BrandMark className="h-8 w-8" />
               Amani's
             </Link>
           </div>

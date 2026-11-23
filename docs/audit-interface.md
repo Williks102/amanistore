@@ -21,10 +21,10 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 
 ## Plan (une PR par étape)
 1. **Charte visuelle** (*fait dans cette PR*) : jetons de couleur dans `globals.css` (fond crème, encre chaude, bordures beige, accent terre cuite, mode sombre chaud), `next/font` pour Playfair Display et le texte, remplacement des couleurs en dur par les jetons, suppression de la règle `Arial`. Contrastes calculés et notés (voir ci-dessous).
-2. **Mobile et tactile** (*à faire*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
-3. **Boutique** : fiche produit centrée sur la photo, badges de stock, barre d'achat fixe en bas sur téléphone, images optimisées.
-4. **Admin** : badges d'état colorés avec texte, navigation groupée (Boutique / Ventes / Équipe), états vides, chargements en squelette.
-5. **Détails** : logo/monogramme à la place de l'emoji, ton des messages d'erreur et des toasts.
+2. **Mobile et tactile** (*fait*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
+3. **Boutique** (*fait*) : badges de stock sur les cartes, pointures épuisées désactivées, couleurs à 44 px avec leur nom écrit, état d'erreur « Réessayer », images dimensionnées par écran. (La barre d'achat fixe en bas de la fiche produit existait déjà: je l'avais mise au plan à tort.)
+4. **Admin** (*fait*) : badges d'état colorés avec texte, navigation groupée (Vue d'ensemble / Ventes / Boutique / Clients / Équipe), états vides, chargements en squelette.
+5. **Détails** (*fait*) : monogramme à la place de l'emoji, langue de la page, ton des messages.
 
 ### Palette retenue (contrastes calculés, WCAG)
 | Usage | Couleurs | Contraste |
@@ -52,7 +52,39 @@ Inspiration : l'ambiance chaleureuse de l'interface de Claude (crème, serif, te
 
 Changements de détail : prix des cartes en `text-primary` plein (il était à 80 % d'opacité, donc sous 4,5:1), boutons WhatsApp en `green-700` (le `green-500` avec du texte blanc ne faisait que 2,3:1), encadrés du code de livraison passés des bleus en dur aux jetons, fonds de connexion et d'inscription sur `bg-background`. Le texte courant passe de PT Sans à Inter (plus lisible en petit, chiffres plus nets pour les prix) ; Playfair Display reste pour les titres de produits.
 
-Pas encore fait (étapes suivantes) : tailles tactiles, lien « Valider Livraison » réservé au personnel, badges de stock, admin. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
+### Résultat de l'étape 2 (mesuré avec un appareil tactile à 390 et 768 px, souris à 1280 px)
+| Mesure | Avant | Après |
+|---|---|---|
+| Éléments cliquables sous 44 × 44 px (5 écrans × 3 tailles) | 18 à 91 par écran | **0** |
+| Défilement horizontal | aucun | aucun |
+| Carte de connexion à 390 px | collée aux bords | marge de 16 px |
+| Lien « Valider Livraison » | visible de tous | réservé aux comptes `admin` et `orderManager` |
+| Liens des catégories du pied de page | menaient à une ancre inexistante, 17 px de haut | mènent à `/shop?category=…`, 44 px |
+
+Changements : boutons, champs, listes déroulantes et menus à 44 px (composants partagés `ui/`), flèches de carrousel de 44 px, liens du pied de page et du menu mobile à 44 px, réseaux sociaux de 44 px, « Tous droits réservés » en français. Les écrans qui demandent une connexion (`/admin`, `/dashboard`) n'ont pas été mesurés, mais ils utilisent les mêmes composants.
+
+### Résultat de l'étape 3
+- **Badges de stock** sur les cartes: « Épuisé » (et bouton d'ajout rapide désactivé), « Plus que N » à 3 paires ou moins. Pas de badge quand le stock n'est pas suivi. L'ajout rapide choisit la première pointure **en stock** (avant: toujours la première, même épuisée).
+- **Fiche produit**: pastilles de couleur de 32 à 44 px de zone cliquable, nom de la couleur choisie écrit à côté du libellé (l'information n'est plus portée par la couleur seule), libellés en français, « CFA » remplacé par « XOF » comme partout ailleurs.
+- **État d'erreur** (boutique et accueil): avant, si Firestore ne répondait pas, la boutique affichait « Aucun produit trouvé », ce qui est faux. Mesuré en coupant Firestore: l'erreur s'affiche en 1 s avec « Réessayer » (`LoadError`), et un chargement normal n'affiche pas d'erreur (66 produits). Cause: une réponse vide venant du cache est maintenant traitée comme « serveur injoignable ».
+- **Images**: attribut `sizes` sur les cartes (le navigateur ne télécharge plus une image de 600 px pour une carte de 390 px).
+- Limite: les badges de stock ne sont vérifiés que par les tests de leur logique (3 tests), pas à l'écran, car aucun produit de la boutique n'a de stock renseigné et je ne modifie pas vos données.
+
+### Résultat de l'étape 4
+- **Badges d'état de commande** (`OrderStatusBadge`): En attente en ambre, Prêt en terre cuite, Livré en vert, Annulé en gris, **toujours avec le texte et un point** (jamais la couleur seule). Utilisés dans l'admin (nouvelle colonne « Statut », le menu de changement de statut est séparé et étiqueté), dans la validation de livraison et dans « Mon compte ». Contrastes des deux couleurs fixes ajoutés au test.
+- **Navigation groupée**: Vue d'ensemble, Ventes (Commandes, Valider Livraison, Promotions), Boutique (Produits, Créer un produit, Catégories, Collections), Clients (Messages), et **Équipe → Rôles et accès** pour les admins (la page `/admin/roles` n'avait aucun lien dans l'interface). Chaque rôle ne voit que ses groupes.
+- **États vides** avec une phrase et la suite à donner: commandes (selon le filtre), produits, catégories, collections, codes promo, messages.
+- **Chargement en squelette** à la place de la roue.
+- **Accessibilité**: boutons de suppression (icône seule) avec un nom (« Supprimer la catégorie X »), menu de statut étiqueté par client.
+- **Non mesuré**: l'admin demande une connexion, je n'ai donc pas pu le capturer ni mesurer ses zones tactiles. Il utilise les composants de l'étape 2 (44 px). À vérifier sur votre téléphone.
+
+### Résultat de l'étape 5
+- **Favicon**: monogramme « A » terre cuite (`src/app/icon.svg`) à la place de l'emoji 👟 ; le même dessin sert de marque dans l'en-tête (`BrandMark`).
+- **Langue de la page**: `<html lang="fr">` (elle déclarait `en`, ce qui fait mal lire le français aux lecteurs d'écran) et description du site en français.
+- Les messages d'erreur et les toasts utilisent déjà les jetons (rayon, couleurs), rien à changer.
+
+## Reste à faire
+Vérifier à l'œil, sur un vrai téléphone, l'admin et les badges de stock (non mesurables dans mon environnement), puis ajuster. Le mode sombre est défini et testé mais sans bouton pour l'activer. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
 ## Règles à tenir (reprises dans `CLAUDE.md`)
 Mobile d'abord (360 px puis `md`), zones tactiles de 44 px au moins, contraste AA (4,5:1), jamais l'information par la couleur seule, rien d'accessible uniquement au survol, couleurs uniquement par les jetons de `globals.css`, animations de 200 ms au plus et coupées si l'utilisateur réduit les animations, libellé toujours visible au-dessus d'un champ, trois états (chargement, vide, erreur) sur chaque liste.

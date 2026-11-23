@@ -35,3 +35,15 @@ export function formatStockInput(stock?: Record<string, number>): string {
     .map(([size, qty]) => `${size}:${qty}`)
     .join(', ');
 }
+
+/** Résumé pour les cartes produit. `tracked` = false: stock non suivi (jamais de badge). */
+export function stockSummary(shoe: Pick<Shoe, 'stock' | 'availableSizes'>): { tracked: boolean; total: number; soldOut: boolean } {
+  if (!shoe.stock) return { tracked: false, total: 0, soldOut: false };
+  const total = shoe.availableSizes.reduce((sum, size) => sum + (availableStock(shoe, size) ?? 0), 0);
+  return { tracked: true, total, soldOut: total === 0 };
+}
+
+/** Première pointure disponible (en stock ou non suivie), ou null si tout est épuisé. */
+export function firstAvailableSize(shoe: Pick<Shoe, 'stock' | 'availableSizes'>): number | null {
+  return shoe.availableSizes.find((size) => availableStock(shoe, size) !== 0) ?? null;
+}

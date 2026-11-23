@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Header from '@/components/Header';
+import { LoadError } from '@/components/LoadError';
 import ShoeShowcase from '@/components/ShoeShowcase';
 import type { Category, Shoe } from '@/lib/types';
 import { Sidebar } from '@/components/Sidebar';
@@ -21,6 +22,8 @@ export default function ShopPage() {
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: DEFAULT_MAX_PRICE });
@@ -33,17 +36,19 @@ export default function ShopPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setLoadError(false);
         const [products, fetchedCategories] = await Promise.all([getProducts(), getCategories()]);
         setShoes(products);
         setCategories(fetchedCategories);
       } catch (error) {
         console.error('Failed to fetch data:', error);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, []);
+  }, [reloadKey]);
 
   useEffect(() => {
     if (categories.length === 0 || typeof window === 'undefined') {
@@ -119,7 +124,7 @@ export default function ShopPage() {
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
               <h1 className="text-4xl font-bold">Boutique</h1>
-              <p className="text-muted-foreground mt-1">{sortedShoes.length} produit(s) disponibles</p>
+              <p className="text-muted-foreground mt-1">{loading || loadError ? '\u00a0' : `${sortedShoes.length} produit(s) disponibles`}</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setSidebarOpen(true)}>Filtres</Button>
@@ -151,7 +156,7 @@ export default function ShopPage() {
           />
           
           <div className="w-full">
-            {loading ? renderSkeleton() : (
+            {loading ? renderSkeleton() : loadError ? <LoadError onRetry={() => setReloadKey((k) => k + 1)} /> : (
                 <ShoeShowcase shoes={sortedShoes} />
             )}
           </div>

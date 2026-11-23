@@ -83,3 +83,21 @@ for (const theme of ['root', 'dark'] as const) {
     }
   });
 }
+
+/** Pastilles d'état de commande (OrderStatusBadge): couleurs Tailwind fixes, texte sur fond. */
+describe("pastilles d'état de commande", () => {
+  const hexRatio = (a: string, b: string) => {
+    const lum = (h: string) => {
+      const [r, g, bl] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    };
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  it.each([
+    ['En attente: amber-900 sur amber-50', '#78350f', '#fffbeb'],
+    ['Livré: emerald-900 sur emerald-50', '#064e3b', '#ecfdf5'],
+  ])('%s ≥ 4,5:1', (_name, fg, bg) => {
+    expect(hexRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+});

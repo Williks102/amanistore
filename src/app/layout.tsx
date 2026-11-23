@@ -7,7 +7,7 @@ import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: "Amani's",
-  description: 'The finest shoes, curated for you.',
+  description: 'Des chaussures raffinées, soigneusement sélectionnées pour vous.',
 };
 
 export default function RootLayout({
@@ -16,10 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full">
-      <head>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👟</text></svg>" />
-      </head>
+    <html lang="fr" className="h-full">
       <body className="font-body antialiased h-full flex flex-col">
         <FirebaseClientProvider>
           <CartProvider>

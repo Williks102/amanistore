@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import type { Order, OrderStatus } from '@/lib/types';
 import { ShoppingBag, KeyRound } from 'lucide-react';
 import Image from 'next/image';
@@ -15,23 +14,11 @@ import { cn } from '@/lib/utils';
 import { getOrdersForUser } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { HomeButton, LogoutButton } from '@/components/DashboardActions';
+import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const getStatusVariant = (status: OrderStatus) => {
-  switch (status) {
-    case 'Prêt':
-      return 'default';
-    case 'Livré':
-      return 'secondary';
-    case 'Annulé':
-      return 'destructive';
-    case 'En attente':
-    default:
-      return 'outline';
-  }
-};
 
 const OrderTracker = ({ orders }: { orders: Order[] }) => {
   return (
@@ -45,9 +32,7 @@ const OrderTracker = ({ orders }: { orders: Order[] }) => {
                 Passée le {new Date(order.date).toLocaleDateString('fr-FR')} - Total: {`XOF ${order.total.toLocaleString('fr-FR')}`}
               </CardDescription>
             </div>
-            <Badge variant={getStatusVariant(order.status)} className="text-sm">
-              {order.status}
-            </Badge>
+            <OrderStatusBadge status={order.status} className="text-sm" />
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between text-sm font-medium mb-4">
@@ -113,7 +98,7 @@ const OrderHistory = ({ orders }: { orders: Order[] }) => {
               {new Date(order.date).toLocaleDateString('fr-FR')} - {`XOF ${order.total.toLocaleString('fr-FR')}`}
             </p>
           </div>
-          <Badge variant={getStatusVariant(order.status)}>{order.status}</Badge>
+          <OrderStatusBadge status={order.status} />
         </div>
       ))}
     </div>

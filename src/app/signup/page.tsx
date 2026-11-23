@@ -84,7 +84,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl">Créer un compte</CardTitle>
@@ -114,7 +114,7 @@ export default function SignupPage() {
             </Button>
             <p className="text-center text-sm text-muted-foreground">
                 Vous avez déjà un compte ?{" "}
-                <Link href="/login" className="underline underline-offset-4 hover:text-primary">
+                <Link href="/login" className="inline-flex min-h-11 items-center px-1 underline underline-offset-4 hover:text-primary">
                     Se connecter
                 </Link>
             </p>

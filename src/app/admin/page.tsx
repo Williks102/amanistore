@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu, Mail } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu, Mail, Inbox } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
 
@@ -38,6 +38,10 @@ import {
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
+import { OrderStatusBadge } from '@/components/OrderStatusBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
@@ -439,7 +443,12 @@ const AdminPage = () => {
   const renderContent = () => {
     if (!can(activeView)) return null;
     if (isLoading) {
-      return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+      return (
+        <div aria-busy="true" aria-label="Chargement" className="space-y-3">
+          <Skeleton className="h-8 w-48" />
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-14 w-full" />)}
+        </div>
+      );
     }
 
     switch (activeView) {
@@ -486,6 +495,7 @@ const AdminPage = () => {
                   ))}
                 </TableBody>
               </Table>
+              {shoes.length === 0 && <EmptyState icon={<Box className="h-8 w-8" />} title="Aucun produit" hint="Créez votre premier produit depuis « Créer un produit »." />}
             </CardContent>
           </Card>
         );
@@ -568,7 +578,7 @@ const AdminPage = () => {
                 </Select>
               </div>
               <Table>
-                <TableHeader><TableRow><TableHead>Client</TableHead><TableHead>Total</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Client</TableHead><TableHead>Total</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead>Modifier le statut</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
@@ -577,9 +587,11 @@ const AdminPage = () => {
                         <div className="text-xs text-muted-foreground">{order.customerPhone}</div>
                       </TableCell>
                       <TableCell>{order.total.toLocaleString('fr-FR')} XOF</TableCell>
+                      <TableCell><OrderStatusBadge status={order.status} /></TableCell>
+                      <TableCell>{new Date(order.date).toLocaleDateString('fr-FR')}</TableCell>
                       <TableCell>
                         <Select value={order.status} onValueChange={(v) => handleOrderStatusChange(order.id, v as OrderStatus)}>
-                          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="w-[140px]" aria-label={`Modifier le statut de la commande de ${order.customerName}`}><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="En attente">En attente</SelectItem>
                             <SelectItem value="Prêt">Prêt</SelectItem>
@@ -588,11 +600,17 @@ const AdminPage = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>{new Date(order.date).toLocaleDateString('fr-FR')}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {filteredOrders.length === 0 && (
+                <EmptyState
+                  icon={<Inbox className="h-8 w-8" />}
+                  title={orderStatusFilter === 'all' ? 'Aucune commande pour le moment' : `Aucune commande « ${orderStatusFilter} »`}
+                  hint={orderStatusFilter === 'all' ? 'Les commandes passées sur la boutique apparaîtront ici.' : 'Changez le filtre pour voir les autres commandes.'}
+                />
+              )}
             </CardContent>
           </Card>
          );
@@ -627,7 +645,7 @@ const AdminPage = () => {
                                         <TableCell className="font-medium">{cat.name}</TableCell>
                                         <TableCell className="text-right">
                                             <AlertDialog>
-                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" aria-label={`Supprimer la catégorie ${cat.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                                               <AlertDialogContent>
                                                 <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr?</AlertDialogTitle><AlertDialogDescription>La suppression d'une catégorie est irréversible.</AlertDialogDescription></AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -641,6 +659,7 @@ const AdminPage = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                        {categories.length === 0 && <EmptyState title="Aucune catégorie" hint="Ajoutez-en une avec le formulaire." />}
                     </CardContent>
                 </Card>
             </div>
@@ -693,7 +712,7 @@ const AdminPage = () => {
                                         <TableCell className="font-medium">{col.name}</TableCell>
                                         <TableCell className="text-right">
                                             <AlertDialog>
-                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                                              <AlertDialogTrigger asChild><Button variant="ghost" size="icon" aria-label={`Supprimer la collection ${col.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                                               <AlertDialogContent>
                                                 <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr?</AlertDialogTitle><AlertDialogDescription>La suppression d'une collection est irréversible.</AlertDialogDescription></AlertDialogHeader>
                                                 <AlertDialogFooter>
@@ -707,6 +726,7 @@ const AdminPage = () => {
                                 ))}
                             </TableBody>
                         </Table>
+                        {collections.length === 0 && <EmptyState title="Aucune collection" hint="Ajoutez-en une avec le formulaire." />}
                     </CardContent>
                 </Card>
             </div>
@@ -730,7 +750,7 @@ const AdminPage = () => {
                         {m.name} · <a className="underline" href={`mailto:${encodeURIComponent(m.email)}`}>{m.email}</a> · {new Date(m.createdAt).toLocaleString('fr-FR')}
                       </p>
                     </div>
-                    <Button variant="destructive" size="sm" onClick={() => handleDeleteMessage(m.id)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteMessage(m.id)} aria-label={`Supprimer le message de ${m.name}`}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                   {/* Rendu en texte brut: React échappe le contenu (pas de HTML injecté). */}
                   <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
@@ -765,7 +785,7 @@ const AdminPage = () => {
                                     <p><strong>Téléphone:</strong> {foundOrder.customerPhone}</p>
                                     <p><strong>Adresse:</strong> {foundOrder.customerAddress}</p>
                                     <p><strong>Total:</strong> {foundOrder.total.toLocaleString('fr-FR')} XOF</p>
-                                    <p><strong>Statut actuel:</strong> <Badge>{foundOrder.status}</Badge></p>
+                                    <p><strong>Statut actuel :</strong> <OrderStatusBadge status={foundOrder.status} /></p>
                                 </CardContent>
                                 <CardFooter>
                                     <Button 
@@ -832,6 +852,7 @@ const AdminPage = () => {
                     ))}
                   </TableBody>
                 </Table>
+                {promoCodes.length === 0 && <EmptyState icon={<Tag className="h-8 w-8" />} title="Aucun code promo" hint="Créez un code avec le formulaire." />}
               </CardContent>
             </Card>
           </div>
@@ -842,30 +863,58 @@ const AdminPage = () => {
     }
   };
 
-  const NAV_ITEMS: Array<{ view: View; label: string; icon: React.ReactNode }> = [
-    { view: 'dashboard', label: 'Dashboard', icon: <BarChart2 className="mr-2 h-4 w-4" /> },
-    { view: 'orders', label: 'Commandes', icon: <ListOrdered className="mr-2 h-4 w-4" /> },
-    { view: 'products', label: 'Produits', icon: <Box className="mr-2 h-4 w-4" /> },
-    { view: 'create-product', label: 'Créer un produit', icon: <PlusCircle className="mr-2 h-4 w-4" /> },
-    { view: 'categories', label: 'Catégories', icon: <Archive className="mr-2 h-4 w-4" /> },
-    { view: 'collections', label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
-    { view: 'promotions', label: 'Promotions', icon: <Tag className="mr-2 h-4 w-4" /> },
-    { view: 'messages', label: 'Messages', icon: <Mail className="mr-2 h-4 w-4" /> },
-    { view: 'delivery-validation', label: 'Valider Livraison', icon: <ShieldCheck className="mr-2 h-4 w-4" /> },
+  const NAV_ITEMS: Record<View, { label: string; icon: React.ReactNode }> = {
+    dashboard: { label: 'Dashboard', icon: <BarChart2 className="mr-2 h-4 w-4" /> },
+    orders: { label: 'Commandes', icon: <ListOrdered className="mr-2 h-4 w-4" /> },
+    'delivery-validation': { label: 'Valider Livraison', icon: <ShieldCheck className="mr-2 h-4 w-4" /> },
+    promotions: { label: 'Promotions', icon: <Tag className="mr-2 h-4 w-4" /> },
+    products: { label: 'Produits', icon: <Box className="mr-2 h-4 w-4" /> },
+    'create-product': { label: 'Créer un produit', icon: <PlusCircle className="mr-2 h-4 w-4" /> },
+    categories: { label: 'Catégories', icon: <Archive className="mr-2 h-4 w-4" /> },
+    collections: { label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
+    messages: { label: 'Messages', icon: <Mail className="mr-2 h-4 w-4" /> },
+  };
+
+  // Navigation groupée: l'essentiel d'abord, puis les ventes, la boutique, les clients.
+  const NAV_GROUPS: Array<{ label: string; views: View[] }> = [
+    { label: "Vue d'ensemble", views: ['dashboard'] },
+    { label: 'Ventes', views: ['orders', 'delivery-validation', 'promotions'] },
+    { label: 'Boutique', views: ['products', 'create-product', 'categories', 'collections'] },
+    { label: 'Clients', views: ['messages'] },
   ];
 
   const renderNav = (onSelect?: () => void) => (
-    <nav className="flex flex-col space-y-1.5">
-      {NAV_ITEMS.filter((item) => can(item.view)).map((item) => (
-        <Button
-          key={item.view}
-          variant={activeView === item.view ? 'secondary' : 'ghost'}
-          onClick={() => { setActiveView(item.view); onSelect?.(); }}
-          className="justify-start"
-        >
-          {item.icon} {item.label}
-        </Button>
-      ))}
+    <nav aria-label="Navigation de l'administration" className="flex flex-col">
+      {NAV_GROUPS.map((group) => {
+        const visible = group.views.filter((v) => can(v));
+        if (visible.length === 0) return null;
+        return (
+          <div key={group.label} className="pb-2">
+            <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">{group.label}</p>
+            <div className="flex flex-col space-y-1">
+              {visible.map((view) => (
+                <Button
+                  key={view}
+                  variant={activeView === view ? 'secondary' : 'ghost'}
+                  aria-current={activeView === view ? 'page' : undefined}
+                  onClick={() => { setActiveView(view); onSelect?.(); }}
+                  className="justify-start"
+                >
+                  {NAV_ITEMS[view].icon} {NAV_ITEMS[view].label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      {roles?.admin && (
+        <div className="pb-2">
+          <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-muted-foreground">Équipe</p>
+          <Button asChild variant="ghost" className="justify-start">
+            <Link href="/admin/roles" onClick={onSelect}><Users className="mr-2 h-4 w-4" /> Rôles et accès</Link>
+          </Button>
+        </div>
+      )}
     </nav>
   );
 
