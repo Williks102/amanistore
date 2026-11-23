@@ -262,7 +262,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 <Label className="font-semibold">Couleurs disponibles</Label>
                  <div className="flex items-center gap-4">
                     <Input placeholder="Nom de la couleur" value={currentColorName} onChange={(e) => setCurrentColorName(e.target.value)} />
-                    <Input type="color" value={currentColorHex} onChange={(e) => setCurrentColorHex(e.target.value)} className="p-1 h-10 w-16" />
+                    <Input type="color" value={currentColorHex} onChange={(e) => setCurrentColorHex(e.target.value)} className="p-1 h-11 w-16" />
                     <Button type="button" onClick={handleAddColor} className="self-end">Ajouter</Button>
                 </div>
                 {availableColors.length > 0 && (

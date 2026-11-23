@@ -33,15 +33,15 @@ const Footer = () => {
           </div>
           <div>
             <h3 className="text-lg font-semibold mb-4">Catégories</h3>
-            <ul className="space-y-2 text-sm">
+            <ul className="text-sm">
               <li>
-                <a href="/" className="hover:text-primary transition-colors">
+                <a href="/" className="inline-flex min-h-11 items-center hover:text-primary transition-colors">
                   Accueil
                 </a>
               </li>
               {categories.map((category) => (
                  <li key={category.id}>
-                    <a href={`#categories`} className="hover:text-primary transition-colors capitalize">
+                    <a href={`/shop?category=${category.id}`} className="inline-flex min-h-11 min-w-11 items-center hover:text-primary transition-colors capitalize">
                         {category.name}
                     </a>
                  </li>
@@ -50,13 +50,13 @@ const Footer = () => {
           </div>
           <div>
             <h3 className="text-lg font-semibold mb-4">Nous suivre </h3>
-            <div className="flex justify-center md:justify-start space-x-4">
-              <a href="https://www.facebook.com/bijoux.Amani.S" className="hover:text-primary transition-colors">
+            <div className="flex justify-center md:justify-start gap-2">
+              <a href="https://www.facebook.com/bijoux.Amani.S" className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
                 <Facebook className="h-6 w-6" />
                 <span className="sr-only">Facebook</span>
               </a>
             
-              <a href="https://www.instagram.com/amanis.ci/" className="hover:text-primary transition-colors">
+              <a href="https://www.instagram.com/amanis.ci/" className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
                 <Instagram className="h-6 w-6" />
                 <span className="sr-only">Instagram</span>
               </a>
@@ -64,7 +64,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="border-t border-border mt-8 pt-4 text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Amani's. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Amani's. Tous droits réservés.</p>
         </div>
       </div>
     </footer>

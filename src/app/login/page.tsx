@@ -84,7 +84,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl">Connexion</CardTitle>
@@ -114,7 +114,7 @@ export default function LoginPage() {
             </Button>
              <p className="text-center text-sm text-muted-foreground">
                 Vous n'avez pas de compte ?{" "}
-                <Link href="/signup" className="underline underline-offset-4 hover:text-primary">
+                <Link href="/signup" className="inline-flex min-h-11 items-center px-1 underline underline-offset-4 hover:text-primary">
                     S'inscrire
                 </Link>
             </p>

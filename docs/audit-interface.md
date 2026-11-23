@@ -21,7 +21,7 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 
 ## Plan (une PR par étape)
 1. **Charte visuelle** (*fait dans cette PR*) : jetons de couleur dans `globals.css` (fond crème, encre chaude, bordures beige, accent terre cuite, mode sombre chaud), `next/font` pour Playfair Display et le texte, remplacement des couleurs en dur par les jetons, suppression de la règle `Arial`. Contrastes calculés et notés (voir ci-dessous).
-2. **Mobile et tactile** (*à faire*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
+2. **Mobile et tactile** (*fait*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
 3. **Boutique** : fiche produit centrée sur la photo, badges de stock, barre d'achat fixe en bas sur téléphone, images optimisées.
 4. **Admin** : badges d'état colorés avec texte, navigation groupée (Boutique / Ventes / Équipe), états vides, chargements en squelette.
 5. **Détails** : logo/monogramme à la place de l'emoji, ton des messages d'erreur et des toasts.
@@ -52,7 +52,18 @@ Inspiration : l'ambiance chaleureuse de l'interface de Claude (crème, serif, te
 
 Changements de détail : prix des cartes en `text-primary` plein (il était à 80 % d'opacité, donc sous 4,5:1), boutons WhatsApp en `green-700` (le `green-500` avec du texte blanc ne faisait que 2,3:1), encadrés du code de livraison passés des bleus en dur aux jetons, fonds de connexion et d'inscription sur `bg-background`. Le texte courant passe de PT Sans à Inter (plus lisible en petit, chiffres plus nets pour les prix) ; Playfair Display reste pour les titres de produits.
 
-Pas encore fait (étapes suivantes) : tailles tactiles, lien « Valider Livraison » réservé au personnel, badges de stock, admin. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
+### Résultat de l'étape 2 (mesuré avec un appareil tactile à 390 et 768 px, souris à 1280 px)
+| Mesure | Avant | Après |
+|---|---|---|
+| Éléments cliquables sous 44 × 44 px (5 écrans × 3 tailles) | 18 à 91 par écran | **0** |
+| Défilement horizontal | aucun | aucun |
+| Carte de connexion à 390 px | collée aux bords | marge de 16 px |
+| Lien « Valider Livraison » | visible de tous | réservé aux comptes `admin` et `orderManager` |
+| Liens des catégories du pied de page | menaient à une ancre inexistante, 17 px de haut | mènent à `/shop?category=…`, 44 px |
+
+Changements : boutons, champs, listes déroulantes et menus à 44 px (composants partagés `ui/`), flèches de carrousel de 44 px, liens du pied de page et du menu mobile à 44 px, réseaux sociaux de 44 px, « Tous droits réservés » en français. Les écrans qui demandent une connexion (`/admin`, `/dashboard`) n'ont pas été mesurés, mais ils utilisent les mêmes composants.
+
+Pas encore fait (étapes suivantes) : badges de stock, admin. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
 ## Règles à tenir (reprises dans `CLAUDE.md`)
 Mobile d'abord (360 px puis `md`), zones tactiles de 44 px au moins, contraste AA (4,5:1), jamais l'information par la couleur seule, rien d'accessible uniquement au survol, couleurs uniquement par les jetons de `globals.css`, animations de 200 ms au plus et coupées si l'utilisateur réduit les animations, libellé toujours visible au-dessus d'un champ, trois états (chargement, vide, erreur) sur chaque liste.

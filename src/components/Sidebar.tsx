@@ -121,7 +121,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
               key={size}
               variant={selectedSizes.includes(size) ? 'default' : 'outline'}
               onClick={() => handleSizeClick(size)}
-              className="h-10"
+              className="h-11"
             >
               {size}
             </Button>
