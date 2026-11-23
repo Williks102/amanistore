@@ -31,16 +31,47 @@ import {
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
     updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
-    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery
+    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
+import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
 type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'delivery-validation';
 
+const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
+  // Un tableau vide = réservé aux admins (l'admin passe toujours).
+  dashboard: ['orderManager'],
+  orders: ['orderManager'],
+  products: ['productManager'],
+  'create-product': ['productManager'],
+  categories: [],
+  collections: [],
+  promotions: [],
+  'delivery-validation': ['orderManager'],
+};
+const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'delivery-validation'];
+
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
+  const [roles, setRoles] = useState<Roles | null>(null);
+  const can = (view: View) => !!roles && (roles.admin || VIEW_ROLES[view].some((r) => roles[r]));
+
+  useEffect(() => {
+    (async () => {
+      const { roles: fetched } = await getMyRoles(await getIdToken());
+      setRoles(fetched);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (roles && !can(activeView)) {
+      const first = VIEW_ORDER.find((v) => can(v));
+      if (first) setActiveView(first);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles]);
   // Data states
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -369,6 +400,7 @@ const AdminPage = () => {
   }, [orders, orderStatusFilter]);
 
   const renderContent = () => {
+    if (!can(activeView)) return null;
     if (isLoading) {
       return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
@@ -742,14 +774,14 @@ const AdminPage = () => {
       <aside className="w-64 bg-background border-r p-4 flex-col hidden md:flex">
         <h1 className="text-2xl font-bold mb-8">Amani<span className="text-primary">.</span> Admin</h1>
         <nav className="flex flex-col space-y-1.5">
-            <Button variant={activeView === 'dashboard' ? 'secondary' : 'ghost'} onClick={() => setActiveView('dashboard')} className="justify-start"><BarChart2 className="mr-2 h-4 w-4"/> Dashboard</Button>
-            <Button variant={activeView === 'orders' ? 'secondary' : 'ghost'} onClick={() => setActiveView('orders')} className="justify-start"><ListOrdered className="mr-2 h-4 w-4"/> Commandes</Button>
-            <Button variant={activeView === 'products' ? 'secondary' : 'ghost'} onClick={() => setActiveView('products')} className="justify-start"><Box className="mr-2 h-4 w-4"/> Produits</Button>
-            <Button variant={activeView === 'create-product' ? 'secondary' : 'ghost'} onClick={() => setActiveView('create-product')} className="justify-start"><PlusCircle className="mr-2 h-4 w-4"/> Créer un produit</Button>
-            <Button variant={activeView === 'categories' ? 'secondary' : 'ghost'} onClick={() => setActiveView('categories')} className="justify-start"><Archive className="mr-2 h-4 w-4"/> Catégories</Button>
-            <Button variant={activeView === 'collections' ? 'secondary' : 'ghost'} onClick={() => setActiveView('collections')} className="justify-start"><Shapes className="mr-2 h-4 w-4"/> Collections</Button>
-            <Button variant={activeView === 'promotions' ? 'secondary' : 'ghost'} onClick={() => setActiveView('promotions')} className="justify-start"><Tag className="mr-2 h-4 w-4"/> Promotions</Button>
-            <Button variant={activeView === 'delivery-validation' ? 'secondary' : 'ghost'} onClick={() => setActiveView('delivery-validation')} className="justify-start"><ShieldCheck className="mr-2 h-4 w-4"/> Valider Livraison</Button>
+            {can('dashboard') && <Button variant={activeView === 'dashboard' ? 'secondary' : 'ghost'} onClick={() => setActiveView('dashboard')} className="justify-start"><BarChart2 className="mr-2 h-4 w-4"/> Dashboard</Button>}
+            {can('orders') && <Button variant={activeView === 'orders' ? 'secondary' : 'ghost'} onClick={() => setActiveView('orders')} className="justify-start"><ListOrdered className="mr-2 h-4 w-4"/> Commandes</Button>}
+            {can('products') && <Button variant={activeView === 'products' ? 'secondary' : 'ghost'} onClick={() => setActiveView('products')} className="justify-start"><Box className="mr-2 h-4 w-4"/> Produits</Button>}
+            {can('create-product') && <Button variant={activeView === 'create-product' ? 'secondary' : 'ghost'} onClick={() => setActiveView('create-product')} className="justify-start"><PlusCircle className="mr-2 h-4 w-4"/> Créer un produit</Button>}
+            {can('categories') && <Button variant={activeView === 'categories' ? 'secondary' : 'ghost'} onClick={() => setActiveView('categories')} className="justify-start"><Archive className="mr-2 h-4 w-4"/> Catégories</Button>}
+            {can('collections') && <Button variant={activeView === 'collections' ? 'secondary' : 'ghost'} onClick={() => setActiveView('collections')} className="justify-start"><Shapes className="mr-2 h-4 w-4"/> Collections</Button>}
+            {can('promotions') && <Button variant={activeView === 'promotions' ? 'secondary' : 'ghost'} onClick={() => setActiveView('promotions')} className="justify-start"><Tag className="mr-2 h-4 w-4"/> Promotions</Button>}
+            {can('delivery-validation') && <Button variant={activeView === 'delivery-validation' ? 'secondary' : 'ghost'} onClick={() => setActiveView('delivery-validation')} className="justify-start"><ShieldCheck className="mr-2 h-4 w-4"/> Valider Livraison</Button>}
         </nav>
       </aside>
       <main className="flex-1 p-4 sm:p-6">
