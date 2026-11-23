@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/firebase";
+import { RoleGate } from '@/components/RoleGate';
 import {
   collection,
   getDocs,
@@ -227,4 +228,10 @@ const RolesPage = () => {
   );
 };
 
-export default RolesPage;
+export default function ProtectedRolesPage() {
+  return (
+    <RoleGate allow={['admin']}>
+      <RolesPage />
+    </RoleGate>
+  );
+}

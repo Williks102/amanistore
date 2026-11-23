@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Shoe, ShoeColor, Category, Collection, ShoeImage } from '@/lib/types';
 import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
+import { getIdToken } from '@/lib/get-id-token';
 import Image from 'next/image';
 
 interface EditProductModalProps {
@@ -128,7 +129,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     for (const imageFile of newImageFiles) {
         const formData = new FormData();
         formData.append('image', imageFile);
-        const uploadResult = await uploadImage(formData);
+        const uploadResult = await uploadImage(await getIdToken(), formData);
         
         if (uploadResult.error || !uploadResult.secure_url) {
             toast({ title: "Échec de l'upload de l'image", description: uploadResult.error, variant: 'destructive' });
@@ -158,7 +159,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
         detailImages: allImages.slice(1),
     };
 
-    const result = await updateProduct(shoe.id, updatedShoeData);
+    const result = await updateProduct(await getIdToken(), shoe.id, updatedShoeData);
 
     if (result.success) {
         toast({ title: 'Succès', description: 'Produit mis à jour avec succès.' });

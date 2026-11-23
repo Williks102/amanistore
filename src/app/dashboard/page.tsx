@@ -13,6 +13,7 @@ import { ShoppingBag, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { getOrdersForUser } from '@/app/actions';
+import { getIdToken } from '@/lib/get-id-token';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -134,7 +135,7 @@ const BuyerDashboard = () => {
     if (user) {
       const fetchOrders = async () => {
         setIsLoading(true);
-        const { orders: fetchedOrders, error } = await getOrdersForUser(user.uid);
+        const { orders: fetchedOrders, error } = await getOrdersForUser(await getIdToken());
         
         if (error) {
           console.error("Failed to fetch orders:", error);

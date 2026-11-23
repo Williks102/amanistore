@@ -13,8 +13,10 @@ import { Loader2, PackageSearch, CheckCircle } from 'lucide-react';
 import type { Category, Order } from '@/lib/types';
 import Image from 'next/image';
 import { getCategories } from '@/services/categoryService';
+import { getIdToken } from '@/lib/get-id-token';
+import { RoleGate } from '@/components/RoleGate';
 
-export default function ValidateDeliveryPage() {
+function ValidateDeliveryPage() {
   const { toast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [code, setCode] = useState('');
@@ -51,7 +53,7 @@ export default function ValidateDeliveryPage() {
     setValidationSuccess(false);
 
     try {
-        const { order: foundOrder, error } = await getOrderByCodeForValidation(trimmedCode);
+        const { order: foundOrder, error } = await getOrderByCodeForValidation(await getIdToken(), trimmedCode);
 
         if (error) {
             toast({ title: 'Erreur', description: error, variant: 'destructive' });
@@ -89,7 +91,7 @@ export default function ValidateDeliveryPage() {
     setIsSubmitting(true);
     
     try {
-        const result = await validateOrderDelivery(order.id);
+        const result = await validateOrderDelivery(await getIdToken(), order.id);
         if (result.success) {
             setOrder(null);
             setCode('');
@@ -204,5 +206,13 @@ export default function ValidateDeliveryPage() {
         </Card>
       </main>
     </div>
+  );
+}
+
+export default function ProtectedValidateDeliveryPage() {
+  return (
+    <RoleGate allow={['orderManager']}>
+      <ValidateDeliveryPage />
+    </RoleGate>
   );
 }
