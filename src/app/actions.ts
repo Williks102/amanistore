@@ -4,7 +4,9 @@
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
-import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem } from '@/lib/types';
+import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage } from '@/lib/types';
+import { computeDiscount, promoProblem } from '@/lib/promo';
+import { availableStock } from '@/lib/stock';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomInt } from 'node:crypto';
@@ -72,8 +74,11 @@ export async function uploadImage(idToken: string, formData: FormData) {
 // ============ HELPERS ============
 const GENERIC = 'Opération impossible pour le moment.';
 
+/** Erreur métier dont le message peut être montré tel quel au client. */
+class OrderError extends Error {}
+
 function fail(error: unknown): { success: false; error: string } {
-  if (error instanceof AuthError) return { success: false, error: error.message };
+  if (error instanceof AuthError || error instanceof OrderError) return { success: false, error: error.message };
   console.error(error);
   return { success: false, error: GENERIC };
 }
@@ -83,6 +88,16 @@ const ORDER_STATUSES: OrderStatus[] = ['En attente', 'Prêt', 'Livré', 'Annulé
 function orderFromDoc(id: string, data: FirebaseFirestore.DocumentData): Order {
   const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
   return { ...data, id, date } as Order;
+}
+
+/** Nettoie une table de stock: pointures numériques, quantités entières >= 0. */
+function sanitizeStock(stock: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [size, qty] of Object.entries(stock)) {
+    const n = Number(qty);
+    if (Number(size) > 0 && Number.isInteger(n) && n >= 0 && n <= 100000) out[String(Number(size))] = n;
+  }
+  return out;
 }
 
 // ============ SESSION ============
@@ -107,16 +122,25 @@ export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const docRef = await adminDb.collection('shoes').add({ ...newShoeData, createdAt: new Date().toISOString() });
+        const { stock, ...rest } = newShoeData;
+        const docRef = await adminDb.collection('shoes').add({
+            ...rest,
+            ...(stock ? { stock: sanitizeStock(stock) } : {}),
+            createdAt: new Date().toISOString(),
+        });
         return { success: true, productId: docRef.id };
     } catch (error) { return fail(error); }
 }
 
-export async function updateProduct(idToken: string, shoeId: string, updatedShoeData: Partial<Shoe>) {
+// `stock: null` supprime le suivi de stock (illimité).
+export async function updateProduct(idToken: string, shoeId: string, updatedShoeData: Omit<Partial<Shoe>, 'stock'> & { stock?: Record<string, number> | null }) {
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const { id: _ignored, ...data } = updatedShoeData;
+        const { id: _ignored, stock, ...rest } = updatedShoeData;
+        const data: Record<string, unknown> = { ...rest };
+        if (stock === null) data.stock = FieldValue.delete();
+        else if (stock !== undefined) data.stock = sanitizeStock(stock);
         await adminDb.collection('shoes').doc(shoeId).update(data);
         return { success: true };
     } catch (error) { return fail(error); }
@@ -199,6 +223,9 @@ const PromoInputSchema = z.object({
   discountType: z.enum(['percentage', 'fixed']),
   value: z.number().positive().max(10_000_000),
   isActive: z.boolean(),
+  expiresAt: z.string().datetime({ offset: true }).optional(),
+  maxUses: z.number().int().min(1).max(10_000_000).optional(),
+  minOrderAmount: z.number().min(0).max(100_000_000).optional(),
 }).refine((p) => p.discountType !== 'percentage' || p.value <= 100, { message: 'Un pourcentage ne peut pas dépasser 100.' });
 
 export async function createPromoCode(idToken: string, promoCodeData: Omit<PromoCode, 'id'>) {
@@ -207,7 +234,7 @@ export async function createPromoCode(idToken: string, promoCodeData: Omit<Promo
         await requireRole(idToken, []);
         const parsed = PromoInputSchema.safeParse(promoCodeData);
         if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message || 'Données invalides.' };
-        const docRef = await adminDb.collection('promoCodes').add({ ...parsed.data, code: parsed.data.code.toUpperCase() });
+        const docRef = await adminDb.collection('promoCodes').add({ ...parsed.data, code: parsed.data.code.toUpperCase(), usedCount: 0 });
         return { success: true, promoCodeId: docRef.id };
     } catch (error) { return fail(error); }
 }
@@ -255,6 +282,7 @@ export async function createOrder(
   input: z.infer<typeof CreateOrderSchema>
 ): Promise<{ success: boolean; orderId?: string; validationCode?: string; error?: string }> {
   if (!adminDb) return { success: false, error: 'DB connection failed.' };
+  const db = adminDb;
   try {
     const uid = await requireUser(idToken);
     if (!(await rateLimit('create-order', 10, 10 * 60_000))) {
@@ -264,57 +292,100 @@ export async function createOrder(
     if (!parsed.success) return { success: false, error: 'Informations de commande invalides.' };
     const data = parsed.data;
 
-    // Prix et produits lus depuis la base.
     const uniqueIds = Array.from(new Set(data.items.map((i) => i.productId)));
-    const snaps = await Promise.all(uniqueIds.map((id) => adminDb.collection('shoes').doc(id).get()));
-    const products = new Map<string, Shoe>();
-    snaps.forEach((s) => { if (s.exists) products.set(s.id, { id: s.id, ...s.data() } as Shoe); });
-
-    const items: CartItem[] = [];
-    for (const it of data.items) {
-      const product = products.get(it.productId);
-      if (!product) return { success: false, error: 'Un produit de votre panier n\'existe plus.' };
-      if (product.availableSizes?.length && !product.availableSizes.includes(it.size)) {
-        return { success: false, error: `Taille indisponible pour ${product.name}.` };
-      }
-      if (product.availableColors?.length && !product.availableColors.some((c) => c.name === it.color)) {
-        return { success: false, error: `Couleur indisponible pour ${product.name}.` };
-      }
-      items.push({ id: `${product.id}-${it.size}-${it.color}`, product, quantity: it.quantity, size: it.size, color: it.color });
-    }
-
-    const subtotal = items.reduce((acc, i) => acc + i.product.price * i.quantity, 0);
-
-    let discount = 0;
-    if (data.promoCode) {
-      const promoSnap = await adminDb.collection('promoCodes').where('code', '==', data.promoCode.toUpperCase()).limit(1).get();
-      if (promoSnap.empty || promoSnap.docs[0].data().isActive !== true) {
-        return { success: false, error: 'Code promo invalide ou inactif.' };
-      }
-      const promo = promoSnap.docs[0].data() as PromoCode;
-      const raw = promo.discountType === 'percentage'
-        ? subtotal * (Math.min(Math.max(promo.value, 0), 100) / 100)
-        : Math.max(promo.value, 0);
-      discount = Math.min(raw, subtotal);
-    }
-    const total = Math.max(subtotal - discount, 0);
-
+    const orderRef = db.collection('orders').doc();
     const validationCode = randomInt(100000, 1000000).toString();
-    const docRef = await adminDb.collection('orders').add({
-      userId: uid,
-      customerName: data.name,
-      customerPhone: data.phone,
-      customerEmail: data.email || '',
-      customerAddress: data.address,
-      items,
-      subtotal,
-      discount,
-      total,
-      status: 'En attente' as OrderStatus,
-      validationCode,
-      date: FieldValue.serverTimestamp(),
+    const promoCode = data.promoCode?.toUpperCase();
+
+    // Tout se passe dans une transaction: le stock et le compteur du code promo
+    // ne peuvent pas être dépassés par deux commandes simultanées.
+    await db.runTransaction(async (tx) => {
+      // 1. Lectures (obligatoirement avant toute écriture)
+      const productRefs = uniqueIds.map((id) => db.collection('shoes').doc(id));
+      const productSnaps = await Promise.all(productRefs.map((r) => tx.get(r)));
+      const promoSnap = promoCode
+        ? await tx.get(db.collection('promoCodes').where('code', '==', promoCode).limit(1))
+        : null;
+
+      const products = new Map<string, Shoe>();
+      productSnaps.forEach((snap) => { if (snap.exists) products.set(snap.id, { id: snap.id, ...snap.data() } as Shoe); });
+
+      // 2. Validation des lignes (prix lus en base, jamais depuis le client)
+      const items: CartItem[] = [];
+      const requested = new Map<string, number>(); // `${productId}|${size}` -> quantité totale
+      for (const it of data.items) {
+        const product = products.get(it.productId);
+        if (!product) throw new OrderError("Un produit de votre panier n'existe plus.");
+        if (product.availableSizes?.length && !product.availableSizes.includes(it.size)) {
+          throw new OrderError(`Taille indisponible pour ${product.name}.`);
+        }
+        if (product.availableColors?.length && !product.availableColors.some((c) => c.name === it.color)) {
+          throw new OrderError(`Couleur indisponible pour ${product.name}.`);
+        }
+        const key = `${product.id}|${it.size}`;
+        requested.set(key, (requested.get(key) ?? 0) + it.quantity);
+        items.push({ id: `${product.id}-${it.size}-${it.color}`, product, quantity: it.quantity, size: it.size, color: it.color });
+      }
+
+      // 3. Stock (pour les produits dont le stock est suivi)
+      const newStock = new Map<string, Record<string, number>>();
+      for (const [key, qty] of requested) {
+        const [productId, sizeStr] = key.split('|');
+        const product = products.get(productId)!;
+        const available = availableStock(product, Number(sizeStr));
+        if (available === null) continue;
+        if (qty > available) {
+          throw new OrderError(
+            available === 0
+              ? `${product.name} (pointure ${sizeStr}) est épuisé.`
+              : `Stock insuffisant pour ${product.name} (pointure ${sizeStr}): ${available} restant(s).`
+          );
+        }
+        const current = newStock.get(productId) ?? { ...(product.stock ?? {}) };
+        current[sizeStr] = available - qty;
+        newStock.set(productId, current);
+      }
+
+      // 4. Prix et code promo
+      const subtotal = items.reduce((acc, i) => acc + i.product.price * i.quantity, 0);
+      let discount = 0;
+      let promoRef: FirebaseFirestore.DocumentReference | null = null;
+      let promoUsed = 0;
+      if (promoCode) {
+        const promoDoc = promoSnap && !promoSnap.empty ? promoSnap.docs[0] : null;
+        if (!promoDoc) throw new OrderError('Code promo invalide ou inactif.');
+        const promo = promoDoc.data() as PromoCode;
+        const problem = promoProblem(promo, subtotal);
+        if (problem) throw new OrderError(problem);
+        discount = computeDiscount(promo, subtotal);
+        promoRef = promoDoc.ref;
+        promoUsed = promo.usedCount ?? 0;
+      }
+      const total = Math.max(subtotal - discount, 0);
+
+      // 5. Écritures
+      tx.set(orderRef, {
+        userId: uid,
+        customerName: data.name,
+        customerPhone: data.phone,
+        customerEmail: data.email || '',
+        customerAddress: data.address,
+        items,
+        subtotal,
+        discount,
+        total,
+        ...(promoRef ? { promoCode, promoCodeId: promoRef.id } : {}),
+        status: 'En attente' as OrderStatus,
+        validationCode,
+        date: FieldValue.serverTimestamp(),
+      });
+      for (const [productId, stock] of newStock) {
+        tx.update(db.collection('shoes').doc(productId), { stock });
+      }
+      if (promoRef) tx.update(promoRef, { usedCount: promoUsed + 1 });
     });
-    return { success: true, orderId: docRef.id, validationCode };
+
+    return { success: true, orderId: orderRef.id, validationCode };
   } catch (error) { return fail(error); }
 }
 
@@ -332,10 +403,44 @@ export async function getOrders(idToken: string) {
 
 export async function updateOrderStatus(idToken: string, orderId: string, status: OrderStatus) {
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
+    const db = adminDb;
     try {
         await requireRole(idToken, ['orderManager']);
         if (!ORDER_STATUSES.includes(status)) return { success: false, error: 'Statut invalide.' };
-        await adminDb.collection('orders').doc(orderId).update({ status });
+        await db.runTransaction(async (tx) => {
+            const ref = db.collection('orders').doc(orderId);
+            const snap = await tx.get(ref);
+            if (!snap.exists) throw new OrderError('Commande non trouvée.');
+            const order = snap.data() as Order;
+            if (order.status === status) return;
+            if (order.status === 'Annulé') throw new OrderError('Une commande annulée ne peut pas être rouverte.');
+
+            if (status === 'Annulé') {
+                // Annulation: on remet le stock et on libère l'utilisation du code promo.
+                const lines = new Map<string, Map<string, number>>(); // productId -> size -> quantité
+                for (const it of order.items ?? []) {
+                    const sizes = lines.get(it.product.id) ?? new Map<string, number>();
+                    sizes.set(String(it.size), (sizes.get(String(it.size)) ?? 0) + it.quantity);
+                    lines.set(it.product.id, sizes);
+                }
+                const productRefs = Array.from(lines.keys()).map((id) => db.collection('shoes').doc(id));
+                const productSnaps = await Promise.all(productRefs.map((r) => tx.get(r)));
+                const promoRef = order.promoCodeId ? db.collection('promoCodes').doc(order.promoCodeId) : null;
+                const promoSnap = promoRef ? await tx.get(promoRef) : null;
+
+                productSnaps.forEach((p) => {
+                    const stock = p.exists ? (p.data() as Shoe).stock : undefined;
+                    if (!stock) return; // produit supprimé ou stock non suivi
+                    const restored = { ...stock };
+                    for (const [size, qty] of lines.get(p.id)!) restored[size] = (restored[size] ?? 0) + qty;
+                    tx.update(p.ref, { stock: restored });
+                });
+                if (promoRef && promoSnap?.exists) {
+                    tx.update(promoRef, { usedCount: Math.max(((promoSnap.data() as PromoCode).usedCount ?? 0) - 1, 0) });
+                }
+            }
+            tx.update(ref, { status });
+        });
         return { success: true };
     } catch (error) { return fail(error); }
 }
@@ -426,14 +531,39 @@ export async function sendContactMessage(formData: FormData): Promise<{ success:
   }
 }
 
-export async function validatePromoCode(code: string): Promise<{ success: boolean; promoCode?: PromoCode; error?: string; }> {
+export async function validatePromoCode(code: string, subtotal?: number): Promise<{ success: boolean; promoCode?: PromoCode; error?: string; }> {
   if (typeof code !== 'string' || code.length === 0 || code.length > 50) return { success: false, error: 'Code promo invalide.' };
   if (!(await rateLimit('promo-code', 15, 60_000))) return { success: false, error: 'Trop de tentatives. Réessayez dans un instant.' };
   if (!adminDb) return { success: false, error: 'DB connection failed.' };
   const snapshot = await adminDb.collection('promoCodes').where('code', '==', code.toUpperCase()).limit(1).get();
   if (snapshot.empty) return { success: false, error: 'Code promo invalide.' };
   const promoDoc = snapshot.docs[0];
-  const promoCode = { id: promoDoc.id, ...promoDoc.data() } as PromoCode;
-  if (!promoCode.isActive) return { success: false, error: 'Ce code promo n\'est plus actif.' };
-  return { success: true, promoCode };
+  const full = { id: promoDoc.id, ...promoDoc.data() } as PromoCode;
+  const problem = promoProblem(full, typeof subtotal === 'number' ? subtotal : undefined);
+  if (problem) return { success: false, error: problem };
+  // On ne divulgue pas le compteur d'utilisation.
+  const { usedCount: _u, ...publicPromo } = full;
+  return { success: true, promoCode: publicPromo as PromoCode };
+}
+
+// ============ CONTACT MESSAGES (admin) ============
+export async function getContactMessages(idToken: string): Promise<ContactMessage[]> {
+  if (!adminDb) return [];
+  try {
+    await requireRole(idToken, []);
+    const snapshot = await adminDb.collection('contactMessages').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ContactMessage);
+  } catch (error) {
+    if (!(error instanceof AuthError)) console.error(error);
+    return [];
+  }
+}
+
+export async function deleteContactMessage(idToken: string, messageId: string) {
+  if (!adminDb) return { success: false, error: 'DB connection failed.' };
+  try {
+    await requireRole(idToken, []);
+    await adminDb.collection('contactMessages').doc(messageId).delete();
+    return { success: true };
+  } catch (error) { return fail(error); }
 }

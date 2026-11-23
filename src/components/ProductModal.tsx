@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { StyleGuideAssistant } from './StyleGuideAssistant';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/hooks/use-cart';
+import { availableStock } from '@/lib/stock';
 
 interface ProductModalProps {
   shoe: Shoe;
@@ -54,7 +55,12 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 
 const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange }) => {
-  const [selectedSize, setSelectedSize] = useState<number | null>(shoe.availableSizes[0] || null);
+  const [selectedSize, setSelectedSize] = useState<number | null>(
+    shoe.availableSizes.find((sz) => availableStock(shoe, sz) !== 0) ?? null
+  );
+  const stockLeft = selectedSize !== null ? availableStock(shoe, selectedSize) : null;
+  const maxQty = stockLeft ?? 99;
+  const allSoldOut = shoe.availableSizes.length > 0 && shoe.availableSizes.every((sz) => availableStock(shoe, sz) === 0);
   const [selectedColor, setSelectedColor] = useState<string | null>(shoe.availableColors[0]?.name || null);
   const [quantity, setQuantity] = useState(1);
   const { toast } = useToast();
@@ -182,20 +188,23 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
               {/* Size Selection */}
               <div>
                 <Label className="text-lg font-semibold">Taille</Label>
+                {allSoldOut && <p className="text-sm text-destructive mt-1">Produit épuisé</p>}
+                {!allSoldOut && stockLeft !== null && stockLeft <= 3 && <p className="text-sm text-amber-600 mt-1">Plus que {stockLeft} en stock</p>}
                 <RadioGroup
                   value={selectedSize?.toString()}
-                  onValueChange={(val) => setSelectedSize(Number(val))}
+                  onValueChange={(val) => { const next = Number(val); setSelectedSize(next); const left = availableStock(shoe, next); if (left !== null) setQuantity((q) => Math.max(1, Math.min(q, left))); }}
                   className="grid grid-cols-4 gap-2 mt-2"
                 >
                   {shoe.availableSizes.map((size) => (
                     <div key={size} className="flex items-center">
-                      <RadioGroupItem value={size.toString()} id={`size-${size}`} className="sr-only" />
+                      <RadioGroupItem value={size.toString()} id={`size-${size}`} className="sr-only" disabled={availableStock(shoe, size) === 0} />
                       <Label
                         htmlFor={`size-${size}`}
                         className={cn(
                           'flex items-center justify-center w-full h-10 rounded-md border text-sm font-medium cursor-pointer transition-colors',
                           'hover:bg-accent hover:text-accent-foreground',
-                          selectedSize === size ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'
+                          selectedSize === size ? 'bg-primary text-primary-foreground border-primary' : 'bg-background',
+                          availableStock(shoe, size) === 0 && 'opacity-40 line-through cursor-not-allowed hover:bg-background'
                         )}
                       >
                         {size}
@@ -220,7 +229,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                     <Minus className="h-4 w-4" />
                   </Button>
                   <span className="text-2xl font-bold w-12 text-center">{quantity}</span>
-                  <Button variant="outline" size="icon" onClick={() => setQuantity((q) => q + 1)}>
+                  <Button variant="outline" size="icon" onClick={() => setQuantity((q) => Math.min(q + 1, maxQty))}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -255,20 +264,23 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
             {/* Size Selection */}
             <div>
               <Label className="text-lg font-semibold">Taille</Label>
+                {allSoldOut && <p className="text-sm text-destructive mt-1">Produit épuisé</p>}
+                {!allSoldOut && stockLeft !== null && stockLeft <= 3 && <p className="text-sm text-amber-600 mt-1">Plus que {stockLeft} en stock</p>}
               <RadioGroup
                 value={selectedSize?.toString()}
-                onValueChange={(val) => setSelectedSize(Number(val))}
+                onValueChange={(val) => { const next = Number(val); setSelectedSize(next); const left = availableStock(shoe, next); if (left !== null) setQuantity((q) => Math.max(1, Math.min(q, left))); }}
                 className="grid grid-cols-4 gap-2 mt-2"
               >
                 {shoe.availableSizes.map((size) => (
                   <div key={size} className="flex items-center">
-                    <RadioGroupItem value={size.toString()} id={`size-mobile-${size}`} className="sr-only" />
+                    <RadioGroupItem value={size.toString()} id={`size-mobile-${size}`} className="sr-only" disabled={availableStock(shoe, size) === 0} />
                     <Label
                       htmlFor={`size-mobile-${size}`}
                       className={cn(
                         'flex items-center justify-center w-full h-10 rounded-md border text-sm font-medium cursor-pointer transition-colors',
                         'hover:bg-accent hover:text-accent-foreground',
-                        selectedSize === size ? 'bg-primary text-primary-foreground border-primary' : 'bg-background'
+                        selectedSize === size ? 'bg-primary text-primary-foreground border-primary' : 'bg-background',
+                          availableStock(shoe, size) === 0 && 'opacity-40 line-through cursor-not-allowed hover:bg-background'
                       )}
                     >
                       {size}
@@ -292,7 +304,7 @@ const ProductModal: React.FC<ProductModalProps> = ({ shoe, isOpen, onOpenChange 
                   <Minus className="h-5 w-5" />
                 </Button>
                 <span className="text-2xl font-bold w-16 text-center">{quantity}</span>
-                <Button variant="outline" size="icon" onClick={() => setQuantity((q) => q + 1)} className="h-12 w-12">
+                <Button variant="outline" size="icon" onClick={() => setQuantity((q) => Math.min(q + 1, maxQty))} className="h-12 w-12">
                   <Plus className="h-5 w-5" />
                 </Button>
               </div>

@@ -22,6 +22,7 @@ import type { Shoe, ShoeColor, Category, Collection, ShoeImage } from '@/lib/typ
 import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
+import { formatStockInput, parseStockInput } from '@/lib/stock';
 import Image from 'next/image';
 
 interface EditProductModalProps {
@@ -41,6 +42,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
   const [categoryId, setCategoryId] = useState(shoe.categoryId);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(shoe.collectionIds || []);
   const [availableSizes, setAvailableSizes] = useState(shoe.availableSizes.join(', '));
+  const [stockInput, setStockInput] = useState(formatStockInput(shoe.stock));
   const [availableColors, setAvailableColors] = useState<ShoeColor[]>(shoe.availableColors);
   
   const [existingImages, setExistingImages] = useState<ShoeImage[]>([]);
@@ -60,6 +62,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
       setCategoryId(shoe.categoryId);
       setSelectedCollectionIds(shoe.collectionIds || []); // Ensure it's an array
       setAvailableSizes(shoe.availableSizes.join(', '));
+      setStockInput(formatStockInput(shoe.stock));
       setAvailableColors(shoe.availableColors);
       const allImages = [shoe.gridImage, ...(shoe.detailImages || [])];
       const uniqueImages = allImages.filter((img, index, self) => 
@@ -112,6 +115,12 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     event.preventDefault();
     setIsSubmitting(true);
 
+    const parsedStock = parseStockInput(stockInput);
+    if (parsedStock.error) {
+        toast({ title: 'Stock invalide', description: parsedStock.error, variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
     const sizesArray = availableSizes.split(',').map((s) => Number(s.trim())).filter((s) => !isNaN(s) && s > 0);
     if (sizesArray.length === 0) {
         toast({ title: 'Tailles invalides', description: 'Veuillez entrer des tailles valides.', variant: 'destructive' });
@@ -147,13 +156,15 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     }));
     const allImages = [...existingImageObjects, ...newImageObjects];
 
-    const updatedShoeData: Partial<Shoe> = {
+    const updatedShoeData: Omit<Partial<Shoe>, 'stock'> & { stock?: Record<string, number> | null } = {
         name,
         description,
         price,
         categoryId,
         collectionIds: selectedCollectionIds,
         availableSizes: sizesArray,
+        // null = stock non suivi (illimité)
+        stock: parsedStock.stock ?? null,
         availableColors,
         gridImage: allImages[0],
         detailImages: allImages.slice(1),
@@ -239,6 +250,12 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 <Label htmlFor="edit-product-sizes">Tailles disponibles</Label>
                 <Input id="edit-product-sizes" value={availableSizes} onChange={(e) => setAvailableSizes(e.target.value)} />
                  <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
+            </div>
+
+            <div className="space-y-2">
+                <Label htmlFor="edit-product-stock">Stock par pointure (optionnel)</Label>
+                <Input id="edit-product-stock" placeholder="Ex: 38:5, 39:3, 40:0" value={stockInput} onChange={(e) => setStockInput(e.target.value)} />
+                <p className="text-sm text-muted-foreground">Format pointure:quantité. Laissez vide pour ne pas suivre le stock (illimité). Une pointure absente de la liste est considérée épuisée.</p>
             </div>
 
             <div className="space-y-4 rounded-md border p-4">

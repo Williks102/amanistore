@@ -35,6 +35,11 @@ export type Shoe = {
   availableSizes: number[];
   availableColors: ShoeColor[];
   detailImages: ShoeImage[];
+  /**
+   * Stock par pointure (toutes couleurs confondues), ex: { "39": 5, "40": 0 }.
+   * Absent = stock non suivi (illimité). Présent: une pointure absente de la table vaut 0.
+   */
+  stock?: Record<string, number>;
   createdAt?: string;
 };
 
@@ -57,6 +62,10 @@ export type Order = {
   customerAddress: string; 
   date: string;
   items: CartItem[];
+  subtotal?: number;
+  discount?: number;
+  promoCode?: string;
+  promoCodeId?: string;
   total: number;
   status: OrderStatus;
   validationCode: string; 
@@ -68,4 +77,20 @@ export type PromoCode = {
   discountType: 'percentage' | 'fixed';
   value: number;
   isActive: boolean;
+  /** Date d'expiration (ISO). Absent = n'expire pas. */
+  expiresAt?: string;
+  /** Nombre maximal d'utilisations. Absent = illimité. */
+  maxUses?: number;
+  usedCount?: number;
+  /** Montant minimal du sous-total (XOF). */
+  minOrderAmount?: number;
+};
+
+export type ContactMessage = {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  createdAt: string;
 };

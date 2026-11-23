@@ -32,6 +32,7 @@ import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
 import { createOrder, validatePromoCode } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
+import { computeDiscount, promoProblem } from '@/lib/promo';
 import type { PromoCode } from '@/lib/types';
 import { useUser } from '@/firebase';
 
@@ -61,17 +62,15 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
   
+  // Affichage seulement: le serveur recalcule la remise (et revérifie expiration, limite, minimum).
+  const promoIssue = useMemo(
+    () => (appliedPromoCode ? promoProblem(appliedPromoCode, subtotal) : null),
+    [appliedPromoCode, subtotal]
+  );
   const discount = useMemo(() => {
-    if (!appliedPromoCode) return 0;
-    let raw = 0;
-    if (appliedPromoCode.discountType === 'percentage') {
-      raw = subtotal * (Math.min(Math.max(appliedPromoCode.value, 0), 100) / 100);
-    } else if (appliedPromoCode.discountType === 'fixed') {
-      raw = Math.max(appliedPromoCode.value, 0);
-    }
-    // La remise ne peut jamais dépasser le sous-total (pas de total négatif).
-    return Math.min(raw, subtotal);
-  }, [subtotal, appliedPromoCode]);
+    if (!appliedPromoCode || promoIssue) return 0;
+    return computeDiscount(appliedPromoCode, subtotal);
+  }, [subtotal, appliedPromoCode, promoIssue]);
 
   const total = subtotal - discount;
 
@@ -99,7 +98,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     if (!promoCodeInput) return;
     setIsApplyingPromo(true);
 
-    const result = await validatePromoCode(promoCodeInput.toUpperCase());
+    const result = await validatePromoCode(promoCodeInput.toUpperCase(), subtotal);
     
     if (result.success && result.promoCode) {
       setAppliedPromoCode(result.promoCode);
@@ -140,7 +139,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
             phone: values.phone,
             email: values.email || '',
             address: values.address,
-            promoCode: appliedPromoCode?.code,
+            promoCode: promoIssue ? undefined : appliedPromoCode?.code,
             items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity, size: i.size, color: i.color })),
         });
         if (!result.success || !result.orderId) {
@@ -251,6 +250,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                         {isApplyingPromo ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Appliquer'}
                       </Button>
                   </div>
+                  {promoIssue && <p className="text-sm text-destructive">{promoIssue}</p>}
               </div>
 
               <div className="space-y-1 text-sm">
