@@ -19,16 +19,16 @@ service cloud.firestore {
 
     function isAdmin() {
       // Check for the 'admin' field in the user's role document.
-      return getRoles().admin == true;
+      return getRoles().get('admin', false) == true;
     }
 
     function isProductManager() {
       // Check for the 'productManager' field in the user's role document.
-      return getRoles().productManager == true;
+      return getRoles().get('productManager', false) == true;
     }
     function isOrderManager() {
       // Check for the 'orderManager' field in the user's role document.
-      return getRoles().orderManager == true;
+      return getRoles().get('orderManager', false) == true;
     }
 
     // ROLES COLLECTION

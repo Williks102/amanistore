@@ -23,23 +23,25 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu, Mail } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
 
-import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor } from '@/lib/types';
+import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor, ContactMessage } from '@/lib/types';
+import { parseStockInput } from '@/lib/stock';
 import { 
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
     updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
-    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles
+    deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles,
+    getContactMessages, deleteContactMessage
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
 import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
-type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'delivery-validation';
+type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'messages' | 'delivery-validation';
 
 const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   // Un tableau vide = réservé aux admins (l'admin passe toujours).
@@ -50,9 +52,10 @@ const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   categories: [],
   collections: [],
   promotions: [],
+  messages: [],
   'delivery-validation': ['orderManager'],
 };
-const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'delivery-validation'];
+const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'messages', 'delivery-validation'];
 
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -80,6 +83,7 @@ const AdminPage = () => {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +108,10 @@ const AdminPage = () => {
   const [newPromoCode, setNewPromoCode] = useState('');
   const [newPromoDiscountType, setNewPromoDiscountType] = useState<'percentage' | 'fixed'>('percentage');
   const [newPromoValue, setNewPromoValue] = useState(0);
+  const [newPromoExpiresAt, setNewPromoExpiresAt] = useState('');
+  const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
+  const [newPromoMinAmount, setNewPromoMinAmount] = useState('');
+  const [newShoeStock, setNewShoeStock] = useState('');
 
   // Edit Modal states
   const [selectedShoe, setSelectedShoe] = useState<Shoe | null>(null);
@@ -122,9 +130,10 @@ const AdminPage = () => {
     setIsLoading(true);
     try {
       const token = await getIdToken();
-      const [shoesData, categoriesData, collectionsData, ordersData, promoCodesData] = await Promise.all([
-        getProducts(), getCategories(), getCollections(), getOrders(token), getPromoCodes(token)
+      const [shoesData, categoriesData, collectionsData, ordersData, promoCodesData, messagesData] = await Promise.all([
+        getProducts(), getCategories(), getCollections(), getOrders(token), getPromoCodes(token), getContactMessages(token)
       ]);
+      setMessages(messagesData);
       setShoes(shoesData as Shoe[]);
       setCategories(categoriesData as Category[]);
       setCollections(collectionsData as Collection[]);
@@ -296,6 +305,13 @@ const AdminPage = () => {
         return;
       }
 
+      const parsedStock = parseStockInput(newShoeStock);
+      if (parsedStock.error) {
+        toast({ title: 'Stock invalide', description: parsedStock.error, variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+      }
+
       const detailImages = uploadedUrls.map((url, idx) => ({ id: `img-${idx}`, url, hint: newShoeName }));
       const payload: Omit<Shoe, 'id'> = {
         name: newShoeName,
@@ -307,6 +323,7 @@ const AdminPage = () => {
         detailImages,
         availableSizes: parsedSizes,
         availableColors: newShoeColors,
+        ...(parsedStock.stock ? { stock: parsedStock.stock } : {}),
       };
 
       const result = await createProduct(await getIdToken(), payload);
@@ -320,6 +337,7 @@ const AdminPage = () => {
         setNewShoeCategoryId('');
         setNewShoeCollectionIds([]);
         setNewShoeSizes('');
+        setNewShoeStock('');
         setNewShoeColors([]);
         setNewShoeImageFiles([]);
         setNewShoeImagePreviews([]);
@@ -364,11 +382,17 @@ const AdminPage = () => {
       discountType: newPromoDiscountType,
       value: newPromoValue,
       isActive: true,
+      ...(newPromoExpiresAt ? { expiresAt: new Date(`${newPromoExpiresAt}T23:59:59`).toISOString() } : {}),
+      ...(newPromoMaxUses ? { maxUses: Number(newPromoMaxUses) } : {}),
+      ...(newPromoMinAmount ? { minOrderAmount: Number(newPromoMinAmount) } : {}),
     });
     if (result.success) {
       toast({ title: 'Succès', description: 'Code promo créé.' });
       setNewPromoCode('');
       setNewPromoValue(0);
+      setNewPromoExpiresAt('');
+      setNewPromoMaxUses('');
+      setNewPromoMinAmount('');
       fetchData();
     } else {
       toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
@@ -391,6 +415,16 @@ const AdminPage = () => {
     if (result.success) {
       toast({ title: 'Succès', description: 'Code promo supprimé.' });
       fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    const result = await deleteContactMessage(await getIdToken(), messageId);
+    if (result.success) {
+      toast({ title: 'Succès', description: 'Message supprimé.' });
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
     } else {
       toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
     }
@@ -475,6 +509,7 @@ const AdminPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2"><Label>Pointures (ex: 40,41,42)</Label><Input value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required/></div>
+                  <div className="space-y-2"><Label>Stock par pointure (optionnel, ex: 40:5, 41:3)</Label><Input value={newShoeStock} onChange={(e) => setNewShoeStock(e.target.value)} /><p className="text-xs text-muted-foreground">Laissez vide pour ne pas suivre le stock (illimité).</p></div>
                 </div>
                 <div className="space-y-2">
                   <Label>Collections</Label>
@@ -676,6 +711,33 @@ const AdminPage = () => {
             </div>
         );
 
+        case 'messages':
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Messages de contact</CardTitle>
+              <CardDescription>{messages.length} message(s)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {messages.length === 0 && <p className="text-sm text-muted-foreground">Aucun message pour le moment.</p>}
+              {messages.map((m) => (
+                <div key={m.id} className="rounded-md border p-4 space-y-2">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{m.subject}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {m.name} · <a className="underline" href={`mailto:${encodeURIComponent(m.email)}`}>{m.email}</a> · {new Date(m.createdAt).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                    <Button variant="destructive" size="sm" onClick={() => handleDeleteMessage(m.id)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                  {/* Rendu en texte brut: React échappe le contenu (pas de HTML injecté). */}
+                  <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
         case 'delivery-validation':
             return (
                 <Card className="max-w-md mx-auto">
@@ -738,6 +800,9 @@ const AdminPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2"><Label>Valeur</Label><Input type="number" min={1} value={newPromoValue} onChange={(e) => setNewPromoValue(Number(e.target.value))} required/></div>
+                  <div className="space-y-2"><Label>Date d&apos;expiration (optionnel)</Label><Input type="date" value={newPromoExpiresAt} onChange={(e) => setNewPromoExpiresAt(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Nombre d&apos;utilisations maximum (optionnel)</Label><Input type="number" min={1} value={newPromoMaxUses} onChange={(e) => setNewPromoMaxUses(e.target.value)} /></div>
+                  <div className="space-y-2"><Label>Montant minimum de commande en XOF (optionnel)</Label><Input type="number" min={0} value={newPromoMinAmount} onChange={(e) => setNewPromoMinAmount(e.target.value)} /></div>
                   <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="h-4 w-4 animate-spin"/> : 'Créer le code'}</Button>
                 </form>
               </CardContent>
@@ -746,12 +811,17 @@ const AdminPage = () => {
               <CardHeader><CardTitle>Codes existants</CardTitle></CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Remise</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Remise</TableHead><TableHead>Conditions</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {promoCodes.map((promo) => (
                       <TableRow key={promo.id}>
                         <TableCell className="font-medium">{promo.code}</TableCell>
                         <TableCell>{promo.discountType === 'percentage' ? `${promo.value}%` : `${promo.value.toLocaleString('fr-FR')} XOF`}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          <div>Utilisé: {promo.usedCount ?? 0}{promo.maxUses ? ` / ${promo.maxUses}` : ''}</div>
+                          {promo.expiresAt && <div>Expire le {new Date(promo.expiresAt).toLocaleDateString('fr-FR')}</div>}
+                          {promo.minOrderAmount ? <div>Min. {promo.minOrderAmount.toLocaleString('fr-FR')} XOF</div> : null}
+                        </TableCell>
                         <TableCell><Badge variant={promo.isActive ? 'default' : 'secondary'}>{promo.isActive ? 'Actif' : 'Inactif'}</Badge></TableCell>
                         <TableCell className="text-right space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handlePromoStatusToggle(promo)}>{promo.isActive ? 'Désactiver' : 'Activer'}</Button>
@@ -779,6 +849,7 @@ const AdminPage = () => {
     { view: 'categories', label: 'Catégories', icon: <Archive className="mr-2 h-4 w-4" /> },
     { view: 'collections', label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
     { view: 'promotions', label: 'Promotions', icon: <Tag className="mr-2 h-4 w-4" /> },
+    { view: 'messages', label: 'Messages', icon: <Mail className="mr-2 h-4 w-4" /> },
     { view: 'delivery-validation', label: 'Valider Livraison', icon: <ShieldCheck className="mr-2 h-4 w-4" /> },
   ];
 

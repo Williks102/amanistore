@@ -9,7 +9,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/firebase/admin', () => ({ get adminDb() { return h.db; } }));
-vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => '__SERVER_TS__' } }));
+vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => '__SERVER_TS__', delete: () => '__DELETE__' } }));
 vi.mock('@/ai/flows/shoe-style-recommendation', () => ({ getShoeRecommendations: vi.fn() }));
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: async () => h.allowRate }));
 vi.mock('@/lib/server-auth', async () => {
@@ -27,7 +27,8 @@ vi.mock('@/lib/server-auth', async () => {
 
 import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
-  createProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode,
+  createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode,
+  createPromoCode, getContactMessages, deleteContactMessage,
 } from './actions';
 
 const shoe = {
@@ -218,5 +219,192 @@ describe('validatePromoCode (public)', () => {
     expect((await validatePromoCode('A'.repeat(51))).success).toBe(false);
     h.allowRate = false;
     expect((await validatePromoCode('PROMO10')).success).toBe(false);
+  });
+});
+
+describe('codes promo avancés (createOrder)', () => {
+  const place = (promoCode: string, items = [line()]) => createOrder('tok', { ...customer, promoCode, items });
+
+  it('refuse un code expiré, mais accepte un code qui expire plus tard', async () => {
+    db.seed('promoCodes', 'pexp', { code: 'EXPIRE', discountType: 'percentage', value: 10, isActive: true, expiresAt: '2020-01-01T00:00:00Z' });
+    db.seed('promoCodes', 'pfut', { code: 'FUTUR', discountType: 'percentage', value: 10, isActive: true, expiresAt: '2999-01-01T00:00:00Z' });
+    const expired = await place('EXPIRE');
+    expect(expired.success).toBe(false);
+    expect(expired.error).toMatch(/expiré/);
+    expect((await place('FUTUR')).success).toBe(true);
+  });
+
+  it('respecte la limite d’utilisation et incrémente le compteur', async () => {
+    db.seed('promoCodes', 'p2x', { code: 'DEUXFOIS', discountType: 'fixed', value: 100, isActive: true, maxUses: 2, usedCount: 0 });
+    expect((await place('DEUXFOIS')).success).toBe(true);
+    expect(db.get('promoCodes', 'p2x')!.usedCount).toBe(1);
+    expect((await place('DEUXFOIS')).success).toBe(true);
+    const third = await place('DEUXFOIS');
+    expect(third.success).toBe(false);
+    expect(third.error).toMatch(/limite/);
+    expect(db.get('promoCodes', 'p2x')!.usedCount).toBe(2);
+    expect(db.all('orders')).toHaveLength(2);
+  });
+
+  it('exige le montant minimum (sous-total avant remise)', async () => {
+    db.seed('promoCodes', 'pmin', { code: 'GROSPANIER', discountType: 'fixed', value: 1000, isActive: true, minOrderAmount: 30000 });
+    const r = await place('GROSPANIER'); // sous-total 20000
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/minimum/);
+    expect((await place('GROSPANIER', [line({ quantity: 3 })])).success).toBe(true); // 30000
+  });
+
+  it('mémorise le code utilisé dans la commande', async () => {
+    await place('PROMO10');
+    expect(lastOrder().promoCode).toBe('PROMO10');
+    expect(lastOrder().promoCodeId).toBe('p10');
+  });
+});
+
+describe('stock', () => {
+  beforeEach(() => {
+    db.seed('shoes', 'tracked', { ...shoe, price: 8000, stock: { '38': 3, '39': 1, '40': 0 } });
+  });
+  const buy = (items: any[]) => createOrder('tok', { ...customer, items });
+  const stockOf = () => db.get('shoes', 'tracked')!.stock;
+
+  it('décrémente le stock de la pointure commandée', async () => {
+    expect((await buy([line({ productId: 'tracked', size: 38, quantity: 2 })])).success).toBe(true);
+    expect(stockOf()).toEqual({ '38': 1, '39': 1, '40': 0 });
+  });
+
+  it('refuse une pointure épuisée ou absente de la table', async () => {
+    const soldOut = await buy([line({ productId: 'tracked', size: 40 })]);
+    expect(soldOut.success).toBe(false);
+    expect(soldOut.error).toMatch(/épuisé/);
+    db.seed('shoes', 'tracked', { ...shoe, stock: { '38': 3 } }); // 39 absent => 0
+    expect((await buy([line({ productId: 'tracked', size: 39 })])).success).toBe(false);
+  });
+
+  it('refuse une quantité supérieure au stock et n’écrit rien', async () => {
+    const r = await buy([line({ productId: 'tracked', size: 38, quantity: 4 })]);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/3 restant/);
+    expect(stockOf()).toEqual({ '38': 3, '39': 1, '40': 0 });
+    expect(db.all('orders')).toHaveLength(0);
+  });
+
+  it('additionne les lignes de même pointure (couleurs différentes)', async () => {
+    db.seed('shoes', 'tracked', { ...shoe, stock: { '38': 3 }, availableColors: [{ name: 'Noir', hex: '#000' }, { name: 'Blanc', hex: '#fff' }] });
+    const r = await buy([
+      line({ productId: 'tracked', size: 38, quantity: 2, color: 'Noir' }),
+      line({ productId: 'tracked', size: 38, quantity: 2, color: 'Blanc' }),
+    ]);
+    expect(r.success).toBe(false); // 4 demandés pour 3 en stock
+    expect(db.all('orders')).toHaveLength(0);
+  });
+
+  it('ne touche pas aux produits sans suivi de stock', async () => {
+    await buy([line({ productId: 'shoe1', quantity: 5 })]);
+    expect(db.get('shoes', 'shoe1')!.stock).toBeUndefined();
+  });
+
+  it('rien n’est écrit si une ligne échoue (commande multi-produits)', async () => {
+    const r = await buy([line({ productId: 'tracked', size: 38 }), line({ productId: 'tracked', size: 40 })]);
+    expect(r.success).toBe(false);
+    expect(stockOf()).toEqual({ '38': 3, '39': 1, '40': 0 });
+    expect(db.writes.filter((w) => w.collection === 'shoes')).toHaveLength(0);
+  });
+
+  it('annulation: le stock et le code promo sont restitués, une seule fois', async () => {
+    db.seed('promoCodes', 'p3', { code: 'TROIS', discountType: 'fixed', value: 100, isActive: true, maxUses: 3, usedCount: 0 });
+    const r = await createOrder('tok', { ...customer, promoCode: 'TROIS', items: [line({ productId: 'tracked', size: 38, quantity: 2 })] });
+    expect(stockOf()['38']).toBe(1);
+    expect(db.get('promoCodes', 'p3')!.usedCount).toBe(1);
+
+    h.roleOk = true;
+    expect((await updateOrderStatus('tok', r.orderId!, 'Annulé')).success).toBe(true);
+    expect(stockOf()['38']).toBe(3);
+    expect(db.get('promoCodes', 'p3')!.usedCount).toBe(0);
+    expect(db.get('orders', r.orderId!)!.status).toBe('Annulé');
+
+    // Idempotent: ré-annuler ne restitue pas deux fois
+    await updateOrderStatus('tok', r.orderId!, 'Annulé');
+    expect(stockOf()['38']).toBe(3);
+  });
+
+  it('une commande annulée ne peut pas être rouverte', async () => {
+    const r = await buy([line({ productId: 'tracked', size: 38 })]);
+    h.roleOk = true;
+    await updateOrderStatus('tok', r.orderId!, 'Annulé');
+    const reopen = await updateOrderStatus('tok', r.orderId!, 'Prêt');
+    expect(reopen.success).toBe(false);
+    expect(db.get('orders', r.orderId!)!.status).toBe('Annulé');
+  });
+
+  it('les autres changements de statut ne touchent pas au stock', async () => {
+    const r = await buy([line({ productId: 'tracked', size: 38 })]);
+    h.roleOk = true;
+    await updateOrderStatus('tok', r.orderId!, 'Prêt');
+    expect(stockOf()['38']).toBe(1); // 3 en stock - 2 commandés, inchangé par le statut
+  });
+
+  it('updateProduct: stock null supprime le suivi, un stock est nettoyé', async () => {
+    h.roleOk = true;
+    await updateProduct('tok', 'tracked', { stock: null });
+    expect(db.get('shoes', 'tracked')!.stock).toBe('__DELETE__');
+    await updateProduct('tok', 'shoe1', { stock: { '39': 4, '40': -2, '41': 1.5, abc: 3 } as any });
+    expect(db.get('shoes', 'shoe1')!.stock).toEqual({ '39': 4 });
+  });
+});
+
+describe('createPromoCode (admin)', () => {
+  const promo = { code: 'nouveau', discountType: 'percentage' as const, value: 15, isActive: true };
+
+  it('crée un code en majuscules avec compteur à 0', async () => {
+    h.roleOk = true;
+    const r = await createPromoCode('tok', { ...promo, maxUses: 10, minOrderAmount: 5000, expiresAt: '2030-01-01T00:00:00Z' } as any);
+    expect(r.success).toBe(true);
+    const created = db.all('promoCodes').find(([, d]) => d.code === 'NOUVEAU')![1];
+    expect(created).toMatchObject({ usedCount: 0, maxUses: 10, minOrderAmount: 5000 });
+  });
+
+  it('refuse sans rôle admin et les valeurs incohérentes', async () => {
+    h.roleOk = false;
+    expect((await createPromoCode('tok', promo as any)).success).toBe(false);
+    h.roleOk = true;
+    for (const bad of [{ value: 150 }, { value: 0 }, { maxUses: 0 }, { expiresAt: 'demain' }, { code: 'A' }, { minOrderAmount: -1 }]) {
+      expect((await createPromoCode('tok', { ...promo, ...bad } as any)).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
+
+describe('validatePromoCode avec règles avancées', () => {
+  it('refuse expiré / épuisé / sous le minimum et ne divulgue pas usedCount', async () => {
+    db.seed('promoCodes', 'pe', { code: 'VIEUX', discountType: 'fixed', value: 1, isActive: true, expiresAt: '2020-01-01T00:00:00Z' });
+    db.seed('promoCodes', 'pu', { code: 'PLUS', discountType: 'fixed', value: 1, isActive: true, maxUses: 1, usedCount: 1 });
+    db.seed('promoCodes', 'pm', { code: 'MIN', discountType: 'fixed', value: 1, isActive: true, minOrderAmount: 10000, usedCount: 4 });
+    expect((await validatePromoCode('VIEUX')).success).toBe(false);
+    expect((await validatePromoCode('PLUS')).success).toBe(false);
+    expect((await validatePromoCode('MIN', 5000)).success).toBe(false);
+    const ok = await validatePromoCode('MIN', 20000);
+    expect(ok.success).toBe(true);
+    expect(ok.promoCode).not.toHaveProperty('usedCount');
+  });
+});
+
+describe('messages de contact (admin)', () => {
+  beforeEach(() => {
+    db.seed('contactMessages', 'm1', { name: 'A', email: 'a@x.com', subject: 's', message: 'ancien', createdAt: '2026-01-01T00:00:00Z' });
+    db.seed('contactMessages', 'm2', { name: 'B', email: 'b@x.com', subject: 's', message: 'récent', createdAt: '2026-02-01T00:00:00Z' });
+  });
+
+  it('refusés sans le rôle admin', async () => {
+    h.roleOk = false;
+    expect(await getContactMessages('tok')).toEqual([]);
+    expect((await deleteContactMessage('tok', 'm1')).success).toBe(false);
+    expect(db.all('contactMessages')).toHaveLength(2);
+  });
+
+  it('admin: liste du plus récent au plus ancien, suppression', async () => {
+    h.roleOk = true;
+    expect((await getContactMessages('tok')).map((m) => m.id)).toEqual(['m2', 'm1']);
+    expect((await deleteContactMessage('tok', 'm1')).success).toBe(true);
+    expect(db.all('contactMessages')).toHaveLength(1);
   });
 });
