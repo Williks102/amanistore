@@ -343,7 +343,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                         >
                           ×
                         </button>
-                        <span className="absolute bottom-1 left-1 bg-blue-500 text-white text-xs px-2 py-0.5 rounded">
+                        <span className="absolute bottom-1 left-1 bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded">
                           Nouveau
                         </span>
                       </div>

@@ -20,8 +20,8 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 8. **Détails** : favicon en emoji, règle `font-family: Arial` résiduelle dans `globals.css`, polices chargées par des balises `<link>` Google Fonts (plus lourd sur mobile que `next/font`).
 
 ## Plan (une PR par étape)
-1. **Charte visuelle** : jetons de couleur dans `globals.css` (fond crème, encre chaude, bordures beige, accent terre cuite, mode sombre chaud), `next/font` pour Playfair Display et le texte, remplacement des couleurs en dur par les jetons, suppression de la règle `Arial`. Contrastes calculés et notés (voir ci-dessous).
-2. **Mobile et tactile** : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
+1. **Charte visuelle** (*fait dans cette PR*) : jetons de couleur dans `globals.css` (fond crème, encre chaude, bordures beige, accent terre cuite, mode sombre chaud), `next/font` pour Playfair Display et le texte, remplacement des couleurs en dur par les jetons, suppression de la règle `Arial`. Contrastes calculés et notés (voir ci-dessous).
+2. **Mobile et tactile** (*à faire*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
 3. **Boutique** : fiche produit centrée sur la photo, badges de stock, barre d'achat fixe en bas sur téléphone, images optimisées.
 4. **Admin** : badges d'état colorés avec texte, navigation groupée (Boutique / Ventes / Équipe), états vides, chargements en squelette.
 5. **Détails** : logo/monogramme à la place de l'emoji, ton des messages d'erreur et des toasts.
@@ -37,6 +37,22 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 
 Écarté : l'orange clair `#D97757` avec du texte blanc (**3,1:1**, sous le seuil AA).
 Inspiration : l'ambiance chaleureuse de l'interface de Claude (crème, serif, terre cuite), sans reprendre sa marque ni son logo.
+
+### Résultat de l'étape 1 (mesuré après la refonte, mêmes écrans et mêmes tailles)
+| Mesure | Avant | Après |
+|---|---|---|
+| Défilement horizontal (5 écrans × 3 tailles) | aucun | aucun |
+| Fond de page | gris froid `#F1F2F4` | crème `#FAF9F5` |
+| Texte secondaire sur le fond | 4,25:1 (échec AA) | 6,4:1 |
+| Bouton principal | marine, comme tout le reste | terre cuite, 4,9:1 avec du texte blanc |
+| Contour des champs | pâle, quasi invisible | 3:1 au moins (non-texte) |
+| Contrastes protégés par un test | aucun | 34 (`src/lib/contrast.test.ts`, thèmes clair et sombre) |
+| Polices | Google Fonts par `<link>` | Inter et Playfair Display embarquées (`@fontsource`) |
+| Zones tactiles trop petites (390 px, boutique) | 85 | 85 : **inchangé, c'est l'étape 2** |
+
+Changements de détail : prix des cartes en `text-primary` plein (il était à 80 % d'opacité, donc sous 4,5:1), boutons WhatsApp en `green-700` (le `green-500` avec du texte blanc ne faisait que 2,3:1), encadrés du code de livraison passés des bleus en dur aux jetons, fonds de connexion et d'inscription sur `bg-background`. Le texte courant passe de PT Sans à Inter (plus lisible en petit, chiffres plus nets pour les prix) ; Playfair Display reste pour les titres de produits.
+
+Pas encore fait (étapes suivantes) : tailles tactiles, lien « Valider Livraison » réservé au personnel, badges de stock, admin. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
 ## Règles à tenir (reprises dans `CLAUDE.md`)
 Mobile d'abord (360 px puis `md`), zones tactiles de 44 px au moins, contraste AA (4,5:1), jamais l'information par la couleur seule, rien d'accessible uniquement au survol, couleurs uniquement par les jetons de `globals.css`, animations de 200 ms au plus et coupées si l'utilisateur réduit les animations, libellé toujours visible au-dessus d'un champ, trois états (chargement, vide, erreur) sur chaque liste.

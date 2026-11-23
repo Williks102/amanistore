@@ -52,7 +52,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ shoe, onClick }) => {
         </CardContent>
       </div>
       <CardFooter className="p-4 pt-0 mt-auto flex justify-between items-center">
-        <p className="text-lg font-semibold text-primary/80">
+        <p className="text-lg font-semibold text-primary">
           {`XOF ${shoe.price.toLocaleString('fr-FR')}`}
         </p>
         <Button variant="outline" size="icon" onClick={handleAddToCart}>
