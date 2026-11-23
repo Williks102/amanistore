@@ -24,7 +24,7 @@ Méthode, reprise du dépôt Fiberoperate (`docs/audit-interface.md`) : captures
 2. **Mobile et tactile** (*fait*) : champs, boutons et liens à 44 px au moins, marges de la carte de connexion, lien « Valider Livraison » réservé au personnel.
 3. **Boutique** (*fait*) : badges de stock sur les cartes, pointures épuisées désactivées, couleurs à 44 px avec leur nom écrit, état d'erreur « Réessayer », images dimensionnées par écran. (La barre d'achat fixe en bas de la fiche produit existait déjà: je l'avais mise au plan à tort.)
 4. **Admin** (*fait*) : badges d'état colorés avec texte, navigation groupée (Vue d'ensemble / Ventes / Boutique / Clients / Équipe), états vides, chargements en squelette.
-5. **Détails** : logo/monogramme à la place de l'emoji, ton des messages d'erreur et des toasts.
+5. **Détails** (*fait*) : monogramme à la place de l'emoji, langue de la page, ton des messages.
 
 ### Palette retenue (contrastes calculés, WCAG)
 | Usage | Couleurs | Contraste |
@@ -78,7 +78,13 @@ Changements : boutons, champs, listes déroulantes et menus à 44 px (composants
 - **Accessibilité**: boutons de suppression (icône seule) avec un nom (« Supprimer la catégorie X »), menu de statut étiqueté par client.
 - **Non mesuré**: l'admin demande une connexion, je n'ai donc pas pu le capturer ni mesurer ses zones tactiles. Il utilise les composants de l'étape 2 (44 px). À vérifier sur votre téléphone.
 
-Pas encore fait (étape suivante) : logo et favicon. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
+### Résultat de l'étape 5
+- **Favicon**: monogramme « A » terre cuite (`src/app/icon.svg`) à la place de l'emoji 👟 ; le même dessin sert de marque dans l'en-tête (`BrandMark`).
+- **Langue de la page**: `<html lang="fr">` (elle déclarait `en`, ce qui fait mal lire le français aux lecteurs d'écran) et description du site en français.
+- Les messages d'erreur et les toasts utilisent déjà les jetons (rayon, couleurs), rien à changer.
+
+## Reste à faire
+Vérifier à l'œil, sur un vrai téléphone, l'admin et les badges de stock (non mesurables dans mon environnement), puis ajuster. Le mode sombre est défini et testé mais sans bouton pour l'activer. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
 ## Règles à tenir (reprises dans `CLAUDE.md`)
 Mobile d'abord (360 px puis `md`), zones tactiles de 44 px au moins, contraste AA (4,5:1), jamais l'information par la couleur seule, rien d'accessible uniquement au survol, couleurs uniquement par les jetons de `globals.css`, animations de 200 ms au plus et coupées si l'utilisateur réduit les animations, libellé toujours visible au-dessus d'un champ, trois états (chargement, vide, erreur) sur chaque liste.

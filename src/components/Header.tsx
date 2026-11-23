@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useRoles } from '@/hooks/use-roles';
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from './ui/button';
 import { Menu, ShoppingBag, Search, User, LogOut, X, KeyRound, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
@@ -244,7 +245,8 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
               </Sheet>
             </div>
             {/* Logo */}
-            <Link href="/" className="inline-flex min-h-11 items-center text-xl font-headline font-bold text-primary">
+            <Link href="/" className="inline-flex min-h-11 items-center gap-2 text-xl font-headline font-bold text-primary">
+              <BrandMark className="h-8 w-8" />
               Amani's
             </Link>
           </div>
