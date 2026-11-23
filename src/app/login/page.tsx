@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRoles } from '@/hooks/use-roles';
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from 'lucide-react';
 
@@ -42,29 +43,23 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  const { isRolesLoading, hasStaffAccess } = useRoles();
+
   useEffect(() => {
-    if (!isUserLoading && user) {
-        if (user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
-            router.push('/admin');
-        } else {
-            router.push('/dashboard');
-        }
+    if (!isUserLoading && user && !isRolesLoading) {
+      router.push(hasStaffAccess ? '/admin' : '/dashboard');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, isRolesLoading, hasStaffAccess, router]);
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
+      await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
         title: "Connexion réussie",
         description: "Vous êtes maintenant connecté.",
       });
-      if (userCredential.user.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
-          router.push('/admin');
-      } else {
-          router.push('/dashboard');
-      }
+      // La redirection (admin ou compte) est faite par l'effet ci-dessus, une fois les rôles connus.
     } catch (error: any) {
       let errorMessage = "Une erreur est survenue lors d la connexion.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

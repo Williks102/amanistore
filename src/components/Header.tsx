@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useRoles } from '@/hooks/use-roles';
 import { Button } from './ui/button';
 import { Menu, ShoppingBag, Search, User, LogOut, X, KeyRound, ShieldCheck } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
@@ -74,6 +75,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
   const { onOpen, items } = useCart();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, isUserLoading } = useUser();
+  const { hasStaffAccess } = useRoles();
   const auth = useAuth();
   const pathname = usePathname();
 
@@ -125,7 +127,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
               <span>Mon Compte</span>
             </Link>
           </DropdownMenuItem>
-          {process.env.NEXT_PUBLIC_ADMIN_EMAIL === user.email && (
+          {hasStaffAccess && (
             <DropdownMenuItem asChild>
                 <Link href="/admin">
                     <ShieldCheck className="mr-2 h-4 w-4" />
