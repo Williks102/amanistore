@@ -157,6 +157,24 @@ Détails: la barre de suivi annonce « Étape 2 sur 3 : Prêt » aux lecteurs d'
 
 Limites: je n'ai pas pu tester la connexion, l'e-mail de réinitialisation ni le rattachement de bout en bout (pas d'accès administrateur Firebase, et je n'envoie pas d'e-mail ni n'écris dans votre base). La logique serveur et les règles sont couvertes par des tests; l'affichage a été vérifié avec une maquette de commandes.
 
+### Tableau de bord de l'admin (24/11/2026)
+Avant: quatre compteurs (nombre de produits, de commandes, de catégories, de promotions), qui n'aident à aucune décision.
+
+Après (`DashboardView`, calcul dans `src/lib/dashboard-stats.ts`, 19 tests vérifiés par mutation), chaque bloc n'apparaît que pour les rôles concernés:
+| Bloc | Contenu | Rôles |
+|---|---|---|
+| À traiter | commandes en attente et prêtes à livrer (les plus anciennes d'abord, avec leur âge), messages de la semaine, boutons vers l'écran concerné | admin, orderManager (messages: admin) |
+| Activité | 7 et 30 derniers jours: commandes, chiffre d'affaires, panier moyen, livrées, variation par rapport à la période précédente; courbe des commandes sur 14 jours | admin, orderManager |
+| Ventes | meilleures ventes (30 jours ou depuis le début, avec le badge « Coup de cœur » et un lien pour choisir les coups de cœur), commandes avec ou sans compte | admin, orderManager |
+| Stock et catalogue | produits épuisés, pointures presque épuisées (3 ou moins), produits jamais commandés, anomalies du catalogue | admin, productManager |
+| Codes promo | utilisation, remises réellement accordées, expiration proche, presque épuisé, limite atteinte | admin |
+
+Règles de calcul (testées): une commande annulée n'est jamais comptée; périodes glissantes comparées à la période précédente de même durée; pas de variation affichée quand il n'y avait rien avant (« Pas de comparaison possible », jamais un « +∞ % »); jours en UTC (identique à l'heure locale en Côte d'Ivoire et au Sénégal); « jamais commandés » masqué tant qu'il n'y a aucune commande; une commande rattachée à un compte compte comme « avec compte ». Les variations s'écrivent avec leur signe et des mots (la couleur ne porte pas seule l'information); la courbe a une description pour les lecteurs d'écran.
+
+Les calculs se font dans le navigateur à partir des données déjà chargées, qui sont déjà filtrées par rôle côté serveur (un `productManager` ne reçoit ni commandes ni codes promo). Limite: toutes les commandes sont chargées; à plusieurs milliers de commandes il faudra calculer côté serveur.
+
+Mesures sur des données fictives (320, 390 et 1280 px; rôles admin, orderManager, productManager): aucun débordement, aucun élément sous 44 px. Corrigé en route: le chiffre d'affaires se coupait sur deux lignes sur téléphone.
+
 ### Limites
 Une commande d'invité n'est pas rattachée à un compte et ne se relit que sur l'appareil qui l'a passée (ou avec le code de validation, par WhatsApp). Je n'ai pas pu passer une vraie commande de bout en bout (pas d'accès administrateur Firebase dans mon environnement, et je n'écris pas dans votre base): le serveur est couvert par 140 tests, le parcours jusqu'au formulaire a été vérifié dans le navigateur. Le téléphone n'est pas testé en réel, et les photos ne se chargeaient pas dans mon environnement.
 
