@@ -186,6 +186,10 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 <Label htmlFor="edit-product-name">Nom du produit</Label>
                 <Input id="edit-product-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-medium">
+                <input type="checkbox" className="h-5 w-5 accent-primary" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+                Coup de cœur: mis en avant sur l&apos;accueil
+            </label>
             <div className="space-y-2">
                 <Label htmlFor="edit-product-description">Description</Label>
                 <Textarea id="edit-product-description" value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -239,11 +243,6 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 <Input id="edit-product-sizes" value={availableSizes} onChange={(e) => setAvailableSizes(e.target.value)} />
                  <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
             </div>
-
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
-                <input type="checkbox" className="h-5 w-5 accent-primary" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-                Coup de cœur (mis en avant sur l&apos;accueil)
-            </label>
 
             <div className="space-y-2">
                 <Label htmlFor="edit-product-stock">Stock par pointure (optionnel)</Label>
