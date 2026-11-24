@@ -101,6 +101,41 @@ Aperçu de partage (Open Graph) généré en français (`src/app/opengraph-image
 
 À valider par la boutique: le texte de l'accroche et des 3 garanties, le choix des coups de cœur, et quelle collection mettre en avant. Le fichier `src/components/Hero-clean.tsx` (bannières Cloudinary) n'est plus utilisé, je l'ai laissé.
 
+## Refonte de la boutique (24/11/2026)
+Mesures de départ (boutique, 390 px, 66 produits visibles sur 67): page de **34 078 px**, 66 cartes d'un coup en une colonne de 466 px, premier produit à 638 px; fiche produit = fenêtre modale sans adresse partageable; ajout rapide qui choisissait seul la première pointure et la première couleur; commande impossible sans compte.
+
+**Anomalies de données trouvées** (lecture du catalogue public): un produit à **7 000 022 XOF** (« Escarpin Marron a boucle »), invisible dans la boutique à cause du filtre de prix par défaut; pointures « 3 » et « 3637 »; **40 noms de couleur** pour une quinzaine de couleurs réelles (« Noir / noir / Noire », « Marron / Maron / marron », 5 écritures de « bleu nuit ») avec des codes faux (un « Rouge » en noir, un « marron » en orange); noms de produit en double (« Escarpin » ×8); catégories à un seul produit.
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Hauteur de la boutique à 390 px | 34 078 px | 4 838 px (24 produits, « Voir plus ») |
+| Premier produit à 390 px | 638 px | 309 px |
+| Catégories dans les filtres | non, menu seulement | puces-liens en haut de la liste |
+| Fiche produit | fenêtre sans adresse | page `/produit/…` partageable, aperçu WhatsApp, données structurées |
+| Pointure | première choisie à la place de la cliente | jamais présélectionnée, message si oubliée |
+| Commande sans compte | impossible | possible, avec garde-fous |
+| Éléments sous 44 px (5 écrans × 3 tailles + fiche + fenêtres) | 18 à 91 par écran | 0 |
+| Produit au prix absurde | invisible par accident, commandable en théorie | masqué, refusé par le serveur, signalé dans l'admin |
+| Sitemap | aucun | 3 pages + 66 produits; `robots.txt` interdit l'admin et le compte |
+
+### Étape 1: données et saisie
+Palette officielle de 19 couleurs (`src/lib/colors.ts`) avec reconnaissance des écritures historiques; sélecteur de palette dans l'admin; validation côté serveur (prix 1 000 à 1 000 000 XOF, pointures 16 à 50, couleurs); page admin **Qualité du catalogue** (anomalies par produit, noms en double) et action **Normaliser les couleurs** (aperçu de chaque changement, puis confirmation; les produits avec une couleur inconnue sont ignorés et listés). Les filtres de la boutique s'adaptent: curseur de prix au prix max réel, pointures valides seulement, couleurs regroupées par nom avec libellé.
+
+### Étape 2: page produit
+`/produit/[id]` rendue côté serveur (lecture publique via l'API REST de Firestore): titre et aperçu de partage, URL canonique, JSON-LD `Product`. Pointure obligatoire (message et défilement vers le choix), couleur seule présélectionnée, quantité plafonnée au stock, barre d'achat compacte sur téléphone, lien du produit dans le message WhatsApp. Les cartes sont des liens; plus d'ajout rapide. L'assistant de style (IA) ne s'exécute plus qu'à la demande: avant, chaque ouverture d'une fiche lançait un appel payant, même pour un robot.
+
+### Étape 3: liste et filtres
+2 colonnes sur téléphone, « Voir plus » par 24, catégories en puces-liens, filtres actifs en puces retirables, produits épuisés en fin de liste, états vide et erreur.
+
+### Étape 4: panier et commande sans compte
+`createOrder` accepte les invités: limite de débit stricte (3 par 10 min et par IP), champ piège anti-robot, 3 commandes en attente au plus par numéro, **secret propre à chaque commande** renvoyé une seule fois et gardé sur l'appareil pour relire la confirmation et le code de livraison (`getGuestOrder`, comparaison à temps constant). Le secret ne sort jamais du serveur. Un jeton invalide est refusé, jamais pris pour un invité. Panier: quantités plafonnées au stock, total par ligne, confirmation avant de vider.
+
+### Étape 5: référencement
+`sitemap.xml` (produits affichables seulement) et `robots.txt`.
+
+### Limites
+Une commande d'invité n'est pas rattachée à un compte et ne se relit que sur l'appareil qui l'a passée (ou avec le code de validation, par WhatsApp). Je n'ai pas pu passer une vraie commande de bout en bout (pas d'accès administrateur Firebase dans mon environnement, et je n'écris pas dans votre base): le serveur est couvert par 140 tests, le parcours jusqu'au formulaire a été vérifié dans le navigateur. Le téléphone n'est pas testé en réel, et les photos ne se chargeaient pas dans mon environnement.
+
 ## Reste à faire
 Vérifier à l'œil, sur un vrai téléphone, l'admin et les badges de stock (non mesurables dans mon environnement), puis ajuster. Le mode sombre est défini et testé mais sans bouton pour l'activer. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 
