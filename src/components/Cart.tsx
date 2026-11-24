@@ -22,7 +22,6 @@ import {
 import { useCart } from '@/hooks/use-cart';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag, Trash } from 'lucide-react';
@@ -44,7 +43,7 @@ export const Cart = () => {
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="flex flex-col">
+        <SheetContent className="flex w-[92vw] max-w-md flex-col sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Panier{count > 0 ? ` (${count})` : ''}</SheetTitle>
             <SheetDescription className="sr-only">Vos articles, leurs quantités et le total de la commande.</SheetDescription>
@@ -52,15 +51,16 @@ export const Cart = () => {
           <Separator />
           {items.length > 0 ? (
             <>
-              <ScrollArea className="flex-grow pr-4">
+              {/* Défilement simple: le conteneur ScrollArea laissait la ligne dépasser de la fenêtre sur téléphone. */}
+              <div className="min-h-0 flex-grow overflow-y-auto">
                 <ul className="flex flex-col gap-5 py-4">
                   {items.map((item) => {
                     const stockLeft = availableStock(item.product, item.size);
                     const maxQty = Math.min(stockLeft ?? MAX_PER_LINE, MAX_PER_LINE);
                     return (
                       <li key={item.id} className="flex gap-3">
-                        <Link href={`/produit/${item.product.id}`} onClick={onClose} className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-secondary">
-                          <Image src={item.product.gridImage.url} alt={item.product.name} fill sizes="80px" className="object-cover" />
+                        <Link href={`/produit/${item.product.id}`} onClick={onClose} className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-md bg-secondary">
+                          <Image src={item.product.gridImage.url} alt={item.product.name} fill sizes="72px" className="object-cover" />
                         </Link>
                         <div className="flex min-w-0 flex-grow flex-col gap-1">
                           <div className="flex items-start justify-between gap-2">
@@ -72,7 +72,7 @@ export const Cart = () => {
                               <Trash className="h-4 w-4" />
                             </Button>
                           </div>
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                             <div className="flex items-center gap-1">
                               <Button variant="outline" size="icon" aria-label="Diminuer la quantité" onClick={() => updateItemQuantity(item.id, item.quantity - 1)}>
                                 <Minus className="h-4 w-4" />
@@ -82,7 +82,7 @@ export const Cart = () => {
                                 <Plus className="h-4 w-4" />
                               </Button>
                             </div>
-                            <p className="font-semibold">{`XOF ${(item.product.price * item.quantity).toLocaleString('fr-FR')}`}</p>
+                            <p className="ml-auto whitespace-nowrap font-semibold">{`XOF ${(item.product.price * item.quantity).toLocaleString('fr-FR')}`}</p>
                           </div>
                           {stockLeft !== null && item.quantity >= stockLeft && <p className="text-xs text-amber-800">Quantité maximale en stock atteinte</p>}
                         </div>
@@ -90,7 +90,7 @@ export const Cart = () => {
                     );
                   })}
                 </ul>
-              </ScrollArea>
+              </div>
               <Separator />
               <SheetFooter className="mt-4">
                 <div className="w-full space-y-3">
