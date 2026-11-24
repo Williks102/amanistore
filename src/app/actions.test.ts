@@ -29,7 +29,7 @@ vi.mock('@/lib/server-auth', async () => {
 import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
   createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation,
-  createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder,
+  createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders,
   previewColorNormalization, applyColorNormalization,
 } from './actions';
 
@@ -628,5 +628,70 @@ describe('le secret des commandes d’invité ne fuit pas', () => {
     const byCode = await getOrderByCodeForValidation('tok', '111111');
     expect(byCode.order?.id).toBe('g1');
     expect(byCode.order).not.toHaveProperty('guestSecret');
+  });
+});
+
+describe('rattachement des commandes d’invité au compte', () => {
+  const SECRET = 'd'.repeat(32);
+  const claim = (claims: unknown) => claimGuestOrders('tok', claims);
+  beforeEach(() => {
+    db.seed('orders', 'guest0001', { userId: '', guest: true, guestSecret: SECRET, validationCode: '111111', total: 5, status: 'En attente', date: '2026-01-01T00:00:00Z' });
+    db.seed('orders', 'other0001', { userId: 'quelquun-d-autre', validationCode: '222222', total: 9, status: 'En attente', date: '2026-01-02T00:00:00Z' });
+    db.seed('orders', 'mine00001', { userId: 'client-uid', validationCode: '333333', total: 7, status: 'En attente', date: '2026-01-03T00:00:00Z' });
+  });
+
+  it('avec le bon secret: la commande passe au compte, le secret est supprimé', async () => {
+    const r = await claim([{ orderId: 'guest0001', secret: SECRET }]);
+    expect(r).toMatchObject({ success: true, claimed: ['guest0001'], failed: 0 });
+    const o = db.get('orders', 'guest0001')!;
+    expect(o.userId).toBe('client-uid');
+    expect(o.guestSecret).toBe('__DELETE__');
+    expect(o.guest).toBe('__DELETE__');
+    const mine = await getOrdersForUser('tok');
+    expect(mine.orders?.map((x) => x.id).sort()).toEqual(['guest0001', 'mine00001']);
+  });
+
+  it('mauvais secret ou secret mal formé: refus, commande intacte', async () => {
+    const r = await claim([{ orderId: 'guest0001', secret: 'e'.repeat(32) }]);
+    expect(r).toMatchObject({ success: true, claimed: [], failed: 1 });
+    expect((await claim([{ orderId: 'guest0001', secret: 'court' }])).success).toBe(false);
+    expect(db.get('orders', 'guest0001')!.userId).toBe('');
+    expect(db.get('orders', 'guest0001')!.guestSecret).toBe(SECRET);
+  });
+
+  it('la commande d’une autre personne ne peut pas être réclamée, même avec un secret inventé', async () => {
+    const r = await claim([{ orderId: 'other0001', secret: SECRET }]);
+    expect(r.claimed).toEqual([]);
+    expect(r.failed).toBe(1);
+    expect(db.get('orders', 'other0001')!.userId).toBe('quelquun-d-autre');
+  });
+
+  it('une commande déjà rattachée à la même cliente est confirmée (idempotent); inconnue = échec', async () => {
+    const r = await claim([{ orderId: 'mine00001', secret: SECRET }, { orderId: 'inconnue01', secret: SECRET }]);
+    expect(r.claimed).toEqual(['mine00001']);
+    expect(r.failed).toBe(1);
+  });
+
+  it('deuxième réclamation par quelqu’un d’autre après rattachement: impossible', async () => {
+    await claim([{ orderId: 'guest0001', secret: SECRET }]);
+    h.uid = 'autre-compte';
+    const r = await claim([{ orderId: 'guest0001', secret: SECRET }]);
+    expect(r.claimed).toEqual([]);
+    expect(db.get('orders', 'guest0001')!.userId).toBe('client-uid');
+  });
+
+  it('exige un jeton valide et respecte la limite de débit', async () => {
+    h.uid = null;
+    expect((await claim([{ orderId: 'guest0001', secret: SECRET }])).success).toBe(false);
+    expect(db.get('orders', 'guest0001')!.userId).toBe('');
+    h.uid = 'client-uid';
+    h.allowRate = false;
+    expect((await claim([{ orderId: 'guest0001', secret: SECRET }])).success).toBe(false);
+  });
+
+  it('plus de 10 réclamations d’un coup ou format invalide: refusé', async () => {
+    const many = Array.from({ length: 11 }, (_, i) => ({ orderId: `order${String(i).padStart(4, '0')}`, secret: SECRET }));
+    expect((await claim(many)).success).toBe(false);
+    expect((await claim('pas un tableau')).success).toBe(false);
   });
 });

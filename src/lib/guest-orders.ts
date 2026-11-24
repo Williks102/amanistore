@@ -32,3 +32,21 @@ export function getGuestSecret(orderId: string): string | null {
   const secret = read()[orderId];
   return typeof secret === 'string' ? secret : null;
 }
+
+/** Toutes les commandes sans compte mémorisées sur cet appareil (la plus récente en dernier). */
+export function listGuestOrders(): Array<{ orderId: string; secret: string }> {
+  return Object.entries(read())
+    .filter(([, secret]) => typeof secret === 'string')
+    .map(([orderId, secret]) => ({ orderId, secret }));
+}
+
+/** Oublie des commandes (par exemple après leur rattachement à un compte). */
+export function removeGuestOrders(orderIds: string[]): void {
+  try {
+    const map = read();
+    for (const id of orderIds) delete map[id];
+    localStorage.setItem(KEY, JSON.stringify(map));
+  } catch {
+    /* stockage indisponible */
+  }
+}

@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Copy, KeyRound } from 'lucide-react';
+import { Copy, KeyRound, RotateCcw } from 'lucide-react';
 import type { Order } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,12 +10,14 @@ import { Separator } from '@/components/ui/separator';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
+import { whatsappLink } from '@/lib/site';
 import { STATUS_DESCRIPTIONS, STATUS_STEPS, orderLines, orderTotals, progressPercent, shortOrderNumber, statusStep } from '@/lib/order-display';
 
 const xof = (n: number) => `XOF ${n.toLocaleString('fr-FR')}`;
 
 /** Carte d'une commande en cours: avancement, code de livraison, articles (quantité, couleur, total) et totaux. */
-export function OrderCard({ order }: { order: Order }) {
+export function OrderCard({ order, onReorder }: { order: Order; onReorder?: (order: Order) => void }) {
   const { toast } = useToast();
   const step = statusStep(order.status);
   const lines = orderLines(order);
@@ -106,6 +108,24 @@ export function OrderCard({ order }: { order: Order }) {
           )}
           <div className="flex justify-between text-base font-bold"><dt>Total</dt><dd>{xof(totals.total)}</dd></div>
         </dl>
+
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+          {onReorder && (
+            <Button type="button" variant="outline" onClick={() => onReorder(order)}>
+              <RotateCcw className="h-4 w-4" aria-hidden="true" /> Recommander
+            </Button>
+          )}
+          {/* Le message contient le numéro de commande, jamais le code de livraison (réservé au livreur). */}
+          <Button asChild variant="outline">
+            <a
+              href={whatsappLink(`Bonjour, j'ai une question sur ma commande n° ${shortOrderNumber(order.id)} passée le ${new Date(order.date).toLocaleDateString('fr-FR')}.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <WhatsAppIcon className="h-4 w-4" /> Une question sur cette commande ?
+            </a>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
