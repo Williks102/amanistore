@@ -20,3 +20,4 @@ Objectif : une boutique **chaleureuse, moderne et utilisable au téléphone** (a
 - **Mobile d'abord** (360 px puis `md`), zones tactiles de **44 px** au moins, contraste **AA** (4,5:1) vérifié par calcul, jamais l'information par la couleur seule (un badge porte du texte), rien d'accessible uniquement au survol, pas de défilement horizontal de la page.
 - Libellé toujours visible au-dessus d'un champ ; chaque liste a ses états chargement, vide et erreur ; animations de 200 ms au plus, coupées si `prefers-reduced-motion`.
 - Chaque refonte se fait **une PR par étape**, mesurée à 390, 768 et 1280 px avant et après.
+- **Mesurer aussi les fenêtres** (panier, formulaire de commande, filtres) à 320, 360 et 390 px: aucun élément ne doit dépasser de sa fenêtre ni être coupé. Un prix coupé dans le panier a échappé à la seule mesure de la taille des boutons.

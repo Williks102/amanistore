@@ -133,6 +133,9 @@ Palette officielle de 19 couleurs (`src/lib/colors.ts`) avec reconnaissance des 
 ### Étape 5: référencement
 `sitemap.xml` (produits affichables seulement) et `robots.txt`.
 
+### Correction après mise en ligne (signalée par la boutique)
+Sur téléphone, le prix d'une ligne du panier était coupé à droite du sélecteur de quantité (la ligne dépassait de 14 px de sa fenêtre à 390 px et de 36 px à 360 px, bouton de suppression compris). Cause: fenêtre du panier étroite (3/4 de l'écran) et conteneur de défilement qui laissait la ligne s'élargir. Correction: panier à 92 % de la largeur, défilement simple, prix qui passe sous le sélecteur si la place manque. Mesuré après correction: aucun dépassement à 320, 360, 390 et 768 px pour le panier, le formulaire de commande et le panneau de filtres, ni à 320 et 360 px pour les pages principales et la fiche produit. Leçon: la mesure ne vérifiait que la taille des boutons, pas le contenu coupé; la règle est ajoutée à `CLAUDE.md`.
+
 ### Limites
 Une commande d'invité n'est pas rattachée à un compte et ne se relit que sur l'appareil qui l'a passée (ou avec le code de validation, par WhatsApp). Je n'ai pas pu passer une vraie commande de bout en bout (pas d'accès administrateur Firebase dans mon environnement, et je n'écris pas dans votre base): le serveur est couvert par 140 tests, le parcours jusqu'au formulaire a été vérifié dans le navigateur. Le téléphone n'est pas testé en réel, et les photos ne se chargeaient pas dans mon environnement.
 
