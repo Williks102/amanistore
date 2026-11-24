@@ -13,6 +13,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import { OrderCard } from '@/components/account/OrderCard';
 import { OrderHistoryRow } from '@/components/account/OrderHistoryRow';
+import { ProfileCard } from '@/components/account/ProfileCard';
 import type { Category, Order } from '@/lib/types';
 import { getOrdersForUser } from '@/app/actions';
 import { getCategories } from '@/services/categoryService';
@@ -117,6 +118,7 @@ const BuyerDashboard = () => {
               </Card>
             </section>
 
+            <div className="space-y-8">
             <section aria-labelledby="history-title">
               <Card>
                 <CardHeader>
@@ -132,6 +134,8 @@ const BuyerDashboard = () => {
                 </CardContent>
               </Card>
             </section>
+              <ProfileCard />
+            </div>
           </div>
         )}
       </main>

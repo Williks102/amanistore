@@ -110,6 +110,22 @@ describe('profils utilisateurs', () => {
     await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { admin: true }));
     await assertSucceeds(updateDoc(doc(as('alice'), 'users/alice'), { email: 'new@example.com' }));
   });
+  it('coordonnées du profil: types et longueurs bornés', async () => {
+    const ok = { id: 'alice', name: 'Awa Fall', phone: '77 123 45 67', address: 'Cocody, rue 12, près du marché' };
+    await assertSucceeds(setDoc(doc(as('alice'), 'users/alice'), ok, { merge: true }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { ...ok, name: 'a'.repeat(101) }, { merge: true }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { ...ok, phone: 'x'.repeat(31) }, { merge: true }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { ...ok, address: 'y'.repeat(501) }, { merge: true }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { ...ok, name: 12345 }, { merge: true }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { ...ok, phone: { n: 1 } }, { merge: true }));
+    await assertFails(setDoc(doc(as('carol'), 'users/carol'), { id: 'carol', address: 'z'.repeat(600) })); // aussi à la création
+  });
+
+  it('enregistrer ses coordonnées ne permet toujours pas de s’attribuer un rôle', async () => {
+    await assertFails(setDoc(doc(as('alice'), 'users/alice'), { name: 'Awa', role: 'admin' }, { merge: true }));
+    await assertFails(updateDoc(doc(as('alice'), 'users/alice'), { name: 'Awa', admin: true }));
+  });
+
   it('impossible d’écrire le profil d’un autre', async () => {
     await assertFails(updateDoc(doc(as('alice'), 'users/bob'), { email: 'x@example.com' }));
     await assertFails(setDoc(doc(as('alice'), 'users/bob'), { id: 'bob' }));
