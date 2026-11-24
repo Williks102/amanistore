@@ -12,6 +12,9 @@ import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { after } from 'next/server';
+import { buildOrderNotification, configuredChannels, sendNotification, type NotifyResult } from '@/lib/notify';
+import { SITE } from '@/lib/site';
 import { rateLimit } from '@/lib/rate-limit';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
 
@@ -374,6 +377,7 @@ export async function createOrder(
       return { success: false, error: 'Vous avez déjà plusieurs commandes en attente avec ce numéro. Contactez-nous sur WhatsApp.' };
     }
     const guestSecret = isGuest ? randomBytes(16).toString('hex') : undefined;
+    let orderTotal = 0;
 
     const uniqueIds = Array.from(new Set(data.items.map((i) => i.productId)));
     const orderRef = db.collection('orders').doc();
@@ -446,6 +450,7 @@ export async function createOrder(
         promoUsed = promo.usedCount ?? 0;
       }
       const total = Math.max(subtotal - discount, 0);
+      orderTotal = total;
 
       // 5. Écritures
       tx.set(orderRef, {
@@ -469,6 +474,14 @@ export async function createOrder(
       }
       if (promoRef) tx.update(promoRef, { usedCount: promoUsed + 1 });
     });
+
+    // Prévient la boutique APRÈS la réponse à la cliente (la commande ne dépend jamais de la notification).
+    const notification = buildOrderNotification(
+      { id: orderRef.id, customerName: data.name, total: orderTotal, itemCount: data.items.reduce((n, i) => n + i.quantity, 0), guest: isGuest },
+      SITE.url
+    );
+    const work = () => sendNotification(notification).then(() => undefined, () => undefined);
+    try { after(work); } catch { void work(); }
 
     return { success: true, orderId: orderRef.id, validationCode, guestSecret };
   } catch (error) { return fail(error); }
@@ -692,6 +705,31 @@ export async function validatePromoCode(code: string, subtotal?: number): Promis
   // On ne divulgue pas le compteur d'utilisation.
   const { usedCount: _u, ...publicPromo } = full;
   return { success: true, promoCode: publicPromo as PromoCode };
+}
+
+// ============ NOTIFICATIONS DE COMMANDE (admin) ============
+/** Quels canaux sont configurés (jamais les valeurs: jetons et clés restent côté serveur). */
+export async function getNotificationStatus(idToken: string): Promise<{ telegram: boolean; email: boolean; error?: string }> {
+  try {
+    await requireRole(idToken, []);
+    return configuredChannels();
+  } catch (error) {
+    return { telegram: false, email: false, error: fail(error).error };
+  }
+}
+
+/** Envoie un message de test sur les canaux configurés, pour vérifier la configuration sans passer de commande. */
+export async function sendTestNotification(idToken: string): Promise<{ success: boolean; result?: NotifyResult; error?: string }> {
+  try {
+    await requireRole(idToken, []);
+    if (!(await rateLimit('test-notification', 5, 60_000))) return { success: false, error: 'Trop de tests. Réessayez dans un instant.' };
+    const channels = configuredChannels();
+    if (!channels.telegram && !channels.email) return { success: false, error: 'Aucun canal configuré (Telegram ou e-mail).' };
+    const result = await sendNotification({ subject: `Test — ${SITE.name}`, text: `Test de notification ${SITE.name}.\nSi vous lisez ce message, les nouvelles commandes vous seront signalées ici.` });
+    return { success: result.telegram === 'sent' || result.email === 'sent', result };
+  } catch (error) {
+    return { success: false, error: fail(error).error };
+  }
 }
 
 // ============ CONTACT MESSAGES (admin) ============

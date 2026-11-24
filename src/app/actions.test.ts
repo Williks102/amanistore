@@ -7,11 +7,29 @@ const h = vi.hoisted(() => ({
   roleOk: true,
   allowRate: true,
   rateActions: [] as string[],
+  afterTasks: [] as Array<() => unknown>,
+  afterThrows: false,
+  notifyCalls: [] as Array<{ subject: string; text: string }>,
+  notifyFails: false,
+  channels: { telegram: true, email: false },
 }));
 
 vi.mock('@/firebase/admin', () => ({ get adminDb() { return h.db; } }));
 vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => '__SERVER_TS__', delete: () => '__DELETE__' } }));
 vi.mock('@/ai/flows/shoe-style-recommendation', () => ({ getShoeRecommendations: vi.fn() }));
+vi.mock('next/server', () => ({ after: (fn: () => unknown) => { if (h.afterThrows) throw new Error('hors requête'); h.afterTasks.push(fn); } }));
+vi.mock('@/lib/notify', async (original) => {
+  const actual = await original<typeof import('@/lib/notify')>();
+  return {
+    ...actual,
+    configuredChannels: () => h.channels,
+    sendNotification: async (n: { subject: string; text: string }) => {
+      h.notifyCalls.push(n);
+      if (h.notifyFails) throw new Error('panne');
+      return { telegram: 'sent', email: 'off' };
+    },
+  };
+});
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: async (action: string) => { h.rateActions.push(action); return h.allowRate; } }));
 vi.mock('@/lib/server-auth', async () => {
   class AuthError extends Error {
@@ -29,7 +47,7 @@ vi.mock('@/lib/server-auth', async () => {
 import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
   createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation,
-  createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders,
+  createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders, getNotificationStatus, sendTestNotification,
   previewColorNormalization, applyColorNormalization,
 } from './actions';
 
@@ -49,6 +67,11 @@ beforeEach(() => {
   h.roleOk = true;
   h.allowRate = true;
   h.rateActions = [];
+  h.afterTasks = [];
+  h.afterThrows = false;
+  h.notifyCalls = [];
+  h.notifyFails = false;
+  h.channels = { telegram: true, email: false };
   db.seed('shoes', 'shoe1', { ...shoe });
   db.seed('shoes', 'shoe2', { ...shoe, price: 5000 });
   db.seed('promoCodes', 'p10', { code: 'PROMO10', discountType: 'percentage', value: 10, isActive: true });
@@ -693,5 +716,81 @@ describe('rattachement des commandes d’invité au compte', () => {
     const many = Array.from({ length: 11 }, (_, i) => ({ orderId: `order${String(i).padStart(4, '0')}`, secret: SECRET }));
     expect((await claim(many)).success).toBe(false);
     expect((await claim('pas un tableau')).success).toBe(false);
+  });
+});
+
+describe('notification de nouvelle commande', () => {
+  const place = (over: Record<string, any> = {}) => createOrder('tok', { ...customer, items: [line()], ...over });
+
+  it('une commande réussie programme une notification, sans donnée personnelle', async () => {
+    const r = await place();
+    expect(r.success).toBe(true);
+    expect(h.afterTasks).toHaveLength(1);
+    expect(h.notifyCalls).toHaveLength(0); // envoyée APRÈS la réponse
+    await h.afterTasks[0]();
+    expect(h.notifyCalls).toHaveLength(1);
+    const text = h.notifyCalls[0].text;
+    expect(text).toContain(`n° ${r.orderId!.slice(0, 6).toUpperCase()}`);
+    expect(text).toContain('2 articles');
+    expect(text).toContain('Awa');
+    expect(text).not.toContain(r.validationCode!);
+    expect(text).not.toContain(customer.phone);
+    expect(text).not.toContain('Paix'); // l'adresse n'est jamais envoyée
+  });
+
+  it('commande refusée: aucune notification', async () => {
+    db.seed('shoes', 'rare', { ...shoe, stock: { '39': 1 } });
+    const r = await place({ items: [line({ productId: 'rare', size: 39, quantity: 2 })] });
+    expect(r.success).toBe(false);
+    expect(h.afterTasks).toHaveLength(0);
+  });
+
+  it('une panne de notification ne casse ni la commande ni la tâche', async () => {
+    h.notifyFails = true;
+    const r = await place();
+    expect(r.success).toBe(true);
+    await expect(Promise.resolve(h.afterTasks[0]())).resolves.toBeUndefined();
+  });
+
+  it('hors contexte de requête (after indisponible): la notification part quand même', async () => {
+    h.afterThrows = true;
+    const r = await place();
+    expect(r.success).toBe(true);
+    await Promise.resolve();
+    expect(h.notifyCalls).toHaveLength(1);
+  });
+
+  it('commande sans compte: signalée comme telle', async () => {
+    h.uid = null;
+    await createOrder(null, { ...customer, items: [line()] });
+    await h.afterTasks[0]();
+    expect(h.notifyCalls[0].text).toContain('(sans compte)');
+  });
+});
+
+describe('administration des notifications', () => {
+  it('état des canaux: admin seulement, booleans seulement', async () => {
+    h.roleOk = false;
+    expect((await getNotificationStatus('tok')).error).toBeTruthy();
+    h.roleOk = true;
+    h.channels = { telegram: true, email: false };
+    expect(await getNotificationStatus('tok')).toEqual({ telegram: true, email: false });
+  });
+
+  it('test d’envoi: refusé sans rôle, sans canal, ou trop fréquent; sinon envoie une fois', async () => {
+    h.roleOk = false;
+    expect((await sendTestNotification('tok')).success).toBe(false);
+    expect(h.notifyCalls).toHaveLength(0);
+    h.roleOk = true;
+    h.channels = { telegram: false, email: false };
+    expect((await sendTestNotification('tok')).error).toMatch(/Aucun canal/);
+    expect(h.notifyCalls).toHaveLength(0);
+    h.channels = { telegram: true, email: false };
+    h.allowRate = false;
+    expect((await sendTestNotification('tok')).success).toBe(false);
+    h.allowRate = true;
+    const ok = await sendTestNotification('tok');
+    expect(ok).toMatchObject({ success: true, result: { telegram: 'sent' } });
+    expect(h.notifyCalls).toHaveLength(1);
   });
 });
