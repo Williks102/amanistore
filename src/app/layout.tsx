@@ -4,10 +4,23 @@ import { Toaster } from '@/components/ui/toaster';
 import { CartProvider } from '@/components/CartProvider';
 import Footer from '@/components/Footer';
 import { FirebaseClientProvider } from '@/firebase';
+import { SITE } from '@/lib/site';
+
+// NEXT_PUBLIC_SITE_URL (ex. https://www.votre-domaine.com) permet des liens d'aperçu absolus (WhatsApp, Facebook).
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: "Amani's",
-  description: 'Des chaussures raffinées, soigneusement sélectionnées pour vous.',
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
+  title: SITE.name,
+  description: SITE.tagline,
+  openGraph: {
+    title: SITE.name,
+    description: SITE.tagline,
+    siteName: SITE.name,
+    type: 'website',
+    locale: 'fr_FR',
+  },
+  twitter: { card: 'summary_large_image', title: SITE.name, description: SITE.tagline },
 };
 
 export default function RootLayout({

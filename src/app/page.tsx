@@ -6,7 +6,8 @@ import Header from '@/components/Header';
 import { LoadError } from '@/components/LoadError';
 import ShoeShowcase from '@/components/ShoeShowcase';
 import type { Category, Shoe, Collection } from '@/lib/types';
-import Hero from '@/components/Hero-clean';
+import { HomeHero } from '@/components/HomeHero';
+import { TrustStrip } from '@/components/TrustStrip';
 import { Sidebar } from '@/components/Sidebar';
 import { Separator } from '@/components/ui/separator';
 import CategoryCarousel from '@/components/CategoryCarousel';
@@ -159,7 +160,8 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <Header categories={categories} onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <main className="flex-grow">
-        <Hero />
+        <HomeHero shoes={newArrivals} loading={loading} />
+        <TrustStrip />
         <div className="container mx-auto px-4 py-8">
           <AnimatedSection>
             <section id="categories" className="py-12">
