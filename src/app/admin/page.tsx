@@ -42,6 +42,7 @@ import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { ColorPicker } from '@/components/ColorPicker';
+import { AdminProductList } from '@/components/admin/AdminProductList';
 import { EmptyState } from '@/components/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -95,6 +96,7 @@ const AdminPage = () => {
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   const [colorPreview, setColorPreview] = useState<ColorNormalizationItem[] | null>(null);
   const [isColorBusy, setIsColorBusy] = useState(false);
+  const [featuredBusyId, setFeaturedBusyId] = useState<string | null>(null);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -158,6 +160,19 @@ const AdminPage = () => {
   useEffect(() => { fetchData(); }, []);
 
   // ---- ENTITY HANDLERS (Create, Delete) ----
+
+  const handleToggleFeatured = async (shoe: Shoe) => {
+    setFeaturedBusyId(shoe.id);
+    const next = !shoe.featured;
+    const result = await updateProduct(await getIdToken(), shoe.id, { featured: next });
+    if (result.success) {
+      setShoes((prev) => prev.map((s) => (s.id === shoe.id ? { ...s, featured: next } : s)));
+      toast({ title: next ? 'Ajouté à la sélection' : 'Retiré de la sélection', description: shoe.name });
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+    setFeaturedBusyId(null);
+  };
 
   const handleDeleteProduct = async (shoeId: string) => {
     const result = await deleteProduct(await getIdToken(), shoeId);
@@ -493,32 +508,13 @@ const AdminPage = () => {
               <CardDescription>Gérez vos produits.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead>Image</TableHead><TableHead>Nom</TableHead><TableHead>Prix</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {shoes.map((shoe) => (
-                      <TableRow key={shoe.id}>
-                        <TableCell><Image src={shoe.gridImage.url} alt={shoe.name} width={40} height={40} className="rounded-md" /></TableCell>
-                        <TableCell className="font-medium">{shoe.name}{shoe.featured && <Badge variant="secondary" className="ml-2">Coup de cœur</Badge>}</TableCell>
-                        <TableCell>{shoe.price.toLocaleString('fr-FR')} XOF</TableCell>
-                        <TableCell className="flex gap-2">
-                          <Button variant="outline" size="sm" onClick={() => { setSelectedShoe(shoe); setIsEditModalOpen(true); }}>Modifier</Button>
-                           <AlertDialog>
-                              <AlertDialogTrigger asChild><Button variant="destructive" size="sm"><Trash2 className="h-4 w-4" /></Button></AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader><AlertDialogTitle>Êtes-vous sûr?</AlertDialogTitle><AlertDialogDescription>Cette action est irréversible et supprimera définitivement le produit.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Annuler</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteProduct(shoe.id)}>Supprimer</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {shoes.length === 0 && <EmptyState icon={<Box className="h-8 w-8" />} title="Aucun produit" hint="Créez votre premier produit depuis « Créer un produit »." />}
+              <AdminProductList
+                shoes={shoes}
+                onEdit={(shoe) => { setSelectedShoe(shoe); setIsEditModalOpen(true); }}
+                onDelete={handleDeleteProduct}
+                onToggleFeatured={handleToggleFeatured}
+                busyId={featuredBusyId}
+              />
             </CardContent>
           </Card>
         );
@@ -531,6 +527,10 @@ const AdminPage = () => {
               <form onSubmit={handleCreateProduct} className="space-y-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label>Nom</Label><Input value={newShoeName} onChange={(e) => setNewShoeName(e.target.value)} required/></div>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-primary/30 bg-primary/10 px-3 text-sm font-medium">
+                    <input type="checkbox" className="h-5 w-5 accent-primary" checked={newShoeFeatured} onChange={(e) => setNewShoeFeatured(e.target.checked)} />
+                    Coup de cœur: mis en avant sur l&apos;accueil
+                  </label>
                   <div className="space-y-2"><Label>Prix (XOF)</Label><Input type="number" min={0} value={newShoePrice} onChange={(e) => setNewShoePrice(Number(e.target.value))} required/></div>
                 </div>
                 <div className="space-y-2"><Label>Description</Label><Textarea value={newShoeDescription} onChange={(e) => setNewShoeDescription(e.target.value)} required/></div>
@@ -543,10 +543,6 @@ const AdminPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2"><Label>Pointures (ex: 40,41,42)</Label><Input value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required/></div>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
-                    <input type="checkbox" className="h-5 w-5 accent-primary" checked={newShoeFeatured} onChange={(e) => setNewShoeFeatured(e.target.checked)} />
-                    Coup de cœur (mis en avant sur l&apos;accueil)
-                  </label>
                   <div className="space-y-2"><Label>Stock par pointure (optionnel, ex: 40:5, 41:3)</Label><Input value={newShoeStock} onChange={(e) => setNewShoeStock(e.target.value)} /><p className="text-xs text-muted-foreground">Laissez vide pour ne pas suivre le stock (illimité).</p></div>
                 </div>
                 <div className="space-y-2">
