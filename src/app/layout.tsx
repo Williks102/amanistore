@@ -6,11 +6,9 @@ import Footer from '@/components/Footer';
 import { FirebaseClientProvider } from '@/firebase';
 import { SITE } from '@/lib/site';
 
-// NEXT_PUBLIC_SITE_URL (ex. https://www.votre-domaine.com) permet des liens d'aperçu absolus (WhatsApp, Facebook).
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-
 export const metadata: Metadata = {
-  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
+  // Liens d'aperçu absolus (WhatsApp, Facebook): voir SITE.url.
+  metadataBase: new URL(SITE.url),
   title: SITE.name,
   description: SITE.tagline,
   openGraph: {

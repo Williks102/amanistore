@@ -97,7 +97,7 @@ Constats avant: aucun titre principal (`h1`), hero = image avec le texte incrust
 
 Décisions: le hero est écrit (accroche issue du pied de page de la boutique) avec les images des coups de cœur, sinon des nouveautés; garanties limitées à ce qui existe (adresse à la commande, code de validation, WhatsApp); « Meilleures ventes » et « Recommandations » supprimées (fausses) et remplacées par **« Sélection Amani's »**, alimentée par une case **« Coup de cœur »** dans l'admin (la section n'apparaît que si au moins un produit est coché); filtres retirés de l'accueil, la loupe mène à `/shop?search=1`; la boutique comprend maintenant `?collection=` et affiche « Catégorie : X · Voir toute la boutique ». Les catégories et collections sans produit n'ont pas de vignette.
 
-Aperçu de partage (Open Graph) généré en français (`src/app/opengraph-image.tsx`). **Pour que WhatsApp et Facebook affichent l'image, définir `NEXT_PUBLIC_SITE_URL`** (l'adresse publique du site) sur l'hébergement.
+Aperçu de partage (Open Graph) généré en français (`src/app/opengraph-image.tsx`). L'adresse publique (`https://amanis.vercel.app`) est dans `src/lib/site.ts` (`SITE.url`); avec un domaine personnalisé, définir `NEXT_PUBLIC_SITE_URL` sur l'hébergement.
 
 À valider par la boutique: le texte de l'accroche et des 3 garanties, le choix des coups de cœur, et quelle collection mettre en avant. Le fichier `src/components/Hero-clean.tsx` (bannières Cloudinary) n'est plus utilisé, je l'ai laissé.
 
