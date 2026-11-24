@@ -24,11 +24,7 @@ export function StyleGuideAssistant({ shoeDescription }: { shoeDescription: stri
   }, [shoeDescription]);
 
   return (
-    <div>
-      <h4 className="flex items-center font-semibold text-md mb-3">
-        <Wand2 className="mr-2 h-5 w-5 text-primary" />
-        AI Style Guide
-      </h4>
+    <div aria-live="polite">
       {isPending && (
         <div className="space-y-2">
           <Skeleton className="h-4 w-full" />
@@ -38,7 +34,7 @@ export function StyleGuideAssistant({ shoeDescription }: { shoeDescription: stri
       )}
       {!isPending && error && (
         <Alert variant="destructive" className="text-xs">
-          <AlertTitle>Error</AlertTitle>
+          <AlertTitle>Erreur</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -49,6 +45,28 @@ export function StyleGuideAssistant({ shoeDescription }: { shoeDescription: stri
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+/**
+ * L'assistant n'interroge l'IA que lorsque la cliente le demande (avant, chaque ouverture d'une fiche
+ * lançait un appel payant, même pour un robot qui parcourt le site).
+ */
+export function StyleGuideLauncher({ shoeDescription }: { shoeDescription: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+      >
+        <Wand2 className="h-4 w-4" aria-hidden="true" />
+        {open ? 'Masquer les idées d’accords' : 'Des idées pour l’assortir ?'}
+      </button>
+      {open && <StyleGuideAssistant shoeDescription={shoeDescription} />}
     </div>
   );
 }
