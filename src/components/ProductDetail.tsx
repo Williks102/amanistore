@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 
 const MAX_PER_LINE = 20; // même plafond que le serveur
 
-export function ProductDetail({ shoe }: { shoe: Shoe }) {
+export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; styleAssistant?: boolean }) {
   const { addItem, openCheckout } = useCart();
   const { toast } = useToast();
 
@@ -213,7 +213,7 @@ export function ProductDetail({ shoe }: { shoe: Shoe }) {
             </Button>
           </div>
 
-          <StyleGuideLauncher shoeDescription={shoe.description} />
+          {styleAssistant && <StyleGuideLauncher shoeDescription={shoe.description} />}
         </div>
       </div>
 

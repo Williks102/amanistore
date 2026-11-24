@@ -10,7 +10,12 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const shoe = await fetchShoeById(id);
+  let shoe;
+  try {
+    shoe = await fetchShoeById(id);
+  } catch {
+    return { title: SITE.name }; // panne passagère de Firestore: la page elle-même affichera l'erreur avec « Réessayer »
+  }
   if (!shoe || !isListable(shoe)) return { title: 'Produit introuvable', robots: { index: false } };
 
   const title = `${shoe.name} — ${SITE.name}`;
@@ -45,10 +50,13 @@ export default async function ProductPage({ params }: Props) {
     },
   };
 
+  // L'assistant de style (IA) n'est proposé que si une clé Gemini est configurée: sinon il échouerait devant la cliente.
+  const styleAssistant = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-      <ProductPageView shoe={shoe} />
+      <ProductPageView shoe={shoe} styleAssistant={styleAssistant} />
     </>
   );
 }

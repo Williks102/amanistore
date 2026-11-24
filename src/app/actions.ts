@@ -90,11 +90,37 @@ function fail(error: unknown): { success: false; error: string } {
 
 const ORDER_STATUSES: OrderStatus[] = ['En attente', 'Prêt', 'Livré', 'Annulé'];
 
+/**
+ * Rend une valeur Firestore sérialisable par Next (seuls les objets simples traversent une Server Action):
+ * Timestamp → chaîne ISO, référence → son chemin, toute autre classe → retirée.
+ * Sans cela, un champ Timestamp (ex. `claimedAt`) faisait échouer tout l'admin et « Mon compte ».
+ */
+function toPlain(value: unknown): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(toPlain);
+  const v = value as { toDate?: () => Date; path?: unknown };
+  if (typeof v.toDate === 'function') return v.toDate().toISOString();
+  if (Object.getPrototypeOf(value) !== Object.prototype) return typeof v.path === 'string' ? v.path : undefined;
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, item]) => {
+      const plain = toPlain(item);
+      return plain === undefined ? [] : [[key, plain]];
+    })
+  );
+}
+
+/** Document Firestore → objet simple `{ id, ...champs }`. */
+const plainDoc = <T,>(id: string, data: FirebaseFirestore.DocumentData): T => ({ id, ...(toPlain(data) as object) }) as T;
+
+/** Champs d'une commande qui sortent du serveur (liste blanche: un champ interne ajouté plus tard ne fuit pas). */
+const ORDER_FIELDS = ['userId', 'customerName', 'customerPhone', 'customerEmail', 'customerAddress', 'items', 'subtotal', 'discount', 'promoCode', 'promoCodeId', 'guest', 'total', 'status', 'validationCode'] as const;
+
 function orderFromDoc(id: string, data: FirebaseFirestore.DocumentData): Order {
-  const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-  // Le secret d'une commande d'invité ne sort jamais du serveur (ni vers l'admin, ni vers un autre client).
-  const { guestSecret: _guestSecret, ...rest } = data;
-  return { ...rest, id, date } as Order;
+  const plain = toPlain(data) as Record<string, unknown>;
+  const date = typeof plain.date === 'string' ? plain.date : new Date().toISOString();
+  // Jamais de secret d'invité ni de champ technique (guestSecret, claimedAt…): seulement la liste blanche.
+  const picked = Object.fromEntries(ORDER_FIELDS.filter((key) => plain[key] !== undefined).map((key) => [key, plain[key]]));
+  return { ...picked, id, date } as Order;
 }
 
 /** Nettoie une table de stock: pointures numériques, quantités entières >= 0. */
@@ -122,7 +148,7 @@ export async function getMyRoles(idToken: string): Promise<{ roles: Roles | null
 export async function getProducts() {
     if (!adminDb) return [];
     const snapshot = await adminDb.collection('shoes').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Shoe).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    return snapshot.docs.map(doc => plainDoc<Shoe>(doc.id, doc.data())).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 }
 
 export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id'>) {
@@ -228,7 +254,7 @@ export async function applyColorNormalization(idToken: string): Promise<{ succes
 export async function getCategories() {
     if (!adminDb) return [];
     const snapshot = await adminDb.collection('categories').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Category[];
+    return snapshot.docs.map(doc => plainDoc<Category>(doc.id, doc.data()));
 }
 
 export async function createCategory(idToken: string, categoryData: Omit<Category, 'id'>) {
@@ -253,7 +279,7 @@ export async function deleteCategory(idToken: string, categoryId: string) {
 export async function getCollections() {
     if (!adminDb) return [];
     const snapshot = await adminDb.collection('collections').get();
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Collection[];
+    return snapshot.docs.map(doc => plainDoc<Collection>(doc.id, doc.data()));
 }
 
 export async function createCollection(idToken: string, collectionData: Omit<Collection, 'id'>) {
@@ -280,7 +306,7 @@ export async function getPromoCodes(idToken: string) {
     try {
         await requireRole(idToken, []);
         const snapshot = await adminDb.collection('promoCodes').get();
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as PromoCode[];
+        return snapshot.docs.map(doc => plainDoc<PromoCode>(doc.id, doc.data()));
     } catch (error) {
         if (!(error instanceof AuthError)) console.error(error);
         return [];
@@ -699,7 +725,7 @@ export async function validatePromoCode(code: string, subtotal?: number): Promis
   const snapshot = await adminDb.collection('promoCodes').where('code', '==', code.toUpperCase()).limit(1).get();
   if (snapshot.empty) return { success: false, error: 'Code promo invalide.' };
   const promoDoc = snapshot.docs[0];
-  const full = { id: promoDoc.id, ...promoDoc.data() } as PromoCode;
+  const full = plainDoc<PromoCode>(promoDoc.id, promoDoc.data());
   const problem = promoProblem(full, typeof subtotal === 'number' ? subtotal : undefined);
   if (problem) return { success: false, error: problem };
   // On ne divulgue pas le compteur d'utilisation.
@@ -744,7 +770,7 @@ export async function getContactMessages(idToken: string): Promise<ContactMessag
   try {
     await requireRole(idToken, []);
     const snapshot = await adminDb.collection('contactMessages').orderBy('createdAt', 'desc').get();
-    return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as ContactMessage);
+    return snapshot.docs.map((d) => plainDoc<ContactMessage>(d.id, d.data()));
   } catch (error) {
     if (!(error instanceof AuthError)) console.error(error);
     return [];

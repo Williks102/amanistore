@@ -47,7 +47,7 @@ vi.mock('@/lib/server-auth', async () => {
 
 import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
-  createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation,
+  createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation, getProducts, getCategories,
   createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders, getNotificationStatus, sendTestNotification,
   previewColorNormalization, applyColorNormalization,
 } from './actions';
@@ -818,5 +818,54 @@ describe('administration des notifications', () => {
     expect(r.hints?.[0]).toMatch(/TELEGRAM_BOT_TOKEN/);
     h.notifyResult = { telegram: 'failed', email: 'off', errors: { telegram: "HTTP 403 Forbidden: bot can't initiate conversation with a user" } };
     expect((await sendTestNotification('tok')).hints?.[0]).toMatch(/Démarrer/);
+  });
+});
+
+// Régression (journaux de production, 24/11): une commande rattachée contient `claimedAt`, un Timestamp Firestore.
+// Une classe ne peut pas traverser une Server Action: tout l'admin et « Mon compte » échouaient.
+describe('les actions ne renvoient que des objets simples (sérialisables par Next)', () => {
+  class FakeTimestamp {
+    constructor(private ms: number) {}
+    toDate() { return new Date(this.ms); }
+    get _seconds() { return Math.floor(this.ms / 1000); }
+  }
+  const isPlain = (v: unknown): boolean => {
+    if (v === null || typeof v !== 'object') return typeof v !== 'function' && typeof v !== 'symbol';
+    if (Array.isArray(v)) return v.every(isPlain);
+    return Object.getPrototypeOf(v) === Object.prototype && Object.values(v).every(isPlain);
+  };
+
+  beforeEach(() => {
+    const ts = new FakeTimestamp(Date.parse('2026-11-24T06:14:00Z'));
+    db.seed('orders', 'claimed1', { userId: 'client-uid', status: 'En attente', total: 10, validationCode: '111111', date: ts, claimedAt: ts, items: [], customerName: 'A', customerPhone: '770000000', customerAddress: 'Dakar' });
+    db.seed('orders', 'guest0099', { userId: '', guest: true, guestSecret: 'f'.repeat(32), status: 'Prêt', total: 5, validationCode: '222222', date: ts, claimedAt: ts, items: [] });
+    db.seed('promoCodes', 'ptime', { code: 'T', discountType: 'fixed', value: 1, isActive: true, createdAt: ts });
+    db.seed('contactMessages', 'mtime', { name: 'A', email: 'a@x.fr', subject: 's', message: 'm', createdAt: ts });
+    db.seed('shoes', 'stime', { ...shoe, createdAt: ts });
+    db.seed('categories', 'ctime', { name: 'C', imageId: 'x', createdAt: ts });
+    db.seed('collections', 'coltime', { name: 'Col', imageUrl: '', categoryIds: [], createdAt: ts });
+    h.roleOk = true;
+  });
+
+  it('commandes: admin, client, recherche par code, relecture d’invité', async () => {
+    expect(isPlain(await getOrders('tok'))).toBe(true);
+    expect(isPlain(await getOrdersForUser('tok'))).toBe(true);
+    expect(isPlain(await getOrderByCodeForValidation('tok', '111111'))).toBe(true);
+    expect(isPlain(await getGuestOrder('guest0099', 'f'.repeat(32)))).toBe(true);
+  });
+
+  it('les dates Firestore deviennent des chaînes ISO, et les champs internes ne sortent pas', async () => {
+    const all = await getOrders('tok');
+    const claimed = all.find((o) => o.id === 'claimed1')!;
+    expect(claimed.date).toBe('2026-11-24T06:14:00.000Z');
+    expect(claimed).not.toHaveProperty('claimedAt');
+    expect(claimed).not.toHaveProperty('guestSecret');
+  });
+
+  it('autres listes de l’admin: produits, catégories, collections, promos, messages', async () => {
+    expect(isPlain(await getProducts())).toBe(true);
+    expect(isPlain(await getCategories())).toBe(true);
+    expect(isPlain(await getPromoCodes('tok'))).toBe(true);
+    expect(isPlain(await getContactMessages('tok'))).toBe(true);
   });
 });

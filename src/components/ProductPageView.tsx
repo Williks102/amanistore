@@ -8,7 +8,7 @@ import type { Category, Shoe } from '@/lib/types';
 import { getCategories } from '@/services/categoryService';
 
 /** Coque de la page produit: en-tête de la boutique (avec ses catégories) et fiche. */
-export function ProductPageView({ shoe }: { shoe: Shoe }) {
+export function ProductPageView({ shoe, styleAssistant = false }: { shoe: Shoe; styleAssistant?: boolean }) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -20,7 +20,7 @@ export function ProductPageView({ shoe }: { shoe: Shoe }) {
     <div className="flex min-h-screen flex-col">
       <Header categories={categories} onToggleSidebar={() => router.push('/shop?search=1')} />
       <main className="flex-grow">
-        <ProductDetail shoe={shoe} />
+        <ProductDetail shoe={shoe} styleAssistant={styleAssistant} />
       </main>
     </div>
   );
