@@ -13,7 +13,7 @@ import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { after } from 'next/server';
-import { buildOrderNotification, configuredChannels, sendNotification, type NotifyResult } from '@/lib/notify';
+import { buildOrderNotification, configuredChannels, diagnoseNotifications, explainChannelError, sendNotification, type NotifyResult } from '@/lib/notify';
 import { SITE } from '@/lib/site';
 import { rateLimit } from '@/lib/rate-limit';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
@@ -708,25 +708,31 @@ export async function validatePromoCode(code: string, subtotal?: number): Promis
 }
 
 // ============ NOTIFICATIONS DE COMMANDE (admin) ============
-/** Quels canaux sont configurés (jamais les valeurs: jetons et clés restent côté serveur). */
-export async function getNotificationStatus(idToken: string): Promise<{ telegram: boolean; email: boolean; error?: string }> {
+/** Quels canaux sont configurés et, sinon, pourquoi (noms des variables et formats seulement: jamais les valeurs). */
+export async function getNotificationStatus(idToken: string): Promise<{ telegram: boolean; email: boolean; hints: string[]; error?: string }> {
   try {
     await requireRole(idToken, []);
-    return configuredChannels();
+    return { ...configuredChannels(), hints: diagnoseNotifications() };
   } catch (error) {
-    return { telegram: false, email: false, error: fail(error).error };
+    return { telegram: false, email: false, hints: [], error: fail(error).error };
   }
 }
 
-/** Envoie un message de test sur les canaux configurés, pour vérifier la configuration sans passer de commande. */
-export async function sendTestNotification(idToken: string): Promise<{ success: boolean; result?: NotifyResult; error?: string }> {
+/** Envoie un message de test sur les canaux configurés; en cas d'échec, explique en français ce qu'il faut corriger. */
+export async function sendTestNotification(idToken: string): Promise<{ success: boolean; result?: NotifyResult; hints?: string[]; error?: string }> {
   try {
     await requireRole(idToken, []);
     if (!(await rateLimit('test-notification', 5, 60_000))) return { success: false, error: 'Trop de tests. Réessayez dans un instant.' };
     const channels = configuredChannels();
-    if (!channels.telegram && !channels.email) return { success: false, error: 'Aucun canal configuré (Telegram ou e-mail).' };
+    if (!channels.telegram && !channels.email) {
+      return { success: false, error: 'Aucun canal configuré (Telegram ou e-mail).', hints: diagnoseNotifications() };
+    }
     const result = await sendNotification({ subject: `Test — ${SITE.name}`, text: `Test de notification ${SITE.name}.\nSi vous lisez ce message, les nouvelles commandes vous seront signalées ici.` });
-    return { success: result.telegram === 'sent' || result.email === 'sent', result };
+    const hints = [
+      ...(result.telegram === 'failed' ? [explainChannelError('telegram', result.errors?.telegram)] : []),
+      ...(result.email === 'failed' ? [explainChannelError('email', result.errors?.email)] : []),
+    ];
+    return { success: result.telegram === 'sent' || result.email === 'sent', result, hints };
   } catch (error) {
     return { success: false, error: fail(error).error };
   }

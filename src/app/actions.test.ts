@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   notifyCalls: [] as Array<{ subject: string; text: string }>,
   notifyFails: false,
   channels: { telegram: true, email: false },
+  notifyResult: null as null | Record<string, unknown>,
 }));
 
 vi.mock('@/firebase/admin', () => ({ get adminDb() { return h.db; } }));
@@ -26,7 +27,7 @@ vi.mock('@/lib/notify', async (original) => {
     sendNotification: async (n: { subject: string; text: string }) => {
       h.notifyCalls.push(n);
       if (h.notifyFails) throw new Error('panne');
-      return { telegram: 'sent', email: 'off' };
+      return h.notifyResult ?? { telegram: 'sent', email: 'off' };
     },
   };
 });
@@ -72,6 +73,7 @@ beforeEach(() => {
   h.notifyCalls = [];
   h.notifyFails = false;
   h.channels = { telegram: true, email: false };
+  h.notifyResult = null;
   db.seed('shoes', 'shoe1', { ...shoe });
   db.seed('shoes', 'shoe2', { ...shoe, price: 5000 });
   db.seed('promoCodes', 'p10', { code: 'PROMO10', discountType: 'percentage', value: 10, isActive: true });
@@ -774,7 +776,18 @@ describe('administration des notifications', () => {
     expect((await getNotificationStatus('tok')).error).toBeTruthy();
     h.roleOk = true;
     h.channels = { telegram: true, email: false };
-    expect(await getNotificationStatus('tok')).toEqual({ telegram: true, email: false });
+    const status = await getNotificationStatus('tok');
+    expect(status).toMatchObject({ telegram: true, email: false });
+    expect(Object.keys(status).sort()).toEqual(['email', 'hints', 'telegram']); // aucune valeur secrète
+  });
+
+  it('état des canaux: explique ce qui manque (noms et formats, jamais les valeurs)', async () => {
+    h.roleOk = true;
+    h.channels = { telegram: false, email: false };
+    const status = await getNotificationStatus('tok');
+    expect(status.telegram).toBe(false);
+    expect(Array.isArray(status.hints)).toBe(true);
+    expect(status.hints.length).toBeGreaterThan(0);
   });
 
   it('test d’envoi: refusé sans rôle, sans canal, ou trop fréquent; sinon envoie une fois', async () => {
@@ -783,14 +796,27 @@ describe('administration des notifications', () => {
     expect(h.notifyCalls).toHaveLength(0);
     h.roleOk = true;
     h.channels = { telegram: false, email: false };
-    expect((await sendTestNotification('tok')).error).toMatch(/Aucun canal/);
+    const none = await sendTestNotification('tok');
+    expect(none.error).toMatch(/Aucun canal/);
+    expect(none.hints?.length).toBeGreaterThan(0);
     expect(h.notifyCalls).toHaveLength(0);
     h.channels = { telegram: true, email: false };
     h.allowRate = false;
     expect((await sendTestNotification('tok')).success).toBe(false);
     h.allowRate = true;
     const ok = await sendTestNotification('tok');
-    expect(ok).toMatchObject({ success: true, result: { telegram: 'sent' } });
+    expect(ok).toMatchObject({ success: true, result: { telegram: 'sent' }, hints: [] });
     expect(h.notifyCalls).toHaveLength(1);
+  });
+
+  it('test d’envoi refusé par Telegram: explique quoi corriger', async () => {
+    h.roleOk = true;
+    h.channels = { telegram: true, email: false };
+    h.notifyResult = { telegram: 'failed', email: 'off', errors: { telegram: 'HTTP 401 Unauthorized' } };
+    const r = await sendTestNotification('tok');
+    expect(r.success).toBe(false);
+    expect(r.hints?.[0]).toMatch(/TELEGRAM_BOT_TOKEN/);
+    h.notifyResult = { telegram: 'failed', email: 'off', errors: { telegram: "HTTP 403 Forbidden: bot can't initiate conversation with a user" } };
+    expect((await sendTestNotification('tok')).hints?.[0]).toMatch(/Démarrer/);
   });
 });

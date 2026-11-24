@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { buildOrderNotification, configuredChannels, sendNotification } from './notify';
+import { buildOrderNotification, cleanEnvValue, configuredChannels, diagnoseNotifications, explainChannelError, sendNotification } from './notify';
 
 // toLocaleString('fr-FR') sépare les milliers par une espace insécable fine: on compare avec des espaces ordinaires.
 const plain = (text: string) => text.replace(/\s/g, ' ');
@@ -72,7 +72,8 @@ describe('envoi', () => {
   it('les deux canaux en parallèle; une panne n’empêche pas l’autre', async () => {
     const f = vi.fn(async (url: unknown) => (String(url).includes('telegram') ? ({ ok: false, status: 401 } as Response) : ({ ok: true, status: 200 } as Response)));
     const r = await sendNotification(n, { TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_CHAT_ID: '987654321', RESEND_API_KEY: 're_x', NOTIFY_EMAIL_TO: 'moi@example.com' }, f);
-    expect(r).toEqual({ telegram: 'failed', email: 'sent' });
+    expect(r).toMatchObject({ telegram: 'failed', email: 'sent' });
+    expect(r.errors).toEqual({ telegram: 'HTTP 401' });
   });
 
   it('réseau coupé ou délai dépassé: ne lève jamais, et ne journalise pas le jeton', async () => {
@@ -82,5 +83,100 @@ describe('envoi', () => {
     expect(r.telegram).toBe('failed');
     expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
     spy.mockRestore();
+  });
+});
+
+describe('valeurs collées dans Vercel', () => {
+  it('cleanEnvValue retire espaces, retours à la ligne et guillemets autour', () => {
+    expect(cleanEnvValue('  abc \n')).toBe('abc');
+    expect(cleanEnvValue('"abc"')).toBe('abc');
+    expect(cleanEnvValue(" 'abc' ")).toBe('abc');
+    expect(cleanEnvValue('a"b"c')).toBe('a"b"c');
+    expect(cleanEnvValue(undefined)).toBe('');
+  });
+
+  it('un jeton ou un identifiant collé avec un espace ou des guillemets reste accepté (cause probable de « mauvaise configuration »)', () => {
+    expect(configuredChannels({ TELEGRAM_BOT_TOKEN: `${TOKEN}\n`, TELEGRAM_CHAT_ID: ' 987654321 ' }).telegram).toBe(true);
+    expect(configuredChannels({ TELEGRAM_BOT_TOKEN: `"${TOKEN}"`, TELEGRAM_CHAT_ID: '"987654321"' }).telegram).toBe(true);
+    expect(configuredChannels({ RESEND_API_KEY: ' re_x ', NOTIFY_EMAIL_TO: ' moi@example.com\n' }).email).toBe(true);
+  });
+
+  it('la requête utilise les valeurs nettoyées', async () => {
+    const f = vi.fn(async () => ({ ok: true, status: 200 }) as Response);
+    await sendNotification({ subject: 's', text: 't' }, { TELEGRAM_BOT_TOKEN: `"${TOKEN}" `, TELEGRAM_CHAT_ID: ' 987654321\n' }, f);
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(`https://api.telegram.org/bot${TOKEN}/sendMessage`);
+    expect(JSON.parse(init.body as string).chat_id).toBe('987654321');
+  });
+});
+
+describe('diagnostic de configuration', () => {
+  const GOOD = { TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_CHAT_ID: '987654321' };
+
+  it('rien de défini: consigne de redéployer', () => {
+    const h = diagnoseNotifications({});
+    expect(h).toHaveLength(1);
+    expect(h[0]).toMatch(/Production/);
+    expect(h[0]).toMatch(/redéployez/);
+  });
+
+  it('configuration correcte: aucune remarque', () => {
+    expect(diagnoseNotifications(GOOD)).toEqual([]);
+    expect(diagnoseNotifications({ RESEND_API_KEY: 're_x', NOTIFY_EMAIL_TO: 'moi@example.com' })).toEqual([]);
+  });
+
+  it('variable manquante: nomme celle qui manque', () => {
+    expect(diagnoseNotifications({ TELEGRAM_CHAT_ID: '987654321' }).join(' ')).toMatch(/TELEGRAM_BOT_TOKEN est absent/);
+    expect(diagnoseNotifications({ TELEGRAM_BOT_TOKEN: TOKEN }).join(' ')).toMatch(/TELEGRAM_CHAT_ID est absent/);
+    expect(diagnoseNotifications({ NOTIFY_EMAIL_TO: 'moi@example.com' }).join(' ')).toMatch(/RESEND_API_KEY est absent/);
+  });
+
+  it('format invalide: explique l’attendu, sans reprendre la valeur', () => {
+    const secret = 'valeur-secrete-12345';
+    const h = diagnoseNotifications({ TELEGRAM_BOT_TOKEN: secret, TELEGRAM_CHAT_ID: 'Id: 555123456', RESEND_API_KEY: 're_x', NOTIFY_EMAIL_TO: 'a@b.fr, c@d.fr' });
+    expect(h.join(' ')).toMatch(/TELEGRAM_BOT_TOKEN a un format inattendu/);
+    expect(h.join(' ')).toMatch(/TELEGRAM_CHAT_ID doit être un nombre/);
+    expect(h.join(' ')).toMatch(/NOTIFY_EMAIL_TO doit être une seule adresse/);
+    expect(h.join(' ')).not.toContain(secret);
+    expect(h.join(' ')).not.toContain('555123456');
+  });
+});
+
+describe('refus des services', () => {
+  const env = { TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_CHAT_ID: '987654321' };
+  const refuse = (status: number, body: unknown) => vi.fn(async () => ({ ok: false, status, json: async () => body }) as unknown as Response);
+
+  it('garde la raison fournie par Telegram, sans le jeton', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await sendNotification({ subject: 's', text: 't' }, env, refuse(401, { ok: false, description: 'Unauthorized' }));
+    expect(r.telegram).toBe('failed');
+    expect(r.errors?.telegram).toBe('HTTP 401 Unauthorized');
+    expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
+    spy.mockRestore();
+  });
+
+  it('délai dépassé et réseau coupé sont distingués', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const timeout = vi.fn(async () => { const e = new Error('x'); e.name = 'TimeoutError'; throw e; });
+    expect((await sendNotification({ subject: 's', text: 't' }, env, timeout)).errors?.telegram).toBe('timeout');
+    const down = vi.fn(async () => { throw new TypeError('fetch failed'); });
+    expect((await sendNotification({ subject: 's', text: 't' }, env, down)).errors?.telegram).toBe('network');
+    spy.mockRestore();
+  });
+
+  it('succès: pas de rubrique d’erreurs', async () => {
+    const r = await sendNotification({ subject: 's', text: 't' }, env, vi.fn(async () => ({ ok: true, status: 200 }) as Response));
+    expect(r.errors).toBeUndefined();
+  });
+
+  it('consignes en français selon la raison', () => {
+    expect(explainChannelError('telegram', 'HTTP 401 Unauthorized')).toMatch(/TELEGRAM_BOT_TOKEN/);
+    expect(explainChannelError('telegram', 'HTTP 400 Bad Request: chat not found')).toMatch(/TELEGRAM_CHAT_ID/);
+    expect(explainChannelError('telegram', "HTTP 403 Forbidden: bot can't initiate conversation with a user")).toMatch(/Démarrer/);
+    expect(explainChannelError('telegram', 'HTTP 429 Too Many Requests')).toMatch(/patientez/);
+    expect(explainChannelError('telegram', 'timeout')).toMatch(/réessayez/);
+    expect(explainChannelError('email', 'HTTP 401 API key is invalid')).toMatch(/RESEND_API_KEY/);
+    expect(explainChannelError('email', 'HTTP 403 You can only send testing emails to your own email address')).toMatch(/adresse du compte Resend/);
+    expect(explainChannelError('telegram', 'HTTP 500 bizarre')).toMatch(/refusé \(HTTP 500 bizarre\)/);
   });
 });
