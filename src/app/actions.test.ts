@@ -6,12 +6,13 @@ const h = vi.hoisted(() => ({
   uid: 'client-uid' as string | null,
   roleOk: true,
   allowRate: true,
+  rateActions: [] as string[],
 }));
 
 vi.mock('@/firebase/admin', () => ({ get adminDb() { return h.db; } }));
 vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => '__SERVER_TS__', delete: () => '__DELETE__' } }));
 vi.mock('@/ai/flows/shoe-style-recommendation', () => ({ getShoeRecommendations: vi.fn() }));
-vi.mock('@/lib/rate-limit', () => ({ rateLimit: async () => h.allowRate }));
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: async (action: string) => { h.rateActions.push(action); return h.allowRate; } }));
 vi.mock('@/lib/server-auth', async () => {
   class AuthError extends Error {
     constructor(message = 'Accès refusé.') { super(message); this.name = 'AuthError'; }
@@ -27,8 +28,9 @@ vi.mock('@/lib/server-auth', async () => {
 
 import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
-  createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode,
-  createPromoCode, getContactMessages, deleteContactMessage,
+  createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation,
+  createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder,
+  previewColorNormalization, applyColorNormalization,
 } from './actions';
 
 const shoe = {
@@ -46,6 +48,7 @@ beforeEach(() => {
   h.uid = 'client-uid';
   h.roleOk = true;
   h.allowRate = true;
+  h.rateActions = [];
   db.seed('shoes', 'shoe1', { ...shoe });
   db.seed('shoes', 'shoe2', { ...shoe, price: 5000 });
   db.seed('promoCodes', 'p10', { code: 'PROMO10', discountType: 'percentage', value: 10, isActive: true });
@@ -58,9 +61,9 @@ beforeEach(() => {
 const lastOrder = () => db.all('orders').at(-1)![1];
 
 describe('createOrder', () => {
-  it('refuse un utilisateur non connecté et n’écrit rien', async () => {
+  it('refuse un jeton invalide (jamais traité comme un invité) et n’écrit rien', async () => {
     h.uid = null;
-    const r = await createOrder('', { ...customer, items: [line()] });
+    const r = await createOrder('jeton-invalide', { ...customer, items: [line()] });
     expect(r.success).toBe(false);
     expect(db.all('orders')).toHaveLength(0);
   });
@@ -434,5 +437,196 @@ describe('messages de contact (admin)', () => {
     expect((await getContactMessages('tok')).map((m) => m.id)).toEqual(['m2', 'm1']);
     expect((await deleteContactMessage('tok', 'm1')).success).toBe(true);
     expect(db.all('contactMessages')).toHaveLength(1);
+  });
+});
+
+describe('validation des produits (serveur)', () => {
+  beforeEach(() => { h.roleOk = true; });
+
+  it('createProduct refuse prix absurde, pointure invalide, couleur inconnue', async () => {
+    expect((await createProduct('tok', { ...shoe, price: 7000022 } as any)).success).toBe(false);
+    expect((await createProduct('tok', { ...shoe, availableSizes: [36, 3637] } as any)).error).toMatch(/3637/);
+    expect((await createProduct('tok', { ...shoe, availableColors: [{ name: 'Turquoise', hex: '#0ff' }] } as any)).error).toMatch(/Turquoise/);
+    expect(db.all('shoes').filter(([id]) => id.startsWith('shoes-'))).toHaveLength(0);
+  });
+
+  it('createProduct normalise les couleurs connues', async () => {
+    const r = await createProduct('tok', { ...shoe, availableColors: [{ name: 'noire', hex: '#000000' }, { name: 'Maron', hex: '#f59105' }] } as any);
+    expect(r.success).toBe(true);
+    const created = db.all('shoes').find(([id]) => id.startsWith('shoes-'))![1];
+    expect(created.availableColors).toEqual([{ name: 'Noir', hex: '#1C1B1A' }, { name: 'Marron', hex: '#6B4423' }]);
+  });
+
+  it('updateProduct valide seulement les champs envoyés', async () => {
+    expect((await updateProduct('tok', 'shoe1', { description: 'Nouvelle description' })).success).toBe(true);
+    expect((await updateProduct('tok', 'shoe1', { price: 5 })).success).toBe(false);
+    expect(db.get('shoes', 'shoe1')!.price).toBe(10000);
+    expect((await updateProduct('tok', 'shoe1', { availableColors: [{ name: 'Bleue- nuit', hex: '#000' }] })).success).toBe(true);
+    expect(db.get('shoes', 'shoe1')!.availableColors).toEqual([{ name: 'Bleu nuit', hex: '#14213D' }]);
+  });
+});
+
+describe('normalisation des couleurs du catalogue', () => {
+  beforeEach(() => {
+    h.roleOk = true;
+    db.seed('shoes', 'messy', { ...shoe, name: 'Sale', availableColors: [{ name: 'noir', hex: '#000' }, { name: 'Noire', hex: '#262626' }] });
+    db.seed('shoes', 'unknown', { ...shoe, name: 'Inconnue', availableColors: [{ name: 'Turquoise', hex: '#0ff' }, { name: 'maron', hex: '#f59105' }] });
+  });
+
+  it('aperçu: liste les changements sans rien écrire', async () => {
+    const before = db.writes.length;
+    const r = await previewColorNormalization('tok');
+    expect(db.writes.length).toBe(before);
+    const messy = r.items.find((i) => i.id === 'messy')!;
+    expect(messy.before).toEqual(['noir', 'Noire']);
+    expect(messy.after).toEqual(['Noir']);
+    expect(r.items.find((i) => i.id === 'unknown')!.unmapped).toEqual(['Turquoise']);
+    // « Noir » avec un code différent de la palette (#000 au lieu de #1C1B1A): nom correct mais code à normaliser aussi
+    expect(r.items.some((i) => i.id === 'shoe1')).toBe(true);
+  });
+
+  it('application: corrige les produits sûrs, saute ceux avec une couleur inconnue', async () => {
+    const r = await applyColorNormalization('tok');
+    expect(r.success).toBe(true);
+    expect(r.skipped.map((s) => s.id)).toEqual(['unknown']);
+    expect(db.get('shoes', 'messy')!.availableColors).toEqual([{ name: 'Noir', hex: '#1C1B1A' }]);
+    expect(db.get('shoes', 'unknown')!.availableColors[0].name).toBe('Turquoise'); // intact
+    expect(db.get('shoes', 'unknown')!.availableColors[1].name).toBe('maron');
+  });
+
+  it('refusées sans le rôle produit', async () => {
+    h.roleOk = false;
+    expect((await previewColorNormalization('tok')).items).toEqual([]);
+    const r = await applyColorNormalization('tok');
+    expect(r.success).toBe(false);
+    expect(db.get('shoes', 'messy')!.availableColors[0].name).toBe('noir');
+  });
+});
+
+describe('createOrder: prix invalide et couleurs historiques', () => {
+  it('refuse un produit au prix absurde', async () => {
+    db.seed('shoes', 'bad', { ...shoe, price: 7000022 });
+    const r = await createOrder('tok', { ...customer, items: [line({ productId: 'bad' })] });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/indisponible/);
+    expect(db.all('orders')).toHaveLength(0);
+  });
+
+  it('accepte un panier ancien dont la couleur a été normalisée depuis', async () => {
+    db.seed('shoes', 'norm', { ...shoe, availableColors: [{ name: 'Noir', hex: '#1C1B1A' }] });
+    const r = await createOrder('tok', { ...customer, items: [line({ productId: 'norm', color: 'noire' })] });
+    expect(r.success).toBe(true);
+  });
+});
+
+describe('commande sans compte (invité)', () => {
+  beforeEach(() => { h.uid = null; });
+  const guestOrder = (over: Record<string, any> = {}) => createOrder(null, { ...customer, items: [line()], ...over });
+
+  it('accepte un invité: userId vide, marqué invité, secret renvoyé et stocké', async () => {
+    const r = await guestOrder();
+    expect(r.success).toBe(true);
+    expect(r.guestSecret).toMatch(/^[a-f0-9]{32}$/);
+    const o = lastOrder();
+    expect(o.userId).toBe('');
+    expect(o.guest).toBe(true);
+    expect(o.guestSecret).toBe(r.guestSecret);
+    expect(o.status).toBe('En attente');
+    expect(o.total).toBe(20000); // prix lus en base, comme pour un compte
+  });
+
+  it('un jeton vide est aussi un invité', async () => {
+    expect((await createOrder('', { ...customer, items: [line()] })).success).toBe(true);
+  });
+
+  it('un client connecté n’a ni secret ni marque d’invité', async () => {
+    h.uid = 'client-uid';
+    const r = await createOrder('tok', { ...customer, items: [line()] });
+    expect(r.guestSecret).toBeUndefined();
+    expect(lastOrder()).not.toHaveProperty('guest');
+    expect(lastOrder().userId).toBe('client-uid');
+  });
+
+  it('limite de débit plus stricte et séparée de celle des comptes', async () => {
+    await guestOrder();
+    expect(h.rateActions).toContain('create-order-guest');
+    expect(h.rateActions).not.toContain('create-order');
+    h.allowRate = false;
+    const blocked = await guestOrder();
+    expect(blocked.success).toBe(false);
+  });
+
+  it('piège anti-robot: un champ invisible rempli = refus, rien d’écrit', async () => {
+    const r = await guestOrder({ website: 'http://spam.example' });
+    expect(r.success).toBe(false);
+    expect(db.all('orders')).toHaveLength(0);
+  });
+
+  it('refuse au-delà de 3 commandes en attente avec le même numéro', async () => {
+    for (let i = 0; i < 3; i++) db.seed('orders', `old${i}`, { customerPhone: customer.phone, status: 'En attente', userId: '' });
+    db.seed('orders', 'done', { customerPhone: customer.phone, status: 'Livré', userId: '' }); // ne compte pas
+    const r = await guestOrder();
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/en attente/);
+    expect(db.all('orders')).toHaveLength(4);
+  });
+
+  it('accepte tant qu’il reste de la place (2 en attente)', async () => {
+    for (let i = 0; i < 2; i++) db.seed('orders', `old${i}`, { customerPhone: customer.phone, status: 'En attente', userId: '' });
+    expect((await guestOrder()).success).toBe(true);
+  });
+
+  it('applique les mêmes contrôles de stock et de promo', async () => {
+    db.seed('shoes', 'rare', { ...shoe, stock: { '39': 1 } });
+    const r = await guestOrder({ items: [line({ productId: 'rare', size: 39, quantity: 2 })] });
+    expect(r.success).toBe(false);
+    expect(db.all('orders')).toHaveLength(0);
+  });
+});
+
+describe('getGuestOrder', () => {
+  const SECRET = 'a'.repeat(32);
+  beforeEach(() => {
+    db.seed('orders', 'guestOrder1', { userId: '', guest: true, guestSecret: SECRET, validationCode: '123456', total: 5, status: 'En attente', customerName: 'Awa' });
+    db.seed('orders', 'normalOrder1', { userId: 'u1', validationCode: '654321', total: 9, status: 'En attente' });
+  });
+
+  it('renvoie la commande avec le bon secret, sans jamais exposer le secret', async () => {
+    const r = await getGuestOrder('guestOrder1', SECRET);
+    expect(r.order?.validationCode).toBe('123456');
+    expect(r.order).not.toHaveProperty('guestSecret');
+  });
+
+  it('refuse un mauvais secret, un secret mal formé, un identifiant inconnu', async () => {
+    for (const [id, secret] of [['guestOrder1', 'b'.repeat(32)], ['guestOrder1', 'court'], ['guestOrder1', SECRET.toUpperCase()], ['inconnu123', SECRET]]) {
+      const r = await getGuestOrder(id, secret);
+      expect(r.order, `${id}/${secret}`).toBeNull();
+    }
+  });
+
+  it('ne donne pas accès à la commande d’un client connecté (pas de secret stocké)', async () => {
+    const r = await getGuestOrder('normalOrder1', SECRET);
+    expect(r.order).toBeNull();
+  });
+
+  it('respecte la limite de débit', async () => {
+    h.allowRate = false;
+    expect((await getGuestOrder('guestOrder1', SECRET)).order).toBeNull();
+  });
+});
+
+describe('le secret des commandes d’invité ne fuit pas', () => {
+  beforeEach(() => {
+    db.seed('orders', 'g1', { userId: '', guest: true, guestSecret: 'c'.repeat(32), validationCode: '111111', total: 5, status: 'Prêt', date: '2026-01-01T00:00:00Z' });
+  });
+
+  it('getOrders (admin) et la recherche par code de livraison', async () => {
+    h.roleOk = true;
+    const all = await getOrders('tok');
+    expect(all.find((o) => o.id === 'g1')).toBeTruthy();
+    expect(all.every((o) => !('guestSecret' in o))).toBe(true);
+    const byCode = await getOrderByCodeForValidation('tok', '111111');
+    expect(byCode.order?.id).toBe('g1');
+    expect(byCode.order).not.toHaveProperty('guestSecret');
   });
 });

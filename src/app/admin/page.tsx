@@ -23,22 +23,25 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu, Mail, Inbox } from 'lucide-react';
+import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, CheckCircle, XCircle, Clock, Archive, X, Trash2, ShieldCheck, ListOrdered, Shapes, Menu, Mail, Inbox, ListChecks } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
 
 import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor, ContactMessage } from '@/lib/types';
 import { parseStockInput } from '@/lib/stock';
+import { duplicateNames, productIssues } from '@/lib/product-validation';
+import type { ColorNormalizationItem } from '@/app/actions';
 import { 
     getProducts, getCategories, getCollections, createProduct, updateProduct, deleteProduct, 
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
     updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
     deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles,
-    getContactMessages, deleteContactMessage
+    getContactMessages, deleteContactMessage, previewColorNormalization, applyColorNormalization
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
+import { ColorPicker } from '@/components/ColorPicker';
 import { EmptyState } from '@/components/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -46,7 +49,7 @@ import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
-type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'messages' | 'delivery-validation';
+type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'messages' | 'quality' | 'delivery-validation';
 
 const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   // Un tableau vide = réservé aux admins (l'admin passe toujours).
@@ -58,9 +61,10 @@ const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   collections: [],
   promotions: [],
   messages: [],
+  quality: ['productManager'],
   'delivery-validation': ['orderManager'],
 };
-const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'messages', 'delivery-validation'];
+const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'messages', 'quality', 'delivery-validation'];
 
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -89,6 +93,8 @@ const AdminPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [colorPreview, setColorPreview] = useState<ColorNormalizationItem[] | null>(null);
+  const [isColorBusy, setIsColorBusy] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -103,8 +109,6 @@ const AdminPage = () => {
   const [newShoeColors, setNewShoeColors] = useState<ShoeColor[]>([]);
   const [newShoeImageFiles, setNewShoeImageFiles] = useState<File[]>([]);
   const [newShoeImagePreviews, setNewShoeImagePreviews] = useState<string[]>([]);
-  const [newColorName, setNewColorName] = useState('');
-  const [newColorHex, setNewColorHex] = useState('#000000');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryImageFile, setNewCategoryImageFile] = useState<File | null>(null);
   const [newCollectionName, setNewCollectionName] = useState('');
@@ -357,17 +361,6 @@ const AdminPage = () => {
     setIsSubmitting(false);
   };
 
-  const handleAddColor = () => {
-    if (!newColorName.trim()) return;
-    setNewShoeColors((prev) => [...prev, { name: newColorName.trim(), hex: newColorHex }]);
-    setNewColorName('');
-    setNewColorHex('#000000');
-  };
-
-  const handleRemoveColor = (colorName: string) => {
-    setNewShoeColors((prev) => prev.filter((color) => color.name !== colorName));
-  };
-
   const handleOrderStatusChange = async (orderId: string, status: OrderStatus) => {
     const result = await updateOrderStatus(await getIdToken(), orderId, status);
     if (result.success) {
@@ -427,6 +420,33 @@ const AdminPage = () => {
       toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
     }
   };
+
+  const handlePreviewColors = async () => {
+    setIsColorBusy(true);
+    const result = await previewColorNormalization(await getIdToken());
+    if (result.error) toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    else setColorPreview(result.items);
+    setIsColorBusy(false);
+  };
+
+  const handleApplyColors = async () => {
+    setIsColorBusy(true);
+    const result = await applyColorNormalization(await getIdToken());
+    if (result.success) {
+      toast({ title: 'Couleurs normalisées', description: `${result.updated} produit(s) corrigé(s)${result.skipped.length ? `, ${result.skipped.length} à corriger à la main` : ''}.` });
+      setColorPreview(result.skipped);
+      fetchData();
+    } else {
+      toast({ title: 'Erreur', description: result.error, variant: 'destructive' });
+    }
+    setIsColorBusy(false);
+  };
+
+  const catalogIssues = useMemo(
+    () => shoes.map((shoe) => ({ shoe, issues: productIssues(shoe, categories) })).filter((row) => row.issues.length > 0),
+    [shoes, categories]
+  );
+  const duplicates = useMemo(() => duplicateNames(shoes), [shoes]);
 
   const handleDeleteMessage = async (messageId: string) => {
     const result = await deleteContactMessage(await getIdToken(), messageId);
@@ -542,16 +562,7 @@ const AdminPage = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Couleurs</Label>
-                  <div className="flex gap-2">
-                    <Input placeholder="Nom couleur" value={newColorName} onChange={(e) => setNewColorName(e.target.value)} />
-                    <Input type="color" value={newColorHex} onChange={(e) => setNewColorHex(e.target.value)} className="w-16 p-1"/>
-                    <Button type="button" variant="outline" onClick={handleAddColor}>Ajouter</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {newShoeColors.map((color) => (
-                      <Badge key={color.name} variant="secondary" className="gap-2">{color.name}<button type="button" onClick={() => handleRemoveColor(color.name)}><X className="h-3 w-3"/></button></Badge>
-                    ))}
-                  </div>
+                  <ColorPicker value={newShoeColors} onChange={setNewShoeColors} />
                 </div>
                 <div className="space-y-2">
                   <Label>Images</Label>
@@ -590,7 +601,7 @@ const AdminPage = () => {
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>
-                        <div className="font-medium">{order.customerName}</div>
+                        <div className="font-medium">{order.customerName}{order.guest && <Badge variant="secondary" className="ml-2">Invité</Badge>}</div>
                         <div className="text-xs text-muted-foreground">{order.customerPhone}</div>
                       </TableCell>
                       <TableCell>{order.total.toLocaleString('fr-FR')} XOF</TableCell>
@@ -739,6 +750,88 @@ const AdminPage = () => {
             </div>
         );
 
+        case 'quality':
+        return (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Qualité du catalogue</CardTitle>
+                <CardDescription>
+                  {catalogIssues.length === 0 ? 'Aucune anomalie: tous vos produits sont complets.' : `${catalogIssues.length} produit(s) sur ${shoes.length} à vérifier.`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {catalogIssues.length === 0 && <EmptyState title="Rien à corriger" hint="Les prix, pointures, couleurs, photos et descriptions sont conformes." />}
+                {catalogIssues.map(({ shoe, issues }) => (
+                  <div key={shoe.id} className="flex flex-wrap items-start justify-between gap-3 rounded-md border p-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">{shoe.name}</p>
+                      <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+                        {issues.map((issue) => <li key={issue.code}>{issue.label}</li>)}
+                      </ul>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedShoe(shoe); setIsEditModalOpen(true); }}>Modifier</Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Normaliser les couleurs</CardTitle>
+                <CardDescription>
+                  Remplace les couleurs écrites à la main (« noir », « Noire », « Maron »…) par la palette officielle, avec le bon code couleur. Vous voyez tous les changements avant de confirmer.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button variant="outline" onClick={handlePreviewColors} disabled={isColorBusy}>
+                  {isColorBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Voir les changements'}
+                </Button>
+                {colorPreview && colorPreview.length === 0 && <p className="text-sm text-muted-foreground">Toutes les couleurs sont déjà conformes à la palette.</p>}
+                {colorPreview && colorPreview.length > 0 && (
+                  <>
+                    <ul className="space-y-2">
+                      {colorPreview.map((item) => (
+                        <li key={item.id} className="rounded-md border p-3 text-sm">
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-muted-foreground">{item.before.join(', ')} → <span className="text-foreground">{item.after.join(', ')}</span></p>
+                          {item.unmapped.length > 0 && <p className="text-destructive">À corriger à la main (hors palette): {item.unmapped.join(', ')}. Ce produit ne sera pas modifié.</p>}
+                        </li>
+                      ))}
+                    </ul>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild><Button disabled={isColorBusy || colorPreview.every((i) => i.unmapped.length > 0)}>Appliquer ces changements</Button></AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Appliquer la normalisation ?</AlertDialogTitle>
+                          <AlertDialogDescription>Les couleurs de {colorPreview.filter((i) => i.unmapped.length === 0).length} produit(s) seront modifiées dans votre base. Les commandes déjà passées ne changent pas.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleApplyColors}>Appliquer</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {duplicates.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Noms en double</CardTitle>
+                  <CardDescription>Plusieurs produits portent le même nom: dans la boutique, les cartes se ressemblent. Ajoutez la couleur ou une référence au nom.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ul className="flex flex-wrap gap-2">
+                    {duplicates.map((d) => <li key={d.name}><Badge variant="secondary" className="capitalize">{d.name} ×{d.count}</Badge></li>)}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
         case 'messages':
         return (
           <Card>
@@ -880,13 +973,14 @@ const AdminPage = () => {
     categories: { label: 'Catégories', icon: <Archive className="mr-2 h-4 w-4" /> },
     collections: { label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
     messages: { label: 'Messages', icon: <Mail className="mr-2 h-4 w-4" /> },
+    quality: { label: 'Qualité du catalogue', icon: <ListChecks className="mr-2 h-4 w-4" /> },
   };
 
   // Navigation groupée: l'essentiel d'abord, puis les ventes, la boutique, les clients.
   const NAV_GROUPS: Array<{ label: string; views: View[] }> = [
     { label: "Vue d'ensemble", views: ['dashboard'] },
     { label: 'Ventes', views: ['orders', 'delivery-validation', 'promotions'] },
-    { label: 'Boutique', views: ['products', 'create-product', 'categories', 'collections'] },
+    { label: 'Boutique', views: ['products', 'create-product', 'quality', 'categories', 'collections'] },
     { label: 'Clients', views: ['messages'] },
   ];
 

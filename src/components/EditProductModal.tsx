@@ -22,6 +22,7 @@ import type { Shoe, ShoeColor, Category, Collection, ShoeImage } from '@/lib/typ
 import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
+import { ColorPicker } from '@/components/ColorPicker';
 import { formatStockInput, parseStockInput } from '@/lib/stock';
 import Image from 'next/image';
 
@@ -50,8 +51,6 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
   const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
 
-  const [currentColorName, setCurrentColorName] = useState('');
-  const [currentColorHex, setCurrentColorHex] = useState('#000000');
 
   const { toast } = useToast();
 
@@ -76,20 +75,6 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
       setNewImagePreviews([]);
     }
   }, [shoe]);
-
-  const handleAddColor = () => {
-    if (!currentColorName.trim()) {
-      toast({ title: 'Nom de couleur manquant', variant: 'destructive' });
-      return;
-    }
-    setAvailableColors([...availableColors, { name: currentColorName.trim(), hex: currentColorHex }]);
-    setCurrentColorName('');
-    setCurrentColorHex('#000000');
-  };
-
-  const handleRemoveColor = (colorNameToRemove: string) => {
-    setAvailableColors(availableColors.filter((c) => c.name !== colorNameToRemove));
-  };
 
   const handleNewImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -268,22 +253,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
 
             <div className="space-y-4 rounded-md border p-4">
                 <Label className="font-semibold">Couleurs disponibles</Label>
-                 <div className="flex items-center gap-4">
-                    <Input placeholder="Nom de la couleur" value={currentColorName} onChange={(e) => setCurrentColorName(e.target.value)} />
-                    <Input type="color" value={currentColorHex} onChange={(e) => setCurrentColorHex(e.target.value)} className="p-1 h-11 w-16" />
-                    <Button type="button" onClick={handleAddColor} className="self-end">Ajouter</Button>
-                </div>
-                {availableColors.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                        {availableColors.map((color) => (
-                            <Badge key={color.name} variant="secondary" className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color.hex }} />
-                                <span>{color.name}</span>
-                                <button type="button" onClick={() => handleRemoveColor(color.name)} className="rounded-full hover:bg-muted-foreground/20"><X className="h-3 w-3" /></button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
+                <ColorPicker value={availableColors} onChange={setAvailableColors} />
             </div>
 
             <div className="space-y-3">

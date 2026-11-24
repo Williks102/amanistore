@@ -7,9 +7,11 @@ import { v2 as cloudinary } from 'cloudinary';
 import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage } from '@/lib/types';
 import { computeDiscount, promoProblem } from '@/lib/promo';
 import { availableStock } from '@/lib/stock';
+import { canonicalColorName, normalizeColors } from '@/lib/colors';
+import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { rateLimit } from '@/lib/rate-limit';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
 
@@ -87,7 +89,9 @@ const ORDER_STATUSES: OrderStatus[] = ['En attente', 'Prêt', 'Livré', 'Annulé
 
 function orderFromDoc(id: string, data: FirebaseFirestore.DocumentData): Order {
   const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-  return { ...data, id, date } as Order;
+  // Le secret d'une commande d'invité ne sort jamais du serveur (ni vers l'admin, ni vers un autre client).
+  const { guestSecret: _guestSecret, ...rest } = data;
+  return { ...rest, id, date } as Order;
 }
 
 /** Nettoie une table de stock: pointures numériques, quantités entières >= 0. */
@@ -123,8 +127,11 @@ export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id
     try {
         await requireRole(idToken, ['productManager']);
         const { stock, featured, ...rest } = newShoeData;
+        const problem = validateProductFields(rest);
+        if (problem) return { success: false, error: problem };
         const docRef = await adminDb.collection('shoes').add({
             ...rest,
+            availableColors: normalizeColors(rest.availableColors).colors,
             ...(stock ? { stock: sanitizeStock(stock) } : {}),
             ...(typeof featured === 'boolean' ? { featured } : {}),
             createdAt: new Date().toISOString(),
@@ -139,7 +146,10 @@ export async function updateProduct(idToken: string, shoeId: string, updatedShoe
     try {
         await requireRole(idToken, ['productManager']);
         const { id: _ignored, stock, featured, ...rest } = updatedShoeData;
+        const problem = validateProductFields(rest);
+        if (problem) return { success: false, error: problem };
         const data: Record<string, unknown> = { ...rest };
+        if (rest.availableColors) data.availableColors = normalizeColors(rest.availableColors).colors;
         if (typeof featured === 'boolean') data.featured = featured;
         if (stock === null) data.stock = FieldValue.delete();
         else if (stock !== undefined) data.stock = sanitizeStock(stock);
@@ -155,6 +165,60 @@ export async function deleteProduct(idToken: string, shoeId: string) {
         await adminDb.collection('shoes').doc(shoeId).delete();
         return { success: true };
     } catch (error) { return fail(error); }
+}
+
+// ============ NORMALISATION DES COULEURS (admin produits) ============
+export type ColorNormalizationItem = { id: string; name: string; before: string[]; after: string[]; unmapped: string[] };
+
+/** Calcul (sans rien écrire) des changements de couleurs à appliquer à tous les produits. */
+async function computeColorNormalization(): Promise<ColorNormalizationItem[]> {
+    if (!adminDb) return [];
+    const snapshot = await adminDb.collection('shoes').get();
+    const items: ColorNormalizationItem[] = [];
+    for (const doc of snapshot.docs) {
+        const shoe = doc.data() as Shoe;
+        const colors = shoe.availableColors ?? [];
+        const result = normalizeColors(colors);
+        if (!result.changed && result.unmapped.length === 0) continue;
+        items.push({ id: doc.id, name: shoe.name, before: colors.map((c) => c.name), after: result.colors.map((c) => c.name), unmapped: result.unmapped });
+    }
+    return items;
+}
+
+/** Aperçu: ce qui changerait, produit par produit. Aucune écriture. */
+export async function previewColorNormalization(idToken: string): Promise<{ items: ColorNormalizationItem[]; error?: string }> {
+    try {
+        await requireRole(idToken, ['productManager']);
+        return { items: await computeColorNormalization() };
+    } catch (error) {
+        const failure = fail(error);
+        return { items: [], error: failure.error };
+    }
+}
+
+/**
+ * Applique la normalisation (recalculée côté serveur, jamais d'après le client).
+ * Les produits qui ont une couleur sans équivalent dans la palette sont ignorés et listés.
+ */
+export async function applyColorNormalization(idToken: string): Promise<{ success: boolean; updated: number; skipped: ColorNormalizationItem[]; error?: string }> {
+    if (!adminDb) return { success: false, updated: 0, skipped: [], error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const items = await computeColorNormalization();
+        const skipped = items.filter((i) => i.unmapped.length > 0);
+        let updated = 0;
+        for (const item of items.filter((i) => i.unmapped.length === 0)) {
+            const ref = adminDb.collection('shoes').doc(item.id);
+            const snap = await ref.get();
+            const colors = (snap.data() as Shoe | undefined)?.availableColors ?? [];
+            await ref.update({ availableColors: normalizeColors(colors).colors });
+            updated += 1;
+        }
+        return { success: true, updated, skipped };
+    } catch (error) {
+        const failure = fail(error);
+        return { success: false, updated: 0, skipped: [], error: failure.error };
+    }
 }
 
 // ============ CATEGORY ACTIONS (admin) ============
@@ -271,6 +335,8 @@ const CreateOrderSchema = z.object({
   email: z.string().trim().email().max(254).optional().or(z.literal('')),
   address: z.string().trim().min(10).max(500),
   promoCode: z.string().trim().max(50).optional(),
+  /** Champ piège invisible: un humain ne le remplit jamais, un robot si. */
+  website: z.string().max(0).optional(),
   items: z.array(z.object({
     productId: z.string().min(1).max(128),
     quantity: z.number().int().min(1).max(20),
@@ -279,20 +345,35 @@ const CreateOrderSchema = z.object({
   })).min(1).max(50),
 });
 
+const MAX_PENDING_ORDERS_PER_PHONE = 3;
+
+/**
+ * Crée une commande. `idToken` absent (null ou vide) = commande d'invité, sans compte: limites plus strictes,
+ * et un secret propre à la commande (renvoyé une seule fois) permet de la relire sur la page de confirmation.
+ * Un jeton fourni mais invalide est refusé: il n'est jamais traité comme un invité.
+ */
 export async function createOrder(
-  idToken: string,
+  idToken: string | null,
   input: z.infer<typeof CreateOrderSchema>
-): Promise<{ success: boolean; orderId?: string; validationCode?: string; error?: string }> {
+): Promise<{ success: boolean; orderId?: string; validationCode?: string; guestSecret?: string; error?: string }> {
   if (!adminDb) return { success: false, error: 'DB connection failed.' };
   const db = adminDb;
   try {
-    const uid = await requireUser(idToken);
-    if (!(await rateLimit('create-order', 10, 10 * 60_000))) {
-      return { success: false, error: 'Trop de commandes. Réessayez plus tard.' };
-    }
+    const isGuest = !idToken;
+    const uid = isGuest ? '' : await requireUser(idToken);
+    const allowed = isGuest ? await rateLimit('create-order-guest', 3, 10 * 60_000) : await rateLimit('create-order', 10, 10 * 60_000);
+    if (!allowed) return { success: false, error: 'Trop de commandes. Réessayez plus tard.' };
     const parsed = CreateOrderSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Informations de commande invalides.' };
+    if (parsed.data.website) return { success: false, error: 'Informations de commande invalides.' };
     const data = parsed.data;
+
+    // Anti-spam: pas plus de commandes en attente par numéro de téléphone.
+    const samePhone = await db.collection('orders').where('customerPhone', '==', data.phone).get();
+    if (samePhone.docs.filter((d) => d.data().status === 'En attente').length >= MAX_PENDING_ORDERS_PER_PHONE) {
+      return { success: false, error: 'Vous avez déjà plusieurs commandes en attente avec ce numéro. Contactez-nous sur WhatsApp.' };
+    }
+    const guestSecret = isGuest ? randomBytes(16).toString('hex') : undefined;
 
     const uniqueIds = Array.from(new Set(data.items.map((i) => i.productId)));
     const orderRef = db.collection('orders').doc();
@@ -318,10 +399,11 @@ export async function createOrder(
       for (const it of data.items) {
         const product = products.get(it.productId);
         if (!product) throw new OrderError("Un produit de votre panier n'existe plus.");
+        if (!isPriceValid(product.price)) throw new OrderError(`${product.name} est momentanément indisponible.`);
         if (product.availableSizes?.length && !product.availableSizes.includes(it.size)) {
           throw new OrderError(`Taille indisponible pour ${product.name}.`);
         }
-        if (product.availableColors?.length && !product.availableColors.some((c) => c.name === it.color)) {
+        if (product.availableColors?.length && !product.availableColors.some((c) => canonicalColorName(c.name) === canonicalColorName(it.color))) {
           throw new OrderError(`Couleur indisponible pour ${product.name}.`);
         }
         const key = `${product.id}|${it.size}`;
@@ -368,6 +450,7 @@ export async function createOrder(
       // 5. Écritures
       tx.set(orderRef, {
         userId: uid,
+        ...(guestSecret ? { guest: true, guestSecret } : {}),
         customerName: data.name,
         customerPhone: data.phone,
         customerEmail: data.email || '',
@@ -387,8 +470,26 @@ export async function createOrder(
       if (promoRef) tx.update(promoRef, { usedCount: promoUsed + 1 });
     });
 
-    return { success: true, orderId: orderRef.id, validationCode };
+    return { success: true, orderId: orderRef.id, validationCode, guestSecret };
   } catch (error) { return fail(error); }
+}
+
+/** Relit la commande d'un invité grâce au secret reçu à la création (compte tenu du code de validation qu'elle contient). */
+export async function getGuestOrder(orderId: string, secret: string): Promise<{ order: Order | null; error?: string }> {
+  if (!/^[A-Za-z0-9_-]{6,60}$/.test(orderId) || !/^[a-f0-9]{32}$/.test(secret)) return { order: null, error: 'Commande introuvable.' };
+  if (!(await rateLimit('guest-order', 20, 60_000))) return { order: null, error: 'Trop de tentatives. Réessayez dans un instant.' };
+  if (!adminDb) return { order: null, error: 'DB connection failed.' };
+  try {
+    const snap = await adminDb.collection('orders').doc(orderId).get();
+    const data = snap.data();
+    const stored: unknown = data?.guestSecret;
+    if (!snap.exists || !data || typeof stored !== 'string' || stored.length !== secret.length) return { order: null, error: 'Commande introuvable.' };
+    if (!timingSafeEqual(Buffer.from(stored), Buffer.from(secret))) return { order: null, error: 'Commande introuvable.' };
+    return { order: orderFromDoc(snap.id, data) };
+  } catch (error) {
+    console.error(error);
+    return { order: null, error: 'Impossible de récupérer la commande.' };
+  }
 }
 
 export async function getOrders(idToken: string) {

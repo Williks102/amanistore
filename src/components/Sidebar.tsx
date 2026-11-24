@@ -27,6 +27,8 @@ interface SidebarProps {
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   resultCount?: number;
+  /** Plafond du curseur de prix (prix max du catalogue). */
+  maxPrice?: number;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -43,6 +45,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
   searchTerm,
   onSearchTermChange,
   resultCount,
+  maxPrice = DEFAULT_MAX_PRICE,
 }) => {
   const safeSearchTerm = searchTerm ?? "";
 
@@ -61,7 +64,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
   };
 
   const clearFilters = () => {
-    onPriceRangeChange({ min: 0, max: DEFAULT_MAX_PRICE });
+    onPriceRangeChange({ min: 0, max: maxPrice });
     onSelectedSizesChange([]);
     onSelectedColorsChange([]);
     onSearchTermChange?.('');
@@ -69,7 +72,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
 
   const activeFilters = [
     ...(safeSearchTerm ? ['Recherche: ' + safeSearchTerm] : []),
-    ...(priceRange.max < 100000 ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
+    ...(priceRange.max < maxPrice ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
     ...selectedSizes.map((size) => 'Pointure: ' + size),
     ...selectedColors.map((color) => 'Couleur: ' + color),
   ];
@@ -103,7 +106,7 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
         <h3 className="text-lg font-semibold mb-4">Prix</h3>
         <Slider
           min={0}
-          max={DEFAULT_MAX_PRICE}
+          max={maxPrice}
           step={5000}
           value={[priceRange.max]}
           onValueChange={(value) => onPriceRangeChange({ min: 0, max: value[0] })}
@@ -130,21 +133,25 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
       </div>
       <div>
         <h3 className="text-lg font-semibold mb-4">Couleur</h3>
-        <div className="flex flex-wrap gap-3">
-          {availableColors.map((color) => (
-            <button
-              key={color.name}
-              onClick={() => handleColorClick(color.name)}
-              className={cn(
-                'w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 focus:outline-none',
-                selectedColors.includes(color.name)
-                  ? 'ring-2 ring-offset-2 ring-primary'
-                  : 'border-border'
-              )}
-              style={{ backgroundColor: color.hex }}
-              aria-label={`Select color ${color.name}`}
-            />
-          ))}
+        <div className="flex flex-wrap gap-2">
+          {availableColors.map((color) => {
+            const selected = selectedColors.includes(color.name);
+            return (
+              <button
+                key={color.name}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => handleColorClick(color.name)}
+                className={cn(
+                  'flex min-h-11 items-center gap-2 rounded-full border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  selected ? 'border-primary bg-primary/10 font-medium' : 'border-input bg-background hover:bg-accent'
+                )}
+              >
+                <span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{ backgroundColor: color.hex }} />
+                {color.name}
+              </button>
+            );
+          })}
         </div>
       </div>
       <Button variant="ghost" onClick={clearFilters} className="w-full">
