@@ -21,6 +21,7 @@ import { getProducts } from '@/services/productService';
 import { getCategories } from '@/services/categoryService';
 import { getCollections } from '@/services/collectionService';
 import { SITE, whatsappLink } from '@/lib/site';
+import { isListable } from '@/lib/product-validation';
 
 /**
  * Accueil = vitrine: hero, garanties, nouveautés, catégories, collections, sélection « coup de cœur », contact.
@@ -45,7 +46,7 @@ export default function Home() {
           getCategories(),
           getCollections(),
         ]);
-        setShoes(products);
+        setShoes(products.filter(isListable)); // un prix absurde ne s'affiche pas
         setCategories(fetchedCategories);
         setCollections(fetchedCollections);
       } catch (error) {

@@ -14,7 +14,9 @@ import { getCollections } from '@/services/collectionService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DEFAULT_MAX_PRICE, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
+import { catalogMaxPrice, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
+import { PALETTE, canonicalColor } from '@/lib/colors';
+import { isListable, isSizeValid } from '@/lib/product-validation';
 
 export type PriceRange = {
   min: number;
@@ -32,7 +34,8 @@ function ShopContent() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: DEFAULT_MAX_PRICE });
+  // Plafond choisi par la cliente; sinon le prix max du catalogue (aucun produit ne disparaît par défaut).
+  const [maxPriceFilter, setMaxPriceFilter] = useState<number | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
@@ -44,7 +47,7 @@ function ShopContent() {
         setLoading(true);
         setLoadError(false);
         const [products, fetchedCategories, fetchedCollections] = await Promise.all([getProducts(), getCategories(), getCollections()]);
-        setShoes(products);
+        setShoes(products.filter(isListable)); // un prix absurde ne s'affiche ni ne se commande
         setCategories(fetchedCategories);
         setCollections(fetchedCollections);
       } catch (error) {
@@ -69,20 +72,27 @@ function ShopContent() {
     if (searchParams.get('search')) setSidebarOpen(true);
   }, [searchParams]);
 
+  const catalogMax = useMemo(() => catalogMaxPrice(shoes), [shoes]);
+  const priceRange = useMemo<PriceRange>(() => ({ min: 0, max: Math.min(maxPriceFilter ?? catalogMax, catalogMax) }), [maxPriceFilter, catalogMax]);
+  const setPriceRange = (range: PriceRange) => setMaxPriceFilter(range.max >= catalogMax ? null : range.max);
+
+  // Pointures valides seulement; couleurs regroupées par nom officiel (« noir », « Noire » => « Noir »).
   const availableSizes = useMemo(() => {
-    const allSizes = shoes.flatMap((shoe) => shoe.availableSizes);
+    const allSizes = shoes.flatMap((shoe) => shoe.availableSizes).filter(isSizeValid);
     return [...new Set(allSizes)].sort((a, b) => a - b);
   }, [shoes]);
 
   const availableColors = useMemo(() => {
-    const allColors = shoes.flatMap((shoe) => shoe.availableColors);
-    const uniqueColors = new Map<string, { name: string; hex: string }>();
-    allColors.forEach((color) => {
-      if (!uniqueColors.has(color.name)) {
-        uniqueColors.set(color.name, color);
-      }
-    });
-    return Array.from(uniqueColors.values());
+    const unique = new Map<string, { name: string; hex: string }>();
+    shoes.forEach((shoe) =>
+      shoe.availableColors.forEach((color) => {
+        const canonical = canonicalColor(color.name);
+        const name = canonical?.name ?? color.name.trim();
+        if (!unique.has(name)) unique.set(name, { name, hex: canonical?.hex ?? color.hex });
+      })
+    );
+    const order = (n: string) => { const i = PALETTE.findIndex((p) => p.name === n); return i === -1 ? 999 : i; };
+    return Array.from(unique.values()).sort((a, b) => order(a.name) - order(b.name) || a.name.localeCompare(b.name));
   }, [shoes]);
 
   const filters = useMemo<ProductFilters>(
@@ -97,7 +107,7 @@ function ShopContent() {
     [selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors]
   );
 
-  const { filteredShoes } = useProductFilters(shoes, filters);
+  const { filteredShoes } = useProductFilters(shoes, filters, catalogMax);
   const sortedShoes = useMemo(() => {
     const products = [...filteredShoes];
     if (sortBy === 'price-asc') return products.sort((a, b) => a.price - b.price);
@@ -163,6 +173,7 @@ function ShopContent() {
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
             resultCount={filteredShoes.length}
+            maxPrice={catalogMax}
             isOpen={isSidebarOpen}
             onOpenChange={setSidebarOpen}
           />

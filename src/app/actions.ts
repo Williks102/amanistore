@@ -7,6 +7,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage } from '@/lib/types';
 import { computeDiscount, promoProblem } from '@/lib/promo';
 import { availableStock } from '@/lib/stock';
+import { canonicalColorName, normalizeColors } from '@/lib/colors';
+import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { randomInt } from 'node:crypto';
@@ -123,8 +125,11 @@ export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id
     try {
         await requireRole(idToken, ['productManager']);
         const { stock, featured, ...rest } = newShoeData;
+        const problem = validateProductFields(rest);
+        if (problem) return { success: false, error: problem };
         const docRef = await adminDb.collection('shoes').add({
             ...rest,
+            availableColors: normalizeColors(rest.availableColors).colors,
             ...(stock ? { stock: sanitizeStock(stock) } : {}),
             ...(typeof featured === 'boolean' ? { featured } : {}),
             createdAt: new Date().toISOString(),
@@ -139,7 +144,10 @@ export async function updateProduct(idToken: string, shoeId: string, updatedShoe
     try {
         await requireRole(idToken, ['productManager']);
         const { id: _ignored, stock, featured, ...rest } = updatedShoeData;
+        const problem = validateProductFields(rest);
+        if (problem) return { success: false, error: problem };
         const data: Record<string, unknown> = { ...rest };
+        if (rest.availableColors) data.availableColors = normalizeColors(rest.availableColors).colors;
         if (typeof featured === 'boolean') data.featured = featured;
         if (stock === null) data.stock = FieldValue.delete();
         else if (stock !== undefined) data.stock = sanitizeStock(stock);
@@ -155,6 +163,60 @@ export async function deleteProduct(idToken: string, shoeId: string) {
         await adminDb.collection('shoes').doc(shoeId).delete();
         return { success: true };
     } catch (error) { return fail(error); }
+}
+
+// ============ NORMALISATION DES COULEURS (admin produits) ============
+export type ColorNormalizationItem = { id: string; name: string; before: string[]; after: string[]; unmapped: string[] };
+
+/** Calcul (sans rien écrire) des changements de couleurs à appliquer à tous les produits. */
+async function computeColorNormalization(): Promise<ColorNormalizationItem[]> {
+    if (!adminDb) return [];
+    const snapshot = await adminDb.collection('shoes').get();
+    const items: ColorNormalizationItem[] = [];
+    for (const doc of snapshot.docs) {
+        const shoe = doc.data() as Shoe;
+        const colors = shoe.availableColors ?? [];
+        const result = normalizeColors(colors);
+        if (!result.changed && result.unmapped.length === 0) continue;
+        items.push({ id: doc.id, name: shoe.name, before: colors.map((c) => c.name), after: result.colors.map((c) => c.name), unmapped: result.unmapped });
+    }
+    return items;
+}
+
+/** Aperçu: ce qui changerait, produit par produit. Aucune écriture. */
+export async function previewColorNormalization(idToken: string): Promise<{ items: ColorNormalizationItem[]; error?: string }> {
+    try {
+        await requireRole(idToken, ['productManager']);
+        return { items: await computeColorNormalization() };
+    } catch (error) {
+        const failure = fail(error);
+        return { items: [], error: failure.error };
+    }
+}
+
+/**
+ * Applique la normalisation (recalculée côté serveur, jamais d'après le client).
+ * Les produits qui ont une couleur sans équivalent dans la palette sont ignorés et listés.
+ */
+export async function applyColorNormalization(idToken: string): Promise<{ success: boolean; updated: number; skipped: ColorNormalizationItem[]; error?: string }> {
+    if (!adminDb) return { success: false, updated: 0, skipped: [], error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const items = await computeColorNormalization();
+        const skipped = items.filter((i) => i.unmapped.length > 0);
+        let updated = 0;
+        for (const item of items.filter((i) => i.unmapped.length === 0)) {
+            const ref = adminDb.collection('shoes').doc(item.id);
+            const snap = await ref.get();
+            const colors = (snap.data() as Shoe | undefined)?.availableColors ?? [];
+            await ref.update({ availableColors: normalizeColors(colors).colors });
+            updated += 1;
+        }
+        return { success: true, updated, skipped };
+    } catch (error) {
+        const failure = fail(error);
+        return { success: false, updated: 0, skipped: [], error: failure.error };
+    }
 }
 
 // ============ CATEGORY ACTIONS (admin) ============
@@ -318,10 +380,11 @@ export async function createOrder(
       for (const it of data.items) {
         const product = products.get(it.productId);
         if (!product) throw new OrderError("Un produit de votre panier n'existe plus.");
+        if (!isPriceValid(product.price)) throw new OrderError(`${product.name} est momentanément indisponible.`);
         if (product.availableSizes?.length && !product.availableSizes.includes(it.size)) {
           throw new OrderError(`Taille indisponible pour ${product.name}.`);
         }
-        if (product.availableColors?.length && !product.availableColors.some((c) => c.name === it.color)) {
+        if (product.availableColors?.length && !product.availableColors.some((c) => canonicalColorName(c.name) === canonicalColorName(it.color))) {
           throw new OrderError(`Couleur indisponible pour ${product.name}.`);
         }
         const key = `${product.id}|${it.size}`;

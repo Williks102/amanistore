@@ -29,6 +29,7 @@ import {
   createOrder, getOrdersForUser, validateOrderDelivery, updateOrderStatus,
   createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode,
   createPromoCode, getContactMessages, deleteContactMessage,
+  previewColorNormalization, applyColorNormalization,
 } from './actions';
 
 const shoe = {
@@ -434,5 +435,84 @@ describe('messages de contact (admin)', () => {
     expect((await getContactMessages('tok')).map((m) => m.id)).toEqual(['m2', 'm1']);
     expect((await deleteContactMessage('tok', 'm1')).success).toBe(true);
     expect(db.all('contactMessages')).toHaveLength(1);
+  });
+});
+
+describe('validation des produits (serveur)', () => {
+  beforeEach(() => { h.roleOk = true; });
+
+  it('createProduct refuse prix absurde, pointure invalide, couleur inconnue', async () => {
+    expect((await createProduct('tok', { ...shoe, price: 7000022 } as any)).success).toBe(false);
+    expect((await createProduct('tok', { ...shoe, availableSizes: [36, 3637] } as any)).error).toMatch(/3637/);
+    expect((await createProduct('tok', { ...shoe, availableColors: [{ name: 'Turquoise', hex: '#0ff' }] } as any)).error).toMatch(/Turquoise/);
+    expect(db.all('shoes').filter(([id]) => id.startsWith('shoes-'))).toHaveLength(0);
+  });
+
+  it('createProduct normalise les couleurs connues', async () => {
+    const r = await createProduct('tok', { ...shoe, availableColors: [{ name: 'noire', hex: '#000000' }, { name: 'Maron', hex: '#f59105' }] } as any);
+    expect(r.success).toBe(true);
+    const created = db.all('shoes').find(([id]) => id.startsWith('shoes-'))![1];
+    expect(created.availableColors).toEqual([{ name: 'Noir', hex: '#1C1B1A' }, { name: 'Marron', hex: '#6B4423' }]);
+  });
+
+  it('updateProduct valide seulement les champs envoyés', async () => {
+    expect((await updateProduct('tok', 'shoe1', { description: 'Nouvelle description' })).success).toBe(true);
+    expect((await updateProduct('tok', 'shoe1', { price: 5 })).success).toBe(false);
+    expect(db.get('shoes', 'shoe1')!.price).toBe(10000);
+    expect((await updateProduct('tok', 'shoe1', { availableColors: [{ name: 'Bleue- nuit', hex: '#000' }] })).success).toBe(true);
+    expect(db.get('shoes', 'shoe1')!.availableColors).toEqual([{ name: 'Bleu nuit', hex: '#14213D' }]);
+  });
+});
+
+describe('normalisation des couleurs du catalogue', () => {
+  beforeEach(() => {
+    h.roleOk = true;
+    db.seed('shoes', 'messy', { ...shoe, name: 'Sale', availableColors: [{ name: 'noir', hex: '#000' }, { name: 'Noire', hex: '#262626' }] });
+    db.seed('shoes', 'unknown', { ...shoe, name: 'Inconnue', availableColors: [{ name: 'Turquoise', hex: '#0ff' }, { name: 'maron', hex: '#f59105' }] });
+  });
+
+  it('aperçu: liste les changements sans rien écrire', async () => {
+    const before = db.writes.length;
+    const r = await previewColorNormalization('tok');
+    expect(db.writes.length).toBe(before);
+    const messy = r.items.find((i) => i.id === 'messy')!;
+    expect(messy.before).toEqual(['noir', 'Noire']);
+    expect(messy.after).toEqual(['Noir']);
+    expect(r.items.find((i) => i.id === 'unknown')!.unmapped).toEqual(['Turquoise']);
+    // « Noir » avec un code différent de la palette (#000 au lieu de #1C1B1A): nom correct mais code à normaliser aussi
+    expect(r.items.some((i) => i.id === 'shoe1')).toBe(true);
+  });
+
+  it('application: corrige les produits sûrs, saute ceux avec une couleur inconnue', async () => {
+    const r = await applyColorNormalization('tok');
+    expect(r.success).toBe(true);
+    expect(r.skipped.map((s) => s.id)).toEqual(['unknown']);
+    expect(db.get('shoes', 'messy')!.availableColors).toEqual([{ name: 'Noir', hex: '#1C1B1A' }]);
+    expect(db.get('shoes', 'unknown')!.availableColors[0].name).toBe('Turquoise'); // intact
+    expect(db.get('shoes', 'unknown')!.availableColors[1].name).toBe('maron');
+  });
+
+  it('refusées sans le rôle produit', async () => {
+    h.roleOk = false;
+    expect((await previewColorNormalization('tok')).items).toEqual([]);
+    const r = await applyColorNormalization('tok');
+    expect(r.success).toBe(false);
+    expect(db.get('shoes', 'messy')!.availableColors[0].name).toBe('noir');
+  });
+});
+
+describe('createOrder: prix invalide et couleurs historiques', () => {
+  it('refuse un produit au prix absurde', async () => {
+    db.seed('shoes', 'bad', { ...shoe, price: 7000022 });
+    const r = await createOrder('tok', { ...customer, items: [line({ productId: 'bad' })] });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/indisponible/);
+    expect(db.all('orders')).toHaveLength(0);
+  });
+
+  it('accepte un panier ancien dont la couleur a été normalisée depuis', async () => {
+    db.seed('shoes', 'norm', { ...shoe, availableColors: [{ name: 'Noir', hex: '#1C1B1A' }] });
+    const r = await createOrder('tok', { ...customer, items: [line({ productId: 'norm', color: 'noire' })] });
+    expect(r.success).toBe(true);
   });
 });
