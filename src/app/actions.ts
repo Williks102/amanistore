@@ -474,6 +474,51 @@ export async function createOrder(
   } catch (error) { return fail(error); }
 }
 
+const ClaimsSchema = z.array(z.object({
+  orderId: z.string().regex(/^[A-Za-z0-9_-]{6,60}$/),
+  secret: z.string().regex(/^[a-f0-9]{32}$/),
+})).max(10);
+
+/**
+ * Rattache à son compte les commandes passées sans compte sur cet appareil. La preuve est le secret
+ * reçu à la création (seul l'appareil qui a commandé le connaît). Le secret est supprimé ensuite:
+ * une commande rattachée ne peut plus être réclamée par personne d'autre.
+ * Retourne les commandes désormais au compte de la cliente (y compris celles déjà rattachées à elle).
+ */
+export async function claimGuestOrders(idToken: string, claims: unknown): Promise<{ success: boolean; claimed: string[]; failed: number; error?: string }> {
+  if (!adminDb) return { success: false, claimed: [], failed: 0, error: 'DB connection failed.' };
+  const db = adminDb;
+  try {
+    const uid = await requireUser(idToken);
+    if (!(await rateLimit('claim-guest-orders', 10, 60_000))) return { success: false, claimed: [], failed: 0, error: 'Trop de tentatives. Réessayez dans un instant.' };
+    const parsed = ClaimsSchema.safeParse(claims);
+    if (!parsed.success) return { success: false, claimed: [], failed: 0, error: 'Demande invalide.' };
+
+    const claimed: string[] = [];
+    let failed = 0;
+    for (const { orderId, secret } of parsed.data) {
+      const ok = await db.runTransaction(async (tx) => {
+        const ref = db.collection('orders').doc(orderId);
+        const snap = await tx.get(ref);
+        const data = snap.data();
+        if (!snap.exists || !data) return false;
+        const stored: unknown = data.guestSecret;
+        if (typeof stored !== 'string') return data.userId === uid; // déjà rattachée à cette cliente: rien à refaire
+        if (data.userId !== '' || stored.length !== secret.length) return false;
+        if (!timingSafeEqual(Buffer.from(stored), Buffer.from(secret))) return false;
+        tx.update(ref, { userId: uid, guestSecret: FieldValue.delete(), guest: FieldValue.delete(), claimedAt: FieldValue.serverTimestamp() });
+        return true;
+      });
+      if (ok) claimed.push(orderId);
+      else failed += 1;
+    }
+    return { success: true, claimed, failed };
+  } catch (error) {
+    const failure = fail(error);
+    return { success: false, claimed: [], failed: 0, error: failure.error };
+  }
+}
+
 /** Relit la commande d'un invité grâce au secret reçu à la création (compte tenu du code de validation qu'elle contient). */
 export async function getGuestOrder(orderId: string, secret: string): Promise<{ order: Order | null; error?: string }> {
   if (!/^[A-Za-z0-9_-]{6,60}$/.test(orderId) || !/^[a-f0-9]{32}$/.test(secret)) return { order: null, error: 'Commande introuvable.' };

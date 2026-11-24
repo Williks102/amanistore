@@ -1,222 +1,213 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ShoppingBag, UserPlus } from 'lucide-react';
+import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import type { Order, OrderStatus } from '@/lib/types';
-import { ShoppingBag, KeyRound } from 'lucide-react';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
-import { getOrdersForUser } from '@/app/actions';
-import { getIdToken } from '@/lib/get-id-token';
+import { Skeleton } from '@/components/ui/skeleton';
+import { LoadError } from '@/components/LoadError';
+import { EmptyState } from '@/components/EmptyState';
 import { HomeButton, LogoutButton } from '@/components/DashboardActions';
-import { OrderStatusBadge } from '@/components/OrderStatusBadge';
+import { OrderCard } from '@/components/account/OrderCard';
+import { OrderHistoryRow } from '@/components/account/OrderHistoryRow';
+import { ProfileCard } from '@/components/account/ProfileCard';
+import type { Category, Order } from '@/lib/types';
+import { claimGuestOrders, getGuestOrder, getOrdersForUser } from '@/app/actions';
+import { getCategories } from '@/services/categoryService';
+import { getProducts } from '@/services/productService';
+import { getIdToken } from '@/lib/get-id-token';
+import { listGuestOrders, removeGuestOrders } from '@/lib/guest-orders';
+import { planReorder } from '@/lib/reorder';
+import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
-import { Skeleton } from '@/components/ui/skeleton';
 
+const byDateDesc = (a: Order, b: Order) => new Date(b.date).getTime() - new Date(a.date).getTime();
 
-const OrderTracker = ({ orders }: { orders: Order[] }) => {
-  return (
-    <div className="space-y-6">
-      {orders.map((order) => (
-        <Card key={order.id}>
-          <CardHeader className="flex flex-row justify-between items-start">
-            <div>
-              <CardTitle className="text-xl">Commande #{order.id.substring(0, 6)}...</CardTitle>
-              <CardDescription>
-                Passée le {new Date(order.date).toLocaleDateString('fr-FR')} - Total: {`XOF ${order.total.toLocaleString('fr-FR')}`}
-              </CardDescription>
-            </div>
-            <OrderStatusBadge status={order.status} className="text-sm" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between text-sm font-medium mb-4">
-              <div className={cn("text-center", order.status === 'En attente' ? 'text-primary font-bold' : 'text-muted-foreground')}>En attente</div>
-              <div className={cn("text-center", order.status === 'Prêt' ? 'text-primary font-bold' : 'text-muted-foreground')}>Prêt</div>
-              <div className={cn("text-center", order.status === 'Livré' ? 'text-primary font-bold' : 'text-muted-foreground')}>Livré</div>
-            </div>
-            <div className="relative w-full h-2 bg-muted rounded-full">
-              <div
-                className="absolute top-0 left-0 h-2 bg-primary rounded-full transition-all duration-500"
-                style={{
-                  width:
-                    order.status === 'En attente'
-                      ? '15%'
-                      : order.status === 'Prêt'
-                      ? '50%'
-                      : order.status === 'Livré'
-                      ? '100%'
-                      : '0%',
-                }}
-              />
-            </div>
-            <Separator className="my-6" />
-
-            {order.status !== 'Livré' && order.status !== 'Annulé' && (
-                <div className="bg-primary/10 border border-primary/30 rounded-lg p-4 mb-6 text-center">
-                    <div className="flex items-center justify-center mb-2">
-                        <KeyRound className="h-5 w-5 mr-2 text-primary" />
-                        <h3 className="font-semibold text-foreground">Votre code de livraison</h3>
-                    </div>
-                    <p className="text-2xl font-bold tracking-widest text-primary">{order.validationCode}</p>
-                    <p className="text-xs text-muted-foreground mt-1">À fournir au livreur pour confirmer la réception.</p>
-                </div>
-            )}
-            
-            <p className="font-semibold mb-3">Articles de votre commande :</p>
-            <div className="space-y-4">
-              {order.items.map(item => (
-                <div key={item.id} className="flex items-center gap-4 text-sm">
-                    <Image src={item.product.gridImage.url} alt={item.product.name} width={60} height={60} className="rounded-md object-cover" />
-                    <div>
-                        <p className="font-medium">{item.product.name}</p>
-                        <p className="text-muted-foreground">Taille: {item.size} | {`XOF ${item.product.price.toLocaleString('fr-FR')}`}</p>
-                    </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-};
-
-const OrderHistory = ({ orders }: { orders: Order[] }) => {
-  return (
-    <div className="space-y-4">
-      {orders.map((order) => (
-        <div key={order.id} className="border rounded-lg p-4 flex justify-between items-center">
-          <div>
-            <p className="font-semibold">#{order.id.substring(0,6)}...</p>
-            <p className="text-sm text-muted-foreground">
-              {new Date(order.date).toLocaleDateString('fr-FR')} - {`XOF ${order.total.toLocaleString('fr-FR')}`}
-            </p>
-          </div>
-          <OrderStatusBadge status={order.status} />
-        </div>
-      ))}
-    </div>
-  );
-};
-
+/**
+ * « Mon compte ». Connectée: commandes du compte (celles passées sans compte sur cet appareil y sont rattachées
+ * automatiquement) et coordonnées. Pas connectée: les commandes passées sans compte sur cet appareil.
+ */
 const BuyerDashboard = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
-  const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const { toast } = useToast();
+  const { addItem, onOpen } = useCart();
+  const { user, isUserLoading } = useUser();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-      return;
+    getCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
+
+  const loadAccountOrders = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(false);
+    const token = await getIdToken();
+    // Rattachement des commandes passées sans compte sur cet appareil (preuve: leur secret, gardé ici).
+    const local = listGuestOrders();
+    if (local.length > 0) {
+      const claim = await claimGuestOrders(token, local);
+      if (claim.success && claim.claimed.length > 0) {
+        removeGuestOrders(claim.claimed);
+        const n = claim.claimed.length;
+        toast({ title: 'Commandes rattachées à votre compte', description: `${n} commande${n > 1 ? 's' : ''} passée${n > 1 ? 's' : ''} sans compte ${n > 1 ? 'sont' : 'est'} maintenant dans votre compte.` });
+      }
     }
-
-    if (user) {
-      const fetchOrders = async () => {
-        setIsLoading(true);
-        const { orders: fetchedOrders, error } = await getOrdersForUser(await getIdToken());
-        
-        if (error) {
-          console.error("Failed to fetch orders:", error);
-          toast({
-            title: 'Erreur',
-            description: 'Impossible de charger vos commandes.',
-            variant: 'destructive'
-          })
-          setOrders([]);
-        } else if (fetchedOrders) {
-          setOrders(fetchedOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-        }
-
-        setIsLoading(false);
-      };
-      fetchOrders();
+    const { orders: fetched, error } = await getOrdersForUser(token);
+    if (error || !fetched) {
+      setLoadError(true); // un vrai message d'erreur, plus de faux « aucune commande »
+      setOrders([]);
+    } else {
+      setOrders(fetched.sort(byDateDesc));
     }
-  }, [user, isUserLoading, router, toast]);
+    setIsLoading(false);
+  }, [toast]);
 
-  const currentOrders = orders.filter(o => o.status === 'En attente' || o.status === 'Prêt');
-  const pastOrders = orders.filter(o => o.status === 'Livré' || o.status === 'Annulé');
+  const loadGuestOrders = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(false);
+    const local = listGuestOrders();
+    const results = await Promise.all(local.map(({ orderId, secret }) => getGuestOrder(orderId, secret)));
+    const found = results.flatMap((r) => (r.order ? [r.order] : []));
+    const technicalFailure = results.some((r) => !r.order && r.error && r.error !== 'Commande introuvable.');
+    setLoadError(found.length === 0 && technicalFailure);
+    setOrders(found.sort(byDateDesc));
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (isUserLoading) return;
+    if (user) loadAccountOrders();
+    else loadGuestOrders();
+  }, [user, isUserLoading, loadAccountOrders, loadGuestOrders]);
+
+  const handleReorder = useCallback(async (order: Order) => {
+    try {
+      const plan = planReorder(order.items, await getProducts());
+      if (plan.toAdd.length === 0) {
+        toast({ title: 'Impossible de recommander', description: plan.skipped.map((s) => `${s.name}: ${s.reason}`).join(' · ') || 'Aucun article disponible.', variant: 'destructive' });
+        return;
+      }
+      plan.toAdd.forEach((line) => addItem(line.product, line.quantity, line.size, line.color));
+      const notes = [
+        plan.skipped.length ? `Non ajouté: ${plan.skipped.map((s) => `${s.name} (${s.reason})`).join(', ')}.` : '',
+        plan.reduced.length ? `Quantité réduite (stock): ${plan.reduced.join(', ')}.` : '',
+      ].filter(Boolean).join(' ');
+      toast({ title: `${plan.toAdd.length} article${plan.toAdd.length > 1 ? 's' : ''} ajouté${plan.toAdd.length > 1 ? 's' : ''} au panier`, description: notes || 'Vérifiez votre panier avant de commander.' });
+      onOpen();
+    } catch {
+      toast({ title: 'Erreur', description: 'Impossible de recommander pour le moment.', variant: 'destructive' });
+    }
+  }, [addItem, onOpen, toast]);
+
+  const currentOrders = useMemo(() => orders.filter((o) => o.status === 'En attente' || o.status === 'Prêt'), [orders]);
+  const pastOrders = useMemo(() => orders.filter((o) => o.status === 'Livré' || o.status === 'Annulé'), [orders]);
+  const isGuestView = !isUserLoading && !user;
 
   if (isUserLoading || isLoading) {
     return (
-        <div className="container mx-auto py-10 px-4">
-            <div className="flex justify-between items-center mb-8">
-                <Skeleton className="h-9 w-48" />
-                <Skeleton className="h-10 w-44" />
+      <div className="flex min-h-screen flex-col">
+        <Header categories={categories} onToggleSidebar={() => router.push('/shop?search=1')} />
+        <main aria-busy="true" className="container mx-auto flex-grow px-4 py-8">
+          <Skeleton className="mb-8 h-9 w-48" />
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
+            <div className="space-y-4 lg:col-span-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-40 w-full" />
             </div>
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                <div className="lg:col-span-2 space-y-4">
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-40 w-full" />
-                </div>
-                <div className="space-y-4">
-                    <Skeleton className="h-24 w-full" />
-                    <Skeleton className="h-32 w-full" />
-                </div>
+            <div className="space-y-4">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-32 w-full" />
             </div>
-        </div>
+          </div>
+        </main>
+      </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <div className="container mx-auto py-10 px-4">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Mon Compte</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button asChild>
-            <Link href="/shop">
-              <ShoppingBag className="mr-2 h-4 w-4" /> Faire un autre achat
-            </Link>
-          </Button>
-          <HomeButton variant="outline" />
-          <LogoutButton variant="outline" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Suivi de commande</CardTitle>
-              <CardDescription>Suivez en temps réel l'avancement de vos commandes en cours.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {currentOrders.length > 0 ? (
-                    <OrderTracker orders={currentOrders} />
-                ) : (
-                    <p className="text-muted-foreground text-center py-8">Vous n'avez aucune commande en cours.</p>
-                )}
-            </CardContent>
-          </Card>
+    <div className="flex min-h-screen flex-col">
+      <Header categories={categories} onToggleSidebar={() => router.push('/shop?search=1')} />
+      <main className="container mx-auto flex-grow px-4 py-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">{isGuestView ? 'Mes commandes' : 'Mon compte'}</h1>
+            <p className="mt-1 text-muted-foreground">{isGuestView ? 'Commandes passées sans compte sur cet appareil.' : user?.email}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild>
+              <Link href="/shop"><ShoppingBag className="mr-2 h-4 w-4" aria-hidden="true" /> Faire un autre achat</Link>
+            </Button>
+            <HomeButton variant="outline" />
+            {!isGuestView && <LogoutButton variant="outline" />}
+          </div>
         </div>
 
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Historique des commandes</CardTitle>
-              <CardDescription>Consultez vos commandes terminées ou annulées.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {pastOrders.length > 0 ? (
-                <OrderHistory orders={pastOrders} />
-              ) : (
-                 <p className="text-muted-foreground text-center py-8">Aucun historique de commande trouvé.</p>
-              )}
+        {isGuestView && (
+          <Card className="mb-8 border-primary/30 bg-primary/10">
+            <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm">
+                <strong>Créez un compte pour retrouver vos commandes partout.</strong> Celles passées sur cet appareil seront rattachées automatiquement à votre compte.
+              </p>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <Button asChild><Link href="/signup"><UserPlus className="mr-2 h-4 w-4" aria-hidden="true" /> Créer un compte</Link></Button>
+                <Button asChild variant="outline"><Link href="/login">Se connecter</Link></Button>
+              </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        )}
+
+        {loadError ? (
+          <LoadError message="Impossible de charger vos commandes." onRetry={isGuestView ? loadGuestOrders : loadAccountOrders} />
+        ) : (
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-12">
+            <section aria-labelledby="current-title" className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle id="current-title">Suivi de commande</CardTitle>
+                  <CardDescription>L&apos;avancement de vos commandes en cours.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {currentOrders.length > 0 ? (
+                    currentOrders.map((order) => <OrderCard key={order.id} order={order} onReorder={handleReorder} />)
+                  ) : (
+                    <EmptyState
+                      icon={<ShoppingBag className="h-8 w-8" />}
+                      title={isGuestView ? 'Aucune commande sur cet appareil' : 'Aucune commande en cours'}
+                      hint={isGuestView ? 'Passée depuis un autre appareil ? Connectez-vous pour la retrouver.' : 'Vos prochaines commandes apparaîtront ici.'}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+
+            <div className="space-y-8">
+              <section aria-labelledby="history-title">
+                <Card>
+                  <CardHeader>
+                    <CardTitle id="history-title">Historique</CardTitle>
+                    <CardDescription>Vos commandes livrées ou annulées.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {pastOrders.length > 0 ? (
+                      <ul className="space-y-3">{pastOrders.map((order) => <OrderHistoryRow key={order.id} order={order} onReorder={handleReorder} />)}</ul>
+                    ) : (
+                      <EmptyState title="Aucun historique" hint="Les commandes livrées ou annulées s'afficheront ici." />
+                    )}
+                  </CardContent>
+                </Card>
+              </section>
+              {!isGuestView && <ProfileCard />}
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 };

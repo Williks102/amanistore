@@ -139,6 +139,24 @@ Sur téléphone, le prix d'une ligne du panier était coupé à droite du sélec
 ### Correction: « Coup de cœur » introuvable dans l'admin (signalé par la boutique)
 La case existait, mais seulement dans la fenêtre « Modifier » et dans le formulaire de création, à 775 px du haut d'une fenêtre de 760 px (formulaire de 1 380 px): invisible sans défiler, et rien dans la liste. Maintenant: bouton **« Mettre en avant »** sur chaque produit de la liste (un geste, état « Retirer de la sélection »), bandeau qui explique l'effet sur l'accueil (nombre de coups de cœur, 3 en haut de l'accueil, 6 dans la sélection, les plus récents d'abord), et la case remontée en 2e position dans « Modifier » (205 px du haut) et dans « Créer un produit ». La liste devient une liste de cartes lisible sur téléphone (le tableau à 4 colonnes y était serré), boutons à 44 px. Leçon: une fonction qui n'est pas visible sans défiler n'existe pas pour l'utilisatrice; vérifier la position des options annoncées.
 
+### Page « Mon compte » (24/11/2026)
+Constats (lecture du code, page non mesurable sans connexion): articles sans quantité ni couleur (une commande de 3 paires = une ligne), numéro tronqué « #a1b2c3... », une erreur de chargement affichée comme « aucune commande en cours », aucun profil (nom, téléphone et adresse retapés à chaque commande), **aucun « mot de passe oublié » sur tout le site**, commandes sans compte introuvables (la page renvoyait vers la connexion), pas d'en-tête de boutique, pas de lien vers les produits ni de moyen de recommander ou de poser une question.
+
+| Mesure | Avant | Après |
+|---|---|---|
+| Quantité et couleur par article | absentes | oui, avec total par ligne, sous-total, remise et total |
+| Numéro de commande | `#a1b2c3...` | `N° A1B2C3` |
+| Erreur de chargement | faux « aucune commande » | message d'erreur avec « Réessayer » |
+| Mot de passe oublié | inexistant | page dédiée, e-mail en français, même réponse que le compte existe ou non |
+| Coordonnées | retapées à chaque commande | enregistrées, préremplies (case « Enregistrer mes coordonnées ») |
+| Commande sans compte | introuvable | visible sur l'appareil, rattachée au compte à la connexion |
+| Actions par commande | aucune | Recommander (stock et disponibilité contrôlés), question WhatsApp (numéro de commande, jamais le code de livraison), copier le code |
+| Éléments sous 44 px, débordement (320, 390, 1280 px, maquette de commandes) | n/a | 0, aucun |
+
+Détails: la barre de suivi annonce « Étape 2 sur 3 : Prêt » aux lecteurs d'écran; chaque état a une explication littérale (« Votre commande est préparée »), sans promesse de délai ni de procédure. Les règles Firestore bornent le profil (nom 100, téléphone 30, adresse 500 caractères), vérifiées par mutation. `claimGuestOrders` exige le secret de la commande, le supprime après rattachement, et refuse les commandes d'autrui. Le profil n'est lu que quand la fenêtre de commande s'ouvre (pas à chaque page).
+
+Limites: je n'ai pas pu tester la connexion, l'e-mail de réinitialisation ni le rattachement de bout en bout (pas d'accès administrateur Firebase, et je n'envoie pas d'e-mail ni n'écris dans votre base). La logique serveur et les règles sont couvertes par des tests; l'affichage a été vérifié avec une maquette de commandes.
+
 ### Limites
 Une commande d'invité n'est pas rattachée à un compte et ne se relit que sur l'appareil qui l'a passée (ou avec le code de validation, par WhatsApp). Je n'ai pas pu passer une vraie commande de bout en bout (pas d'accès administrateur Firebase dans mon environnement, et je n'écris pas dans votre base): le serveur est couvert par 140 tests, le parcours jusqu'au formulaire a été vérifié dans le navigateur. Le téléphone n'est pas testé en réel, et les photos ne se chargeaient pas dans mon environnement.
 

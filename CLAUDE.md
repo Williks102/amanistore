@@ -10,7 +10,8 @@ Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actio
 
 ## Sécurité (à ne pas défaire)
 - Toute Server Action sensible vérifie le jeton Firebase et le rôle (`src/lib/server-auth.ts`, rôles lus dans `roles/{uid}`, jamais dans `users/{uid}`).
-- Une commande se crée seulement par `createOrder` (prix, remise, stock et code de livraison calculés côté serveur). Elle accepte les **invités** (jeton absent): limite de débit plus stricte (3 par 10 min et par IP), champ piège anti-robot, au plus 3 commandes en attente par numéro de téléphone, et un **secret propre à la commande** (renvoyé une seule fois, gardé sur l'appareil, relu par `getGuestOrder`). Un jeton fourni mais invalide est refusé, jamais traité comme un invité. Le secret ne sort jamais du serveur (`orderFromDoc` le retire).
+- Une commande se crée seulement par `createOrder` (prix, remise, stock et code de livraison calculés côté serveur). Elle accepte les **invités** (jeton absent): limite de débit plus stricte (3 par 10 min et par IP), champ piège anti-robot, au plus 3 commandes en attente par numéro de téléphone, et un **secret propre à la commande** (renvoyé une seule fois, gardé sur l'appareil, relu par `getGuestOrder`). Un jeton fourni mais invalide est refusé, jamais traité comme un invité. Le secret ne sort jamais du serveur (`orderFromDoc` le retire). À la connexion, `claimGuestOrders` rattache au compte les commandes d'invité de l'appareil (preuve: le secret, supprimé ensuite).
+- Le profil client (`users/{uid}`: nom, téléphone, adresse) est borné par les règles (100, 30 et 500 caractères) et ne permet toujours aucun rôle.
 - Un produit au prix hors 1 000 à 1 000 000 XOF est masqué de la boutique et refusé par `createOrder`; pointures (16 à 50) et couleurs (palette `src/lib/colors.ts`) sont validées côté serveur.
 - Les règles Firestore refusent par défaut ; les modifier impose de mettre à jour `tests/rules`.
 

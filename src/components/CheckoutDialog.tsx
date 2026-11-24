@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,6 +33,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { createOrder, validatePromoCode } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { saveGuestOrder } from '@/lib/guest-orders';
+import { useProfile } from '@/hooks/use-profile';
 import Link from 'next/link';
 import { computeDiscount, promoProblem } from '@/lib/promo';
 import type { PromoCode } from '@/lib/types';
@@ -62,6 +63,9 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCode | null>(null);
   const [honeypot, setHoneypot] = useState(''); // champ piège: invisible pour une personne, rempli par un robot
   const { user } = useUser();
+  // Coordonnées enregistrées: lues seulement quand la fenêtre est ouverte par une cliente connectée.
+  const { profile, loaded: profileLoaded, save: saveProfile } = useProfile(isOpen && !!user);
+  const [rememberProfile, setRememberProfile] = useState(true);
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
   
@@ -87,14 +91,17 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
     },
   });
   
-  useState(() => {
-      form.reset({
-        name: user?.displayName || '',
-        phone: user?.phoneNumber || '',
-        email: user?.email || '',
-        address: '',
-      });
-  })
+  // Préremplissage: profil enregistré d'abord, sinon ce que le compte connaît. On ne touche pas à ce que la cliente a déjà tapé.
+  useEffect(() => {
+    if (!isOpen || form.formState.isDirty) return;
+    form.reset({
+      name: profile.name || user?.displayName || '',
+      phone: profile.phone || user?.phoneNumber || '',
+      email: user?.email || '',
+      address: profile.address || '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, profileLoaded, profile, user]);
 
 
   const handleApplyPromoCode = async () => {
@@ -138,6 +145,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
             throw new Error(result.error || 'Commande refusée.');
         }
         if (result.guestSecret) saveGuestOrder(result.orderId, result.guestSecret);
+        if (user && rememberProfile) void saveProfile({ name: values.name, phone: values.phone, address: values.address }); // sans bloquer la commande
         toast({
             title: 'Commande passée avec succès !',
             description: 'Vous allez être redirigé vers la page de confirmation.',
@@ -252,6 +260,13 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
               />
               
               <Separator />
+
+              {user && (
+                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
+                  <input type="checkbox" className="h-5 w-5 accent-primary" checked={rememberProfile} onChange={(e) => setRememberProfile(e.target.checked)} />
+                  Enregistrer mes coordonnées pour la prochaine commande
+                </label>
+              )}
 
               <div className="space-y-2">
                   <FormLabel>Code promo</FormLabel>

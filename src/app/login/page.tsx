@@ -104,8 +104,9 @@ export default function LoginPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe</Label>
-              <Input id="password" type="password" {...register("password")} />
+              <Input id="password" type="password" autoComplete="current-password" {...register("password")} />
                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              <Link href="/mot-de-passe-oublie" className="inline-flex min-h-11 items-center text-sm underline underline-offset-4 hover:text-primary">Mot de passe oublié ?</Link>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
