@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/EmptyState';
+import { NotificationCard } from '@/components/admin/NotificationCard';
 import { ageLabel, computeDashboard, type PeriodComparison } from '@/lib/dashboard-stats';
 import { shortOrderNumber } from '@/lib/order-display';
 import { cn } from '@/lib/utils';
@@ -278,6 +279,13 @@ export function DashboardView({ orders, shoes, categories, promoCodes, messages,
               <Button variant="outline" size="sm" className="mt-4" onClick={() => onNavigate('promotions')}>Gérer les promotions</Button>
             </CardContent>
           </Card>
+        </section>
+      )}
+
+      {isAdmin && (
+        <section aria-labelledby="dash-notif" className={SECTION}>
+          <h2 id="dash-notif" className="text-xl font-semibold">Notifications</h2>
+          <NotificationCard />
         </section>
       )}
 

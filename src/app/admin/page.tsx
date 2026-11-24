@@ -44,6 +44,8 @@ import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { ColorPicker } from '@/components/ColorPicker';
 import { AdminProductList } from '@/components/admin/AdminProductList';
 import { DashboardView } from '@/components/admin/DashboardView';
+import { AdminOrderList } from '@/components/admin/AdminOrderList';
+import { OrderDetailDialog } from '@/components/admin/OrderDetailDialog';
 import { EmptyState } from '@/components/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -132,6 +134,7 @@ const AdminPage = () => {
 
   // Order states
   const [orderStatusFilter, setOrderStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null); // fiche ouverte (relue dans la liste: elle se met à jour après un changement de statut)
 
   // Delivery Validation states
   const [validationCode, setValidationCode] = useState('');
@@ -595,40 +598,7 @@ const AdminPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <Table>
-                <TableHeader><TableRow><TableHead>Client</TableHead><TableHead>Total</TableHead><TableHead>Statut</TableHead><TableHead>Date</TableHead><TableHead>Modifier le statut</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell>
-                        <div className="font-medium">{order.customerName}{order.guest && <Badge variant="secondary" className="ml-2">Invité</Badge>}</div>
-                        <div className="text-xs text-muted-foreground">{order.customerPhone}</div>
-                      </TableCell>
-                      <TableCell>{order.total.toLocaleString('fr-FR')} XOF</TableCell>
-                      <TableCell><OrderStatusBadge status={order.status} /></TableCell>
-                      <TableCell>{new Date(order.date).toLocaleDateString('fr-FR')}</TableCell>
-                      <TableCell>
-                        <Select value={order.status} onValueChange={(v) => handleOrderStatusChange(order.id, v as OrderStatus)}>
-                          <SelectTrigger className="w-[140px]" aria-label={`Modifier le statut de la commande de ${order.customerName}`}><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="En attente">En attente</SelectItem>
-                            <SelectItem value="Prêt">Prêt</SelectItem>
-                            <SelectItem value="Livré">Livré</SelectItem>
-                            <SelectItem value="Annulé">Annulé</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {filteredOrders.length === 0 && (
-                <EmptyState
-                  icon={<Inbox className="h-8 w-8" />}
-                  title={orderStatusFilter === 'all' ? 'Aucune commande pour le moment' : `Aucune commande « ${orderStatusFilter} »`}
-                  hint={orderStatusFilter === 'all' ? 'Les commandes passées sur la boutique apparaîtront ici.' : 'Changez le filtre pour voir les autres commandes.'}
-                />
-              )}
+              <AdminOrderList orders={filteredOrders} filter={orderStatusFilter} onOpen={(order) => setOpenOrderId(order.id)} />
             </CardContent>
           </Card>
          );
@@ -1054,6 +1024,11 @@ const AdminPage = () => {
           {renderContent()}
         </main>
       </div>
+      <OrderDetailDialog
+        order={orders.find((o) => o.id === openOrderId) ?? null}
+        onClose={() => setOpenOrderId(null)}
+        onStatusChange={handleOrderStatusChange}
+      />
       {selectedShoe && (
         <EditProductModal
           isOpen={isEditModalOpen}

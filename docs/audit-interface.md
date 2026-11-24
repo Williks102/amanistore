@@ -175,6 +175,17 @@ Les calculs se font dans le navigateur à partir des données déjà chargées, 
 
 Mesures sur des données fictives (320, 390 et 1280 px; rôles admin, orderManager, productManager): aucun débordement, aucun élément sous 44 px. Corrigé en route: le chiffre d'affaires se coupait sur deux lignes sur téléphone.
 
+### Fiche de commande et notification (24/11/2026)
+Constats: la liste des commandes n'affichait que nom, téléphone et total; **les articles, pointures, couleurs et l'adresse de livraison ne se voyaient que par la recherche du code de livraison**, et rien ne prévenait la boutique d'une nouvelle commande (il fallait ouvrir l'admin).
+
+- **Liste des commandes** en cartes (lisibles sur téléphone): numéro, état, badge « Invité », cliente, nombre d'articles, total, bouton « Détails ».
+- **Fiche de commande**: articles à préparer (quantité, pointure, couleur, prix), cliente (téléphone, e-mail, adresse), totaux « à encaisser », changement de statut, **Appeler**, **WhatsApp** (seulement si le numéro commence par un indicatif +225, +221… : on ne devine pas le pays), copier le numéro et l'adresse, **Imprimer** (seule la fiche sort sur le papier). Le code de livraison n'y figure volontairement pas.
+- **Notification de nouvelle commande** par Telegram et/ou e-mail (gratuits), configurée par variables dans Vercel; carte « Notifications » dans le tableau de bord (état des canaux, message de test, mode d'emploi). Le message est minimal: numéro, nombre d'articles, total, prénom; pas de téléphone, d'adresse ni de code.
+- Pourquoi pas WhatsApp: l'API officielle facture les messages envoyés par une entreprise hors de la fenêtre de 24 h (seules les réponses à une cliente qui a écrit en premier sont gratuites); elle demande aussi un compte Meta vérifié, un numéro dédié et des modèles de message approuvés. Les tarifs exacts par pays sont à vérifier sur la page officielle de Meta.
+
+Vérifié dans le navigateur (320, 390, 1280 px, données fictives): aucun débordement, aucun élément sous 44 px, impression limitée à la fiche. Le serveur est couvert par 21 tests supplémentaires (vérifiés par mutation): notification programmée après la réponse, jamais de donnée personnelle, panne sans effet sur la commande, réservée aux admins pour l'état et le test.
+Non testé: l'envoi réel vers Telegram ou Resend (pas d'identifiants dans mon environnement).
+
 ### Limites
 Une commande d'invité n'est pas rattachée à un compte et ne se relit que sur l'appareil qui l'a passée (ou avec le code de validation, par WhatsApp). Je n'ai pas pu passer une vraie commande de bout en bout (pas d'accès administrateur Firebase dans mon environnement, et je n'écris pas dans votre base): le serveur est couvert par 140 tests, le parcours jusqu'au formulaire a été vérifié dans le navigateur. Le téléphone n'est pas testé en réel, et les photos ne se chargeaient pas dans mon environnement.
 
