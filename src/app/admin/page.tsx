@@ -43,6 +43,7 @@ import { RoleGate } from '@/components/RoleGate';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { ColorPicker } from '@/components/ColorPicker';
 import { AdminProductList } from '@/components/admin/AdminProductList';
+import { DashboardView } from '@/components/admin/DashboardView';
 import { EmptyState } from '@/components/EmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -54,7 +55,7 @@ type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories
 
 const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   // Un tableau vide = réservé aux admins (l'admin passe toujours).
-  dashboard: ['orderManager'],
+  dashboard: ['orderManager', 'productManager'],
   orders: ['orderManager'],
   products: ['productManager'],
   'create-product': ['productManager'],
@@ -492,14 +493,17 @@ const AdminPage = () => {
     switch (activeView) {
       case 'dashboard':
         return (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card><CardHeader><CardDescription>Produits</CardDescription><CardTitle>{shoes.length}</CardTitle></CardHeader></Card>
-            <Card><CardHeader><CardDescription>Commandes</CardDescription><CardTitle>{orders.length}</CardTitle></CardHeader></Card>
-            <Card><CardHeader><CardDescription>Catégories</CardDescription><CardTitle>{categories.length}</CardTitle></CardHeader></Card>
-            <Card><CardHeader><CardDescription>Promotions</CardDescription><CardTitle>{promoCodes.length}</CardTitle></CardHeader></Card>
-          </div>
+          <DashboardView
+            orders={orders}
+            shoes={shoes}
+            categories={categories}
+            promoCodes={promoCodes}
+            messages={messages}
+            roles={roles}
+            onNavigate={setActiveView}
+          />
         );
-      
+
       case 'products':
         return (
           <Card>
