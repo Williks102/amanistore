@@ -58,12 +58,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ shoe, onClick }) => {
             />
           </div>
         </CardHeader>
-        <CardContent className="p-4">
-          <h3 className="font-headline text-xl font-semibold truncate">{shoe.name}</h3>
+        <CardContent className="p-3 sm:p-4">
+          <h3 className="font-headline text-lg font-semibold truncate sm:text-xl">{shoe.name}</h3>
         </CardContent>
       </div>
-      <CardFooter className="p-4 pt-0 mt-auto flex justify-between items-center">
-        <p className="text-lg font-semibold text-primary">
+      <CardFooter className="p-3 pt-0 sm:p-4 sm:pt-0 mt-auto flex flex-wrap justify-between items-center gap-2">
+        <p className="text-base font-semibold text-primary sm:text-lg">
           {`XOF ${shoe.price.toLocaleString('fr-FR')}`}
         </p>
         <Button variant="outline" size="icon" onClick={handleAddToCart} disabled={stock.soldOut}>

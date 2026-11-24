@@ -83,6 +83,24 @@ Changements : boutons, champs, listes déroulantes et menus à 44 px (composants
 - **Langue de la page**: `<html lang="fr">` (elle déclarait `en`, ce qui fait mal lire le français aux lecteurs d'écran) et description du site en français.
 - Les messages d'erreur et les toasts utilisent déjà les jetons (rayon, couleurs), rien à changer.
 
+## Refonte de l'accueil (24/11/2026)
+Constats avant: aucun titre principal (`h1`), hero = image avec le texte incrusté et sans bouton, aucune action visible au premier écran sur téléphone, cartes de catégorie = `div` cliquables (pas des liens), « Meilleures Ventes » = les 3 **plus anciens** produits et « Recommandations pour vous » = les 3 suivants (aucune vente ni personnalisation), filtres de la boutique dupliqués sur l'accueil.
+
+| Mesure (accueil) | Avant | Après |
+|---|---|---|
+| `h1` | 0 | 1 |
+| Actions visibles au premier écran à 390 px | aucune | « Voir la boutique » et « Commander sur WhatsApp » |
+| Hauteur de la page à 390 px | 6 921 px | 4 508 px (−35 %) |
+| Éléments sous 44 px / défilement horizontal | 0 / aucun | 0 / aucun |
+| Cartes de catégorie | `div` cliquables, flèches cachées sur téléphone | liens `/shop?category=…`, 2 colonnes, nombre de modèles |
+| Sections | Catégories, Collections, Nouveautés, « Meilleures Ventes », « Recommandations » | Nouveautés, Catégories, Collections, « Sélection Amani's », contact |
+
+Décisions: le hero est écrit (accroche issue du pied de page de la boutique) avec les images des coups de cœur, sinon des nouveautés; garanties limitées à ce qui existe (adresse à la commande, code de validation, WhatsApp); « Meilleures ventes » et « Recommandations » supprimées (fausses) et remplacées par **« Sélection Amani's »**, alimentée par une case **« Coup de cœur »** dans l'admin (la section n'apparaît que si au moins un produit est coché); filtres retirés de l'accueil, la loupe mène à `/shop?search=1`; la boutique comprend maintenant `?collection=` et affiche « Catégorie : X · Voir toute la boutique ». Les catégories et collections sans produit n'ont pas de vignette.
+
+Aperçu de partage (Open Graph) généré en français (`src/app/opengraph-image.tsx`). **Pour que WhatsApp et Facebook affichent l'image, définir `NEXT_PUBLIC_SITE_URL`** (l'adresse publique du site) sur l'hébergement.
+
+À valider par la boutique: le texte de l'accroche et des 3 garanties, le choix des coups de cœur, et quelle collection mettre en avant. Le fichier `src/components/Hero-clean.tsx` (bannières Cloudinary) n'est plus utilisé, je l'ai laissé.
+
 ## Reste à faire
 Vérifier à l'œil, sur un vrai téléphone, l'admin et les badges de stock (non mesurables dans mon environnement), puis ajuster. Le mode sombre est défini et testé mais sans bouton pour l'activer. L'aspect des images n'a pas pu être jugé (Cloudinary inaccessible depuis l'environnement de mesure).
 

@@ -122,10 +122,11 @@ export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const { stock, ...rest } = newShoeData;
+        const { stock, featured, ...rest } = newShoeData;
         const docRef = await adminDb.collection('shoes').add({
             ...rest,
             ...(stock ? { stock: sanitizeStock(stock) } : {}),
+            ...(typeof featured === 'boolean' ? { featured } : {}),
             createdAt: new Date().toISOString(),
         });
         return { success: true, productId: docRef.id };
@@ -137,8 +138,9 @@ export async function updateProduct(idToken: string, shoeId: string, updatedShoe
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const { id: _ignored, stock, ...rest } = updatedShoeData;
+        const { id: _ignored, stock, featured, ...rest } = updatedShoeData;
         const data: Record<string, unknown> = { ...rest };
+        if (typeof featured === 'boolean') data.featured = featured;
         if (stock === null) data.stock = FieldValue.delete();
         else if (stock !== undefined) data.stock = sanitizeStock(stock);
         await adminDb.collection('shoes').doc(shoeId).update(data);

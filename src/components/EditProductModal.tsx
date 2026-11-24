@@ -43,6 +43,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(shoe.collectionIds || []);
   const [availableSizes, setAvailableSizes] = useState(shoe.availableSizes.join(', '));
   const [stockInput, setStockInput] = useState(formatStockInput(shoe.stock));
+  const [featured, setFeatured] = useState(!!shoe.featured);
   const [availableColors, setAvailableColors] = useState<ShoeColor[]>(shoe.availableColors);
   
   const [existingImages, setExistingImages] = useState<ShoeImage[]>([]);
@@ -63,6 +64,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
       setSelectedCollectionIds(shoe.collectionIds || []); // Ensure it's an array
       setAvailableSizes(shoe.availableSizes.join(', '));
       setStockInput(formatStockInput(shoe.stock));
+      setFeatured(!!shoe.featured);
       setAvailableColors(shoe.availableColors);
       const allImages = [shoe.gridImage, ...(shoe.detailImages || [])];
       const uniqueImages = allImages.filter((img, index, self) => 
@@ -165,6 +167,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
         availableSizes: sizesArray,
         // null = stock non suivi (illimité)
         stock: parsedStock.stock ?? null,
+        featured,
         availableColors,
         gridImage: allImages[0],
         detailImages: allImages.slice(1),
@@ -251,6 +254,11 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 <Input id="edit-product-sizes" value={availableSizes} onChange={(e) => setAvailableSizes(e.target.value)} />
                  <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
             </div>
+
+            <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
+                <input type="checkbox" className="h-5 w-5 accent-primary" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+                Coup de cœur (mis en avant sur l&apos;accueil)
+            </label>
 
             <div className="space-y-2">
                 <Label htmlFor="edit-product-stock">Stock par pointure (optionnel)</Label>
