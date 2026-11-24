@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import { LoadError } from '@/components/LoadError';
 import ShoeShowcase from '@/components/ShoeShowcase';
@@ -17,14 +17,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { catalogMaxPrice, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
 import { PALETTE, canonicalColor } from '@/lib/colors';
 import { isListable, isSizeValid } from '@/lib/product-validation';
+import { stockSummary } from '@/lib/stock';
+import { EmptyState } from '@/components/EmptyState';
+import { SlidersHorizontal, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type PriceRange = {
   min: number;
   max: number;
 };
 
+const PAGE_SIZE = 24;
+
 function ShopContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,48 +118,86 @@ function ShopContent() {
   const { filteredShoes } = useProductFilters(shoes, filters, catalogMax);
   const sortedShoes = useMemo(() => {
     const products = [...filteredShoes];
-    if (sortBy === 'price-asc') return products.sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') return products.sort((a, b) => b.price - a.price);
-    return products.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    const sorted =
+      sortBy === 'price-asc' ? products.sort((a, b) => a.price - b.price)
+      : sortBy === 'price-desc' ? products.sort((a, b) => b.price - a.price)
+      : products.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    // Les produits épuisés passent en fin de liste (l'ordre choisi est conservé dans chaque groupe).
+    return [...sorted.filter((s) => !stockSummary(s).soldOut), ...sorted.filter((s) => stockSummary(s).soldOut)];
   }, [filteredShoes, sortBy]);
 
 
+  // Retour en haut de liste quand le choix change.
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [selectedCategory, selectedCollection, searchTerm, maxPriceFilter, selectedSizes, selectedColors, sortBy]);
+
+  const categoryChips = useMemo(
+    () =>
+      categories
+        .map((category) => ({ id: category.id, name: category.name, count: shoes.filter((s) => s.categoryId === category.id).length }))
+        .filter((c) => c.count > 0),
+    [categories, shoes]
+  );
+
+  const sidebarFilterCount =
+    (searchTerm.trim() ? 1 : 0) + (priceRange.max < catalogMax ? 1 : 0) + selectedSizes.length + selectedColors.length;
+
+  const activeChips = [
+    ...(selectedCollection
+      ? [{ key: 'collection', label: `Collection : ${selectedCollection.name}`, onRemove: () => router.push(selectedCategory ? `/shop?category=${selectedCategory.id}` : '/shop') }]
+      : []),
+    ...(searchTerm.trim() ? [{ key: 'search', label: `Recherche : ${searchTerm.trim()}`, onRemove: () => setSearchTerm('') }] : []),
+    ...(priceRange.max < catalogMax ? [{ key: 'price', label: `Prix max : ${priceRange.max.toLocaleString('fr-FR')} XOF`, onRemove: () => setMaxPriceFilter(null) }] : []),
+    ...selectedSizes.map((size) => ({ key: `size-${size}`, label: `Pointure ${size}`, onRemove: () => setSelectedSizes(selectedSizes.filter((x) => x !== size)) })),
+    ...selectedColors.map((name) => ({ key: `color-${name}`, label: name, onRemove: () => setSelectedColors(selectedColors.filter((x) => x !== name)) })),
+  ];
+
+  const clearAll = () => {
+    setSearchTerm('');
+    setMaxPriceFilter(null);
+    setSelectedSizes([]);
+    setSelectedColors([]);
+    if (selectedCollection) router.push(selectedCategory ? `/shop?category=${selectedCategory.id}` : '/shop');
+  };
+
+  const tabClass = (active: boolean) =>
+    cn(
+      'inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      active ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'
+    );
+
   const renderSkeleton = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-      {[...Array(6)].map((_, i) => (
+    <div aria-busy="true" className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 lg:gap-8">
+      {[...Array(8)].map((_, i) => (
         <div key={i} className="flex flex-col space-y-3">
-          <Skeleton className="h-[300px] w-full rounded-xl" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-3/4" />
-            <Skeleton className="h-4 w-1/2" />
-          </div>
+          <Skeleton className="aspect-square w-full rounded-xl" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
         </div>
       ))}
     </div>
   );
 
+  const visibleShoes = sortedShoes.slice(0, visibleCount);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header categories={categories} onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)} />
       <main className="flex-grow">
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="container mx-auto px-4 py-6 md:py-8">
+          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-4xl font-bold">Boutique</h1>
-              <p className="text-muted-foreground mt-1">{loading || loadError ? '\u00a0' : `${sortedShoes.length} produit(s) disponibles`}</p>
-              {(selectedCategory || selectedCollection) && (
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm">
-                  <span className="font-medium">{selectedCategory ? `Catégorie : ${selectedCategory.name}` : `Collection : ${selectedCollection?.name}`}</span>
-                  <Link href="/shop" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4">
-                    Voir toute la boutique
-                  </Link>
-                </p>
-              )}
+              <h1 className="text-3xl font-bold md:text-4xl">Boutique</h1>
+              <p className="mt-1 text-muted-foreground" aria-live="polite">{loading || loadError ? '\u00a0' : `${sortedShoes.length} produit${sortedShoes.length > 1 ? 's' : ''}`}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setSidebarOpen(true)}>Filtres</Button>
+              <Button variant="outline" onClick={() => setSidebarOpen(true)}>
+                <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+                Filtres{sidebarFilterCount > 0 ? ` (${sidebarFilterCount})` : ''}
+              </Button>
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as "newest" | "price-asc" | "price-desc")}>
-                <SelectTrigger className="w-[210px]"><SelectValue placeholder="Trier par" /></SelectTrigger>
+                <SelectTrigger className="w-[190px]" aria-label="Trier par"><SelectValue placeholder="Trier par" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="newest">Plus récents</SelectItem>
                   <SelectItem value="price-asc">Prix: croissant</SelectItem>
@@ -160,6 +206,45 @@ function ShopContent() {
               </Select>
             </div>
           </div>
+
+          {/* Catégories en un geste: un vrai lien par catégorie (adresse partageable), défilement horizontal sur téléphone. */}
+          {categoryChips.length > 0 && (
+            <nav aria-label="Catégories" className="-mx-4 mb-4 overflow-x-auto px-4">
+              <ul className="flex gap-2 pb-2">
+                <li>
+                  <Link href="/shop" scroll={false} aria-current={!selectedCategory && !selectedCollection ? 'page' : undefined} className={tabClass(!selectedCategory && !selectedCollection)}>
+                    Tout
+                  </Link>
+                </li>
+                {categoryChips.map((category) => (
+                  <li key={category.id}>
+                    <Link href={`/shop?category=${category.id}`} scroll={false} aria-current={selectedCategory?.id === category.id ? 'page' : undefined} className={tabClass(selectedCategory?.id === category.id)}>
+                      {category.name}
+                      <span className={cn('text-xs', selectedCategory?.id === category.id ? 'text-primary-foreground/80' : 'text-muted-foreground')}>{category.count}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+
+          {activeChips.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Filtres actifs">
+              {activeChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.onRemove}
+                  aria-label={`Retirer le filtre : ${chip.label}`}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {chip.label}
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ))}
+              <Button variant="ghost" size="sm" onClick={clearAll}>Tout effacer</Button>
+            </div>
+          )}
 
           <Sidebar
             priceRange={priceRange}
@@ -177,10 +262,25 @@ function ShopContent() {
             isOpen={isSidebarOpen}
             onOpenChange={setSidebarOpen}
           />
-          
+
           <div className="w-full">
-            {loading ? renderSkeleton() : loadError ? <LoadError onRetry={() => setReloadKey((k) => k + 1)} /> : (
-                <ShoeShowcase shoes={sortedShoes} />
+            {loading ? renderSkeleton() : loadError ? <LoadError onRetry={() => setReloadKey((k) => k + 1)} /> : sortedShoes.length === 0 ? (
+              <EmptyState
+                title="Aucun produit ne correspond"
+                hint={activeChips.length > 0 ? 'Essayez de retirer un filtre.' : 'Revenez bientôt, de nouveaux modèles arrivent.'}
+              />
+            ) : (
+              <>
+                <ShoeShowcase shoes={visibleShoes} columns="two-up" />
+                {sortedShoes.length > visibleCount && (
+                  <div className="mt-8 text-center">
+                    <Button variant="outline" size="lg" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                      Voir plus de produits ({sortedShoes.length - visibleCount} restants)
+                    </Button>
+                    <p aria-live="polite" className="mt-2 text-sm text-muted-foreground">{visibleCount} sur {sortedShoes.length} affichés</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
