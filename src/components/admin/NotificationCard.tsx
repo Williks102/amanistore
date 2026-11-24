@@ -9,19 +9,24 @@ import { getNotificationStatus, sendTestNotification } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { useToast } from '@/hooks/use-toast';
 
-type Status = { telegram: boolean; email: boolean } | 'error' | null;
+export type NotificationStatus = { telegram: boolean; email: boolean; hints: string[] } | 'error' | null;
+type Status = NotificationStatus;
 
 /** Réservé aux admins: voir quels canaux préviennent d'une nouvelle commande, envoyer un test, et comment les activer. */
-export function NotificationCard() {
+/** `initialStatus`: état déjà connu (aperçus et tests visuels); sinon l'état est demandé au serveur. */
+export function NotificationCard({ initialStatus }: { initialStatus?: NotificationStatus } = {}) {
   const { toast } = useToast();
-  const [status, setStatus] = useState<Status>(null);
+  const [status, setStatus] = useState<Status>(initialStatus ?? null);
   const [isTesting, setIsTesting] = useState(false);
+  const [testHints, setTestHints] = useState<string[]>([]);
 
   useEffect(() => {
+    if (initialStatus) return;
     (async () => {
       const result = await getNotificationStatus(await getIdToken());
-      setStatus(result.error ? 'error' : { telegram: result.telegram, email: result.email });
+      setStatus(result.error ? 'error' : { telegram: result.telegram, email: result.email, hints: result.hints });
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const configured = status && status !== 'error' ? status : { telegram: false, email: false };
@@ -31,11 +36,12 @@ export function NotificationCard() {
     setIsTesting(true);
     const result = await sendTestNotification(await getIdToken());
     setIsTesting(false);
+    setTestHints(result.hints ?? []);
     if (result.success) {
       const channels = [result.result?.telegram === 'sent' ? 'Telegram' : '', result.result?.email === 'sent' ? 'e-mail' : ''].filter(Boolean).join(' et ');
       toast({ title: 'Message de test envoyé', description: `Vérifiez ${channels}.` });
     } else {
-      toast({ title: 'Test non envoyé', description: result.error ?? 'Un canal est configuré mais le message a été refusé: vérifiez le jeton, l’identifiant ou la clé.', variant: 'destructive' });
+      toast({ title: 'Test non envoyé', description: result.error ?? result.hints?.[0] ?? 'Le message a été refusé.', variant: 'destructive' });
     }
   };
 
@@ -57,6 +63,16 @@ export function NotificationCard() {
           {channel('Telegram', configured.telegram)}
           {channel('E-mail', configured.email)}
         </ul>
+        {(() => {
+          const hints = [...(status && status !== 'error' ? status.hints : []), ...testHints.filter((h) => !(status && status !== 'error' && status.hints.includes(h)))];
+          return hints.length > 0 ? (
+            <div role="alert" className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <p className="font-semibold">À corriger</p>
+              <ul className="list-disc space-y-1 pl-5">{hints.map((h) => <li key={h}>{h}</li>)}</ul>
+              <p className="text-xs text-muted-foreground">Vos valeurs ne sont jamais affichées ici. Après toute modification dans Vercel, redéployez.</p>
+            </div>
+          ) : null;
+        })()}
         <Button variant="outline" size="sm" onClick={test} disabled={isTesting || !anyChannel}>
           {isTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Envoyer un message de test'}
         </Button>
