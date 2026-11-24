@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { Suspense, useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Header from '@/components/Header';
 import { LoadError } from '@/components/LoadError';
 import ShoeShowcase from '@/components/ShoeShowcase';
-import type { Category, Shoe } from '@/lib/types';
+import Link from 'next/link';
+import type { Category, Collection, Shoe } from '@/lib/types';
 import { Sidebar } from '@/components/Sidebar';
 import { getProducts } from '@/services/productService';
 import { getCategories } from '@/services/categoryService';
+import { getCollections } from '@/services/collectionService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,13 +21,16 @@ export type PriceRange = {
   max: number;
 };
 
-export default function ShopPage() {
+function ShopContent() {
+  const searchParams = useSearchParams();
   const [shoes, setShoes] = useState<Shoe[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [priceRange, setPriceRange] = useState<PriceRange>({ min: 0, max: DEFAULT_MAX_PRICE });
   const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
@@ -37,9 +43,10 @@ export default function ShopPage() {
       try {
         setLoading(true);
         setLoadError(false);
-        const [products, fetchedCategories] = await Promise.all([getProducts(), getCategories()]);
+        const [products, fetchedCategories, fetchedCollections] = await Promise.all([getProducts(), getCategories(), getCollections()]);
         setShoes(products);
         setCategories(fetchedCategories);
+        setCollections(fetchedCollections);
       } catch (error) {
         console.error('Failed to fetch data:', error);
         setLoadError(true);
@@ -50,20 +57,17 @@ export default function ShopPage() {
     fetchData();
   }, [reloadKey]);
 
+  // Les liens de l'accueil mènent ici: /shop?category=…, /shop?collection=… et /shop?search=1 (ouvre la recherche).
   useEffect(() => {
-    if (categories.length === 0 || typeof window === 'undefined') {
-      return;
-    }
+    const categoryId = searchParams.get('category');
+    const collectionId = searchParams.get('collection');
+    setSelectedCategory(categoryId ? categories.find((category) => category.id === categoryId) || null : null);
+    setSelectedCollection(collectionId ? collections.find((collection) => collection.id === collectionId) || null : null);
+  }, [categories, collections, searchParams]);
 
-    const categoryId = new URLSearchParams(window.location.search).get('category');
-    if (!categoryId) {
-      setSelectedCategory(null);
-      return;
-    }
-
-    const matchedCategory = categories.find((category) => category.id === categoryId) || null;
-    setSelectedCategory(matchedCategory);
-  }, [categories]);
+  useEffect(() => {
+    if (searchParams.get('search')) setSidebarOpen(true);
+  }, [searchParams]);
 
   const availableSizes = useMemo(() => {
     const allSizes = shoes.flatMap((shoe) => shoe.availableSizes);
@@ -84,13 +88,13 @@ export default function ShopPage() {
   const filters = useMemo<ProductFilters>(
     () => ({
       selectedCategory,
-      selectedCollection: null,
+      selectedCollection,
       searchTerm,
       priceRange,
       selectedSizes,
       selectedColors,
     }),
-    [selectedCategory, searchTerm, priceRange, selectedSizes, selectedColors]
+    [selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors]
   );
 
   const { filteredShoes } = useProductFilters(shoes, filters);
@@ -125,6 +129,14 @@ export default function ShopPage() {
             <div>
               <h1 className="text-4xl font-bold">Boutique</h1>
               <p className="text-muted-foreground mt-1">{loading || loadError ? '\u00a0' : `${sortedShoes.length} produit(s) disponibles`}</p>
+              {(selectedCategory || selectedCollection) && (
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm">
+                  <span className="font-medium">{selectedCategory ? `Catégorie : ${selectedCategory.name}` : `Collection : ${selectedCollection?.name}`}</span>
+                  <Link href="/shop" className="inline-flex min-h-11 items-center text-primary underline underline-offset-4">
+                    Voir toute la boutique
+                  </Link>
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" onClick={() => setSidebarOpen(true)}>Filtres</Button>
@@ -163,5 +175,14 @@ export default function ShopPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ShopPage() {
+  // useSearchParams demande une frontière Suspense pour le rendu statique.
+  return (
+    <Suspense fallback={null}>
+      <ShopContent />
+    </Suspense>
   );
 }

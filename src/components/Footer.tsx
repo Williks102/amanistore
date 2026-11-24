@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Facebook, Instagram , } from 'lucide-react';
 import type { Category } from '@/lib/types';
 import { getCategories } from '@/services/categoryService';
+import { SITE } from '@/lib/site';
 
 const Footer = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -51,12 +52,12 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Nous suivre </h3>
             <div className="flex justify-center md:justify-start gap-2">
-              <a href="https://www.facebook.com/bijoux.Amani.S" className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
+              <a href={SITE.facebookUrl} className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
                 <Facebook className="h-6 w-6" />
                 <span className="sr-only">Facebook</span>
               </a>
             
-              <a href="https://www.instagram.com/amanis.ci/" className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
+              <a href={SITE.instagramUrl} className="inline-flex h-11 w-11 items-center justify-center hover:text-primary transition-colors">
                 <Instagram className="h-6 w-6" />
                 <span className="sr-only">Instagram</span>
               </a>

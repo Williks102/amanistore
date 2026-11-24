@@ -117,6 +117,7 @@ const AdminPage = () => {
   const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
   const [newPromoMinAmount, setNewPromoMinAmount] = useState('');
   const [newShoeStock, setNewShoeStock] = useState('');
+  const [newShoeFeatured, setNewShoeFeatured] = useState(false);
 
   // Edit Modal states
   const [selectedShoe, setSelectedShoe] = useState<Shoe | null>(null);
@@ -329,6 +330,7 @@ const AdminPage = () => {
         availableSizes: parsedSizes,
         availableColors: newShoeColors,
         ...(parsedStock.stock ? { stock: parsedStock.stock } : {}),
+        ...(newShoeFeatured ? { featured: true } : {}),
       };
 
       const result = await createProduct(await getIdToken(), payload);
@@ -343,6 +345,7 @@ const AdminPage = () => {
         setNewShoeCollectionIds([]);
         setNewShoeSizes('');
         setNewShoeStock('');
+        setNewShoeFeatured(false);
         setNewShoeColors([]);
         setNewShoeImageFiles([]);
         setNewShoeImagePreviews([]);
@@ -476,7 +479,7 @@ const AdminPage = () => {
                   {shoes.map((shoe) => (
                       <TableRow key={shoe.id}>
                         <TableCell><Image src={shoe.gridImage.url} alt={shoe.name} width={40} height={40} className="rounded-md" /></TableCell>
-                        <TableCell className="font-medium">{shoe.name}</TableCell>
+                        <TableCell className="font-medium">{shoe.name}{shoe.featured && <Badge variant="secondary" className="ml-2">Coup de cœur</Badge>}</TableCell>
                         <TableCell>{shoe.price.toLocaleString('fr-FR')} XOF</TableCell>
                         <TableCell className="flex gap-2">
                           <Button variant="outline" size="sm" onClick={() => { setSelectedShoe(shoe); setIsEditModalOpen(true); }}>Modifier</Button>
@@ -520,6 +523,10 @@ const AdminPage = () => {
                     </Select>
                   </div>
                   <div className="space-y-2"><Label>Pointures (ex: 40,41,42)</Label><Input value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required/></div>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm font-medium">
+                    <input type="checkbox" className="h-5 w-5 accent-primary" checked={newShoeFeatured} onChange={(e) => setNewShoeFeatured(e.target.checked)} />
+                    Coup de cœur (mis en avant sur l&apos;accueil)
+                  </label>
                   <div className="space-y-2"><Label>Stock par pointure (optionnel, ex: 40:5, 41:3)</Label><Input value={newShoeStock} onChange={(e) => setNewShoeStock(e.target.value)} /><p className="text-xs text-muted-foreground">Laissez vide pour ne pas suivre le stock (illimité).</p></div>
                 </div>
                 <div className="space-y-2">

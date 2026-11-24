@@ -353,6 +353,34 @@ describe('stock', () => {
   });
 });
 
+describe('coup de cœur (featured)', () => {
+  it('createProduct ne garde que des booléens', async () => {
+    h.roleOk = true;
+    await createProduct('tok', { ...shoe, featured: true } as any);
+    await createProduct('tok', { ...shoe, featured: 'oui' } as any);
+    const rows = db.all('shoes').filter(([id]) => id.startsWith('shoes-'));
+    expect(rows[0][1].featured).toBe(true);
+    expect(rows[1][1]).not.toHaveProperty('featured');
+  });
+
+  it('updateProduct active et désactive, ignore les valeurs non booléennes', async () => {
+    h.roleOk = true;
+    await updateProduct('tok', 'shoe1', { featured: true });
+    expect(db.get('shoes', 'shoe1')!.featured).toBe(true);
+    await updateProduct('tok', 'shoe1', { featured: 'x' as any, name: 'Nouveau nom' });
+    expect(db.get('shoes', 'shoe1')!.featured).toBe(true); // inchangé
+    await updateProduct('tok', 'shoe1', { featured: false });
+    expect(db.get('shoes', 'shoe1')!.featured).toBe(false);
+  });
+
+  it('refusé sans rôle produit', async () => {
+    h.roleOk = false;
+    const r = await updateProduct('tok', 'shoe1', { featured: true });
+    expect(r.success).toBe(false);
+    expect(db.get('shoes', 'shoe1')!.featured).toBeUndefined();
+  });
+});
+
 describe('createPromoCode (admin)', () => {
   const promo = { code: 'nouveau', discountType: 'percentage' as const, value: 15, isActive: true };
 

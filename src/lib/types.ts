@@ -40,6 +40,8 @@ export type Shoe = {
    * Absent = stock non suivi (illimité). Présent: une pointure absente de la table vaut 0.
    */
   stock?: Record<string, number>;
+  /** « Coup de cœur »: mis en avant dans la sélection de l'accueil. */
+  featured?: boolean;
   createdAt?: string;
 };
 
