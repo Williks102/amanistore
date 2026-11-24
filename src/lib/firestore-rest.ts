@@ -44,16 +44,38 @@ function toShoe(doc: RestDocument): Shoe {
   return { id, ...fromFirestoreFields(doc.fields ?? {}) } as Shoe;
 }
 
-/** Un produit par son identifiant, ou null s'il n'existe pas (ou si la lecture échoue). */
-export async function fetchShoeById(id: string): Promise<Shoe | null> {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) return null;
-  try {
-    const res = await fetch(`${BASE}/shoes/${id}`, { next: { revalidate: REVALIDATE_SECONDS } });
-    if (!res.ok) return null;
-    return toShoe((await res.json()) as RestDocument);
-  } catch {
-    return null;
+/** Firestore n'a pas pu répondre (réseau, délai, erreur serveur, accès refusé): ce n'est PAS un produit introuvable. */
+export class ShoeUnavailableError extends Error {
+  constructor(detail: string) {
+    super(`Produit momentanément indisponible (${detail})`);
+    this.name = 'ShoeUnavailableError';
   }
+}
+
+const RETRY_DELAY_MS = 250;
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Un produit par son identifiant. `null` seulement s'il n'existe pas (404) ou si l'identifiant est invalide.
+ * Une panne passagère (réseau coupé, 5xx) est retentée une fois, puis signalée par une erreur: avant, elle
+ * s'affichait comme « page introuvable » devant la cliente (constaté dans les journaux de production).
+ */
+export async function fetchShoeById(id: string, fetchImpl: typeof fetch = fetch): Promise<Shoe | null> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id)) return null;
+  let lastDetail = 'inconnu';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) await delay(RETRY_DELAY_MS);
+    try {
+      const res = await fetchImpl(`${BASE}/shoes/${id}`, { next: { revalidate: REVALIDATE_SECONDS } } as RequestInit);
+      if (res.status === 404) return null;
+      if (res.ok) return toShoe((await res.json()) as RestDocument);
+      lastDetail = `HTTP ${res.status}`;
+      if (res.status < 500) break; // 4xx: réessayer ne changerait rien
+    } catch (error) {
+      lastDetail = error instanceof Error ? error.name : 'réseau';
+    }
+  }
+  throw new ShoeUnavailableError(lastDetail);
 }
 
 /** Tous les produits (pagination REST), pour le sitemap. */

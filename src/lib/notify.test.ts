@@ -59,6 +59,13 @@ describe('envoi', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
+  it('délai de 8 secondes (4 s était trop court vers Telegram)', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    await sendNotification(n, { TELEGRAM_BOT_TOKEN: TOKEN, TELEGRAM_CHAT_ID: '987654321' }, ok());
+    expect(spy).toHaveBeenCalledWith(8000);
+    spy.mockRestore();
+  });
+
   it('e-mail: clé en en-tête, expéditeur de test par défaut', async () => {
     const f = ok();
     const r = await sendNotification(n, { RESEND_API_KEY: 're_secret', NOTIFY_EMAIL_TO: 'moi@example.com' }, f);
@@ -173,7 +180,8 @@ describe('refus des services', () => {
     expect(explainChannelError('telegram', 'HTTP 401 Unauthorized')).toMatch(/TELEGRAM_BOT_TOKEN/);
     expect(explainChannelError('telegram', 'HTTP 400 Bad Request: chat not found')).toMatch(/TELEGRAM_CHAT_ID/);
     expect(explainChannelError('telegram', "HTTP 403 Forbidden: bot can't initiate conversation with a user")).toMatch(/Démarrer/);
-    expect(explainChannelError('telegram', 'HTTP 429 Too Many Requests')).toMatch(/patientez/);
+    expect(explainChannelError('telegram', 'HTTP 429 Too Many Requests')).toMatch(/patientez une minute/);
+    expect(explainChannelError('telegram', 'HTTP 429 Too Many Requests: retry after 26')).toMatch(/patientez 26 secondes/);
     expect(explainChannelError('telegram', 'timeout')).toMatch(/réessayez/);
     expect(explainChannelError('email', 'HTTP 401 API key is invalid')).toMatch(/RESEND_API_KEY/);
     expect(explainChannelError('email', 'HTTP 403 You can only send testing emails to your own email address')).toMatch(/adresse du compte Resend/);

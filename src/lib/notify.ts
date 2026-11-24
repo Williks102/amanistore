@@ -22,7 +22,7 @@ const TOKEN_PATTERN = /^\d{5,}:[A-Za-z0-9_-]{20,}$/;
 const CHAT_PATTERN = /^(-?\d{3,20}|@[A-Za-z0-9_]{4,})$/;
 const EMAIL_PATTERN = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 const DEFAULT_FROM = "Amani's <onboarding@resend.dev>";
-const TIMEOUT_MS = 4000;
+const TIMEOUT_MS = 8000; // 4 s était trop court: des délais dépassés vers Telegram ont été relevés dans les journaux de production
 
 const xof = (n: number) => `XOF ${n.toLocaleString('fr-FR')}`;
 
@@ -76,7 +76,10 @@ export function explainChannelError(channel: 'telegram' | 'email', detail: strin
     if (d.includes('unauthorized') || d.includes('401')) return 'Telegram refuse le jeton: vérifiez TELEGRAM_BOT_TOKEN (recopiez-le en entier depuis @BotFather).';
     if (d.includes('chat not found')) return 'Telegram ne trouve pas ce chat: vérifiez TELEGRAM_CHAT_ID.';
     if (d.includes('initiate conversation') || d.includes('blocked') || d.includes('forbidden') || d.includes('403')) return 'Votre bot ne peut pas vous écrire: ouvrez-le dans Telegram et appuyez sur « Démarrer » (ou débloquez-le), puis réessayez.';
-    if (d.includes('too many') || d.includes('429')) return 'Telegram limite les envois: patientez une minute puis réessayez.';
+    if (d.includes('too many') || d.includes('429')) {
+      const seconds = /retry after (\d+)/i.exec(detail ?? '')?.[1];
+      return `Telegram limite les envois: patientez ${seconds ? `${seconds} secondes` : 'une minute'} sans relancer le test, puis réessayez (chaque relance prolonge l’attente).`;
+    }
   } else {
     if (d.includes('401') || d.includes('api key') || d.includes('unauthorized')) return 'Resend refuse la clé: vérifiez RESEND_API_KEY.';
     if (d.includes('403') || d.includes('verify') || d.includes('domain') || d.includes('own email')) return 'Resend refuse cette adresse: avec l’expéditeur de test, l’envoi n’est possible qu’à l’adresse du compte Resend (sinon, vérifiez un domaine).';

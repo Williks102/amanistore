@@ -16,6 +16,12 @@ Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actio
 - **Notifications de commande** (`src/lib/notify.ts`): Telegram et/ou e-mail (Resend), activés par les variables `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RESEND_API_KEY`, `NOTIFY_EMAIL_TO` (et `NOTIFY_EMAIL_FROM`), saisies dans Vercel uniquement. Le message ne contient jamais téléphone, adresse ni code de livraison (services tiers); l'envoi part après la réponse (`after`) et ne peut pas faire échouer une commande; les jetons ne sont jamais journalisés ni renvoyés au navigateur.
 - Les règles Firestore refusent par défaut ; les modifier impose de mettre à jour `tests/rules`.
 
+## Pièges connus (vus en production)
+- **Une Server Action ne renvoie que des objets simples.** Un champ Timestamp Firestore (`claimedAt`, `date`…) fait échouer la réponse et vide l'admin. Tout document renvoyé passe par `plainDoc` / `orderFromDoc` (`src/app/actions.ts`), et les commandes par une liste blanche de champs. Un test le garantit: ne pas le contourner.
+- Un fichier `'use server'` n'exporte que des fonctions asynchrones.
+- Une panne de lecture ne doit jamais s'afficher comme « introuvable » ou « aucune donnée »: erreur explicite avec « Réessayer » (`LoadError`, `src/app/error.tsx`), et chargement de l'admin source par source.
+- Contrôler les **journaux d'erreurs de Vercel** après une mise en ligne importante.
+
 ## Interface et charte visuelle
 Objectif : une boutique **chaleureuse, moderne et utilisable au téléphone** (audit et plan : `docs/audit-interface.md`).
 - **Jetons de couleur** uniquement (`src/app/globals.css`) : pas de couleur en dur dans les écrans. Une nouvelle charte se branche en changeant ces valeurs.

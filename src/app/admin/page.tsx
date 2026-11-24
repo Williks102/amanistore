@@ -79,6 +79,12 @@ const AdminPage = () => {
   useEffect(() => {
     (async () => {
       const { roles: fetched } = await getMyRoles(await getIdToken());
+      if (!fetched) {
+        // Sans droits connus on ne peut rien charger: on le dit au lieu de rester sur un chargement sans fin.
+        setFailedSources(['vos droits d’accès (session expirée ?)']);
+        setIsLoading(false);
+        return;
+      }
       setRoles(fetched);
     })();
   }, []);
@@ -100,6 +106,7 @@ const AdminPage = () => {
   const [colorPreview, setColorPreview] = useState<ColorNormalizationItem[] | null>(null);
   const [isColorBusy, setIsColorBusy] = useState(false);
   const [featuredBusyId, setFeaturedBusyId] = useState<string | null>(null);
+  const [failedSources, setFailedSources] = useState<string[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,26 +149,51 @@ const AdminPage = () => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [isValidationLoading, setIsValidationLoading] = useState(false);
 
+  /**
+   * Charge chaque source séparément: si l'une échoue, les autres s'affichent quand même et on dit laquelle manque
+   * (avant, une seule erreur vidait tout l'admin). On ne demande que ce que le rôle permet de lire.
+   */
   const fetchData = async () => {
     setIsLoading(true);
-    try {
-      const token = await getIdToken();
-      const [shoesData, categoriesData, collectionsData, ordersData, promoCodesData, messagesData] = await Promise.all([
-        getProducts(), getCategories(), getCollections(), getOrders(token), getPromoCodes(token), getContactMessages(token)
-      ]);
-      setMessages(messagesData);
-      setShoes(shoesData as Shoe[]);
-      setCategories(categoriesData as Category[]);
-      setCollections(collectionsData as Collection[]);
-      setOrders(ordersData as Order[]);
-      setPromoCodes(promoCodesData as PromoCode[]);
-    } catch (error) {
-      toast({ title: 'Erreur de chargement', description: 'Impossible de récupérer les données.', variant: 'destructive' });
-    }
+    const token = await getIdToken();
+    const wantOrders = !!roles && (roles.admin || roles.orderManager);
+    const wantAdminData = !!roles?.admin;
+    const jobs: Array<[string, Promise<unknown>]> = [
+      ['produits', getProducts()],
+      ['catégories', getCategories()],
+      ['collections', getCollections()],
+      ['commandes', wantOrders ? getOrders(token) : Promise.resolve(null)],
+      ['codes promo', wantAdminData ? getPromoCodes(token) : Promise.resolve(null)],
+      ['messages', wantAdminData ? getContactMessages(token) : Promise.resolve(null)],
+    ];
+    const results = await Promise.allSettled(jobs.map(([, job]) => job));
+    const failed: string[] = [];
+    const value = <T,>(index: number): T | null => {
+      const result = results[index];
+      if (result.status === 'rejected') { failed.push(jobs[index][0]); return null; }
+      return result.value as T | null;
+    };
+    const shoesData = value<Shoe[]>(0);
+    const categoriesData = value<Category[]>(1);
+    const collectionsData = value<Collection[]>(2);
+    const ordersData = value<Order[]>(3);
+    const promoData = value<PromoCode[]>(4);
+    const messagesData = value<ContactMessage[]>(5);
+    // Une source qui a échoué garde ses dernières données connues.
+    if (shoesData) setShoes(shoesData);
+    if (categoriesData) setCategories(categoriesData);
+    if (collectionsData) setCollections(collectionsData);
+    if (ordersData) setOrders(ordersData);
+    if (promoData) setPromoCodes(promoData);
+    if (messagesData) setMessages(messagesData);
+    if (!token) failed.push('votre session (reconnectez-vous)');
+    failed.forEach((name) => console.error(`Chargement admin impossible: ${name}`));
+    setFailedSources(failed);
     setIsLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (roles) fetchData(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roles]);
 
   // ---- ENTITY HANDLERS (Create, Delete) ----
 
@@ -1021,6 +1053,14 @@ const AdminPage = () => {
           </div>
         </header>
         <main className="flex-1 p-4 sm:p-6">
+          {failedSources.length > 0 && !isLoading && (
+            <div role="alert" className="mb-6 flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                <strong>Certaines données n&apos;ont pas pu être chargées:</strong> {failedSources.join(', ')}. Les chiffres affichés peuvent être incomplets.
+              </p>
+              <Button variant="outline" size="sm" className="shrink-0" onClick={fetchData}>Réessayer</Button>
+            </div>
+          )}
           {renderContent()}
         </main>
       </div>
