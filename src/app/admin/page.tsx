@@ -601,7 +601,7 @@ const AdminPage = () => {
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
                       <TableCell>
-                        <div className="font-medium">{order.customerName}</div>
+                        <div className="font-medium">{order.customerName}{order.guest && <Badge variant="secondary" className="ml-2">Invité</Badge>}</div>
                         <div className="text-xs text-muted-foreground">{order.customerPhone}</div>
                       </TableCell>
                       <TableCell>{order.total.toLocaleString('fr-FR')} XOF</TableCell>

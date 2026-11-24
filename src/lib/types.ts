@@ -68,6 +68,8 @@ export type Order = {
   discount?: number;
   promoCode?: string;
   promoCodeId?: string;
+  /** Commande passée sans compte. */
+  guest?: boolean;
   total: number;
   status: OrderStatus;
   validationCode: string; 

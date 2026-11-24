@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getOrderById } from '@/services/orderService';
+import { getGuestOrder } from '@/app/actions';
+import { getGuestSecret } from '@/lib/guest-orders';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import type { Order } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,15 @@ export default function OrderConfirmationPage() {
 
     const fetchOrder = async () => {
       try {
+        // Commande passée sans compte: relue grâce au secret gardé sur cet appareil.
+        const guestSecret = getGuestSecret(orderId);
+        if (guestSecret) {
+          const guest = await getGuestOrder(orderId, guestSecret);
+          if (guest.order) {
+            setOrder(guest.order);
+            return;
+          }
+        }
         const fetchedOrder = await getOrderById(orderId);
         if (fetchedOrder) {
           setOrder(fetchedOrder);
@@ -42,7 +53,7 @@ export default function OrderConfirmationPage() {
         }
       } catch (err) {
         console.error("Failed to fetch order:", err);
-        setError("Impossible de charger les détails de la commande.");
+        setError("Impossible de charger les détails de la commande. Si vous avez commandé sans compte, ouvrez cette page depuis l'appareil utilisé pour commander, ou contactez-nous sur WhatsApp avec votre code.");
       } finally {
         setIsLoading(false);
       }
@@ -164,6 +175,9 @@ export default function OrderConfirmationPage() {
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground mt-1">Conservez ce code précieusement. Vous devrez le fournir au livreur.</p>
+              {order.guest && (
+                <p className="mt-2 text-sm font-medium">Commande sans compte: notez ce code ou faites une capture d&apos;écran, il ne s&apos;affichera pas sur un autre appareil.</p>
+              )}
             </div>
             
             <Separator />

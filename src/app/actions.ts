@@ -11,7 +11,7 @@ import { canonicalColorName, normalizeColors } from '@/lib/colors';
 import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import { randomInt } from 'node:crypto';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { rateLimit } from '@/lib/rate-limit';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
 
@@ -89,7 +89,9 @@ const ORDER_STATUSES: OrderStatus[] = ['En attente', 'Prêt', 'Livré', 'Annulé
 
 function orderFromDoc(id: string, data: FirebaseFirestore.DocumentData): Order {
   const date = data.date?.toDate ? data.date.toDate().toISOString() : new Date().toISOString();
-  return { ...data, id, date } as Order;
+  // Le secret d'une commande d'invité ne sort jamais du serveur (ni vers l'admin, ni vers un autre client).
+  const { guestSecret: _guestSecret, ...rest } = data;
+  return { ...rest, id, date } as Order;
 }
 
 /** Nettoie une table de stock: pointures numériques, quantités entières >= 0. */
@@ -333,6 +335,8 @@ const CreateOrderSchema = z.object({
   email: z.string().trim().email().max(254).optional().or(z.literal('')),
   address: z.string().trim().min(10).max(500),
   promoCode: z.string().trim().max(50).optional(),
+  /** Champ piège invisible: un humain ne le remplit jamais, un robot si. */
+  website: z.string().max(0).optional(),
   items: z.array(z.object({
     productId: z.string().min(1).max(128),
     quantity: z.number().int().min(1).max(20),
@@ -341,20 +345,35 @@ const CreateOrderSchema = z.object({
   })).min(1).max(50),
 });
 
+const MAX_PENDING_ORDERS_PER_PHONE = 3;
+
+/**
+ * Crée une commande. `idToken` absent (null ou vide) = commande d'invité, sans compte: limites plus strictes,
+ * et un secret propre à la commande (renvoyé une seule fois) permet de la relire sur la page de confirmation.
+ * Un jeton fourni mais invalide est refusé: il n'est jamais traité comme un invité.
+ */
 export async function createOrder(
-  idToken: string,
+  idToken: string | null,
   input: z.infer<typeof CreateOrderSchema>
-): Promise<{ success: boolean; orderId?: string; validationCode?: string; error?: string }> {
+): Promise<{ success: boolean; orderId?: string; validationCode?: string; guestSecret?: string; error?: string }> {
   if (!adminDb) return { success: false, error: 'DB connection failed.' };
   const db = adminDb;
   try {
-    const uid = await requireUser(idToken);
-    if (!(await rateLimit('create-order', 10, 10 * 60_000))) {
-      return { success: false, error: 'Trop de commandes. Réessayez plus tard.' };
-    }
+    const isGuest = !idToken;
+    const uid = isGuest ? '' : await requireUser(idToken);
+    const allowed = isGuest ? await rateLimit('create-order-guest', 3, 10 * 60_000) : await rateLimit('create-order', 10, 10 * 60_000);
+    if (!allowed) return { success: false, error: 'Trop de commandes. Réessayez plus tard.' };
     const parsed = CreateOrderSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: 'Informations de commande invalides.' };
+    if (parsed.data.website) return { success: false, error: 'Informations de commande invalides.' };
     const data = parsed.data;
+
+    // Anti-spam: pas plus de commandes en attente par numéro de téléphone.
+    const samePhone = await db.collection('orders').where('customerPhone', '==', data.phone).get();
+    if (samePhone.docs.filter((d) => d.data().status === 'En attente').length >= MAX_PENDING_ORDERS_PER_PHONE) {
+      return { success: false, error: 'Vous avez déjà plusieurs commandes en attente avec ce numéro. Contactez-nous sur WhatsApp.' };
+    }
+    const guestSecret = isGuest ? randomBytes(16).toString('hex') : undefined;
 
     const uniqueIds = Array.from(new Set(data.items.map((i) => i.productId)));
     const orderRef = db.collection('orders').doc();
@@ -431,6 +450,7 @@ export async function createOrder(
       // 5. Écritures
       tx.set(orderRef, {
         userId: uid,
+        ...(guestSecret ? { guest: true, guestSecret } : {}),
         customerName: data.name,
         customerPhone: data.phone,
         customerEmail: data.email || '',
@@ -450,8 +470,26 @@ export async function createOrder(
       if (promoRef) tx.update(promoRef, { usedCount: promoUsed + 1 });
     });
 
-    return { success: true, orderId: orderRef.id, validationCode };
+    return { success: true, orderId: orderRef.id, validationCode, guestSecret };
   } catch (error) { return fail(error); }
+}
+
+/** Relit la commande d'un invité grâce au secret reçu à la création (compte tenu du code de validation qu'elle contient). */
+export async function getGuestOrder(orderId: string, secret: string): Promise<{ order: Order | null; error?: string }> {
+  if (!/^[A-Za-z0-9_-]{6,60}$/.test(orderId) || !/^[a-f0-9]{32}$/.test(secret)) return { order: null, error: 'Commande introuvable.' };
+  if (!(await rateLimit('guest-order', 20, 60_000))) return { order: null, error: 'Trop de tentatives. Réessayez dans un instant.' };
+  if (!adminDb) return { order: null, error: 'DB connection failed.' };
+  try {
+    const snap = await adminDb.collection('orders').doc(orderId).get();
+    const data = snap.data();
+    const stored: unknown = data?.guestSecret;
+    if (!snap.exists || !data || typeof stored !== 'string' || stored.length !== secret.length) return { order: null, error: 'Commande introuvable.' };
+    if (!timingSafeEqual(Buffer.from(stored), Buffer.from(secret))) return { order: null, error: 'Commande introuvable.' };
+    return { order: orderFromDoc(snap.id, data) };
+  } catch (error) {
+    console.error(error);
+    return { order: null, error: 'Impossible de récupérer la commande.' };
+  }
 }
 
 export async function getOrders(idToken: string) {

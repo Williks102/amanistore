@@ -32,6 +32,8 @@ import { Separator } from './ui/separator';
 import { ScrollArea } from './ui/scroll-area';
 import { createOrder, validatePromoCode } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
+import { saveGuestOrder } from '@/lib/guest-orders';
+import Link from 'next/link';
 import { computeDiscount, promoProblem } from '@/lib/promo';
 import type { PromoCode } from '@/lib/types';
 import { useUser } from '@/firebase';
@@ -58,6 +60,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<PromoCode | null>(null);
+  const [honeypot, setHoneypot] = useState(''); // champ piège: invisible pour une personne, rempli par un robot
   const { user } = useUser();
 
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + item.product.price * item.quantity, 0), [items]);
@@ -121,30 +124,20 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
   const onSubmit = async (values: CheckoutFormValues) => {
     setIsSubmitting(true);
 
-    if(!user) {
-        toast({
-            title: 'Utilisateur non connecté',
-            description: 'Vous allez être redirigé vers la page de connexion.',
-            variant: 'destructive',
-        });
-        setIsSubmitting(false);
-        onOpenChange(false);
-        router.push('/login');
-        return;
-    }
-    
     try {
-        const result = await createOrder(await getIdToken(), {
+        const result = await createOrder((await getIdToken()) || null, {
             name: values.name,
             phone: values.phone,
             email: values.email || '',
             address: values.address,
             promoCode: promoIssue ? undefined : appliedPromoCode?.code,
+            website: honeypot,
             items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity, size: i.size, color: i.color })),
         });
         if (!result.success || !result.orderId) {
             throw new Error(result.error || 'Commande refusée.');
         }
+        if (result.guestSecret) saveGuestOrder(result.orderId, result.guestSecret);
         toast({
             title: 'Commande passée avec succès !',
             description: 'Vous allez être redirigé vers la page de confirmation.',
@@ -177,8 +170,32 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="px-6">
+          <section aria-labelledby="checkout-summary" className="mb-5 rounded-lg border bg-secondary/50 p-3">
+            <h3 id="checkout-summary" className="mb-2 text-sm font-semibold">Votre commande ({items.reduce((n, i) => n + i.quantity, 0)} article{items.reduce((n, i) => n + i.quantity, 0) > 1 ? 's' : ''})</h3>
+            <ul className="space-y-1 text-sm">
+              {items.map((item) => (
+                <li key={item.id} className="flex justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate">{item.quantity} × {item.product.name}</span>
+                    <span className="block text-xs text-muted-foreground">Pointure {item.size} · {item.color}</span>
+                  </span>
+                  <span className="shrink-0">{`XOF ${(item.product.price * item.quantity).toLocaleString('fr-FR')}`}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          {!user && (
+            <p className="mb-5 rounded-lg border border-primary/30 bg-primary/10 p-3 text-sm">
+              Vous commandez <strong>sans compte</strong>: pas besoin de mot de passe. Un <strong>code de validation</strong> vous sera remis à la fin; gardez-le, vous le donnerez au livreur.{' '}
+              <Link href="/login" onClick={() => onOpenChange(false)} className="inline-flex min-h-11 items-center font-medium text-primary underline underline-offset-4">Vous avez un compte ? Se connecter</Link>
+            </p>
+          )}
           <Form {...form}>
             <form id="checkout-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                <label htmlFor="checkout-website">Ne pas remplir</label>
+                <input id="checkout-website" type="text" name="website" tabIndex={-1} autoComplete="off" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+              </div>
               <FormField
                 control={form.control}
                 name="name"
