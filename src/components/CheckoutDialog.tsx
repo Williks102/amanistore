@@ -1,6 +1,7 @@
 
 'use client';
 
+import { lineLabel, orderPayloadLine } from '@/lib/cart-line';
 import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -139,7 +140,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
             address: values.address,
             promoCode: promoIssue ? undefined : appliedPromoCode?.code,
             website: honeypot,
-            items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity, size: i.size, color: i.color })),
+            items: items.map(orderPayloadLine),
         });
         if (!result.success || !result.orderId) {
             throw new Error(result.error || 'Commande refusée.');
@@ -185,7 +186,7 @@ export const CheckoutDialog = ({ isOpen, onOpenChange }: CheckoutDialogProps) =>
                 <li key={item.id} className="flex justify-between gap-3">
                   <span className="min-w-0">
                     <span className="block truncate">{item.quantity} × {item.product.name}</span>
-                    <span className="block text-xs text-muted-foreground">Pointure {item.size} · {item.color}</span>
+                    {lineLabel(item) && <span className="block text-xs text-muted-foreground">{lineLabel(item)}</span>}
                   </span>
                   <span className="shrink-0">{`XOF ${(item.product.price * item.quantity).toLocaleString('fr-FR')}`}</span>
                 </li>

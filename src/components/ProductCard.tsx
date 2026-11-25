@@ -3,16 +3,16 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Shoe } from '@/lib/types';
-import { canonicalColor, canonicalColorName } from '@/lib/colors';
-import { stockSummary } from '@/lib/stock';
+import { canonicalColorName } from '@/lib/colors';
+import { shoeColors, stockSummaryFor } from '@/lib/attributes';
 
 /**
  * Carte produit: un vrai lien vers la page du produit (partageable, ouvrable dans un nouvel onglet).
  * Plus d'ajout rapide: la pointure et la couleur se choisissent toujours sur la page du produit.
  */
 const ProductCard = ({ shoe }: { shoe: Shoe }) => {
-  const stock = stockSummary(shoe);
-  const colors = Array.from(new Map(shoe.availableColors.map((c) => [canonicalColorName(c.name), canonicalColor(c.name)?.hex ?? c.hex])).entries());
+  const stock = stockSummaryFor(shoe);
+  const colors = Array.from(new Map(shoeColors(shoe).map((c) => [canonicalColorName(c.name), c.hex])).entries());
 
   return (
     <Link

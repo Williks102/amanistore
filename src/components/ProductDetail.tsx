@@ -4,19 +4,25 @@ import { useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft, Minus, Plus, ShoppingCart } from 'lucide-react';
-import type { Shoe } from '@/lib/types';
+import type { Selection, Shoe } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { StyleGuideLauncher } from '@/components/StyleGuideAssistant';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import { canonicalColor } from '@/lib/colors';
-import { availableStock, stockSummary } from '@/lib/stock';
+import { availableStockFor, productOptions, shoeColors, stockSummaryFor, valueSoldOut } from '@/lib/attributes';
 import { SITE, whatsappLink } from '@/lib/site';
 import { cn } from '@/lib/utils';
 
 const MAX_PER_LINE = 20; // même plafond que le serveur
+
+/** « Choisissez une pointure. » pour les attributs connus, sinon « Choisissez : Matière. » */
+const chooseMessage = (name: string): string => {
+  const known: Record<string, string> = { pointure: 'une pointure', couleur: 'une couleur', taille: 'une taille', matiere: 'une matière' };
+  const key = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  return known[key] ? `Choisissez ${known[key]}.` : `Choisissez : ${name}.`;
+};
 
 export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; styleAssistant?: boolean }) {
   const { addItem, openCheckout } = useCart();
@@ -26,58 +32,66 @@ export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; st
     const all = [shoe.gridImage, ...(shoe.detailImages ?? [])].filter((i) => i?.url);
     return all.filter((img, i) => all.findIndex((o) => o.url === img.url) === i);
   }, [shoe]);
-  const colors = useMemo(() => shoe.availableColors.map((c) => ({ name: c.name, hex: canonicalColor(c.name)?.hex ?? c.hex })), [shoe]);
-  const summary = stockSummary(shoe);
+  const options = useMemo(() => productOptions(shoe), [shoe]);
+  const swatches = useMemo(() => new Map(shoeColors(shoe).map((c) => [c.name, c.hex])), [shoe]);
+  const summary = stockSummaryFor(shoe);
 
   const [imageIndex, setImageIndex] = useState(0);
-  // Une couleur seule est présélectionnée; la pointure ne l'est jamais (aucun choix silencieux).
-  const [color, setColor] = useState<string | null>(colors.length === 1 ? colors[0].name : null);
-  const [size, setSize] = useState<number | null>(null);
+  // Un attribut à une seule valeur est présélectionné; sinon aucun choix silencieux.
+  const [chosen, setChosen] = useState<Array<string | null>>(() => options.map((o) => (o.values.length === 1 ? o.values[0] : null)));
   const [quantity, setQuantity] = useState(1);
   const [error, setError] = useState<string | null>(null);
-  const colorRef = useRef<HTMLFieldSetElement>(null);
-  const sizeRef = useRef<HTMLFieldSetElement>(null);
+  const groupRefs = useRef<Array<HTMLFieldSetElement | null>>([]);
 
-  const stockLeft = size !== null ? availableStock(shoe, size) : null;
+  const complete = chosen.every((v) => v !== null);
+  const stockLeft = complete ? availableStockFor(shoe, chosen as string[]) : null;
+  // Produit sans attribut (sac): quantité unique, la limite vaut pour tout le produit.
   const maxQty = Math.min(stockLeft ?? MAX_PER_LINE, MAX_PER_LINE);
   const total = shoe.price * quantity;
 
-  /** Vérifie le choix; sinon explique, et amène la cliente sur la partie à compléter. */
-  const validate = (): { size: number; color: string } | null => {
-    if (colors.length > 1 && !color) {
-      setError('Choisissez une couleur.');
-      colorRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      return null;
+  const choose = (index: number, value: string) => {
+    const next = chosen.map((v, i) => (i === index ? value : v));
+    setChosen(next);
+    setError(null);
+    if (next.every((v) => v !== null)) {
+      const left = availableStockFor(shoe, next as string[]);
+      setQuantity((q) => Math.min(q, Math.max(1, left ?? MAX_PER_LINE)));
     }
-    if (size === null) {
-      setError('Choisissez une pointure.');
-      sizeRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
+  /** Vérifie le choix; sinon explique, et amène la cliente sur la partie à compléter. */
+  const validate = (): Selection | null => {
+    const missing = chosen.findIndex((v) => v === null);
+    if (missing !== -1) {
+      setError(chooseMessage(options[missing].name));
+      groupRefs.current[missing]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return null;
     }
     setError(null);
-    return { size, color: color ?? colors[0]?.name ?? '' };
+    return options.map((o, i) => ({ name: o.name, value: chosen[i] as string }));
   };
 
   const handleAdd = () => {
-    const choice = validate();
-    if (!choice) return;
-    addItem(shoe, quantity, choice.size, choice.color);
-    toast({ title: 'Ajouté au panier', description: `${quantity} × ${shoe.name} (pointure ${choice.size}, ${choice.color})` });
+    const selection = validate();
+    if (!selection) return;
+    addItem(shoe, quantity, selection);
+    toast({ title: 'Ajouté au panier', description: `${quantity} × ${shoe.name}${selection.length ? ` (${selection.map((s) => s.value).join(', ')})` : ''}` });
   };
 
   const handleBuyNow = () => {
-    const choice = validate();
-    if (!choice) return;
-    addItem(shoe, quantity, choice.size, choice.color);
+    const selection = validate();
+    if (!selection) return;
+    addItem(shoe, quantity, selection);
     openCheckout();
   };
 
   const handleWhatsApp = () => {
-    const choice = validate();
-    if (!choice) return;
+    const selection = validate();
+    if (!selection) return;
+    const choices = selection.map((s) => `- ${s.name} : ${s.value}\n`).join('');
     const message =
-      `Bonjour, je souhaiterais acheter cette chaussure : *${shoe.name}*.\n${SITE.url}/produit/${shoe.id}\n\n` +
-      `*Options choisies :*\n- Pointure : ${choice.size}\n- Couleur : ${choice.color}\n- Quantité : ${quantity}`;
+      `Bonjour, je souhaiterais acheter cet article : *${shoe.name}*.\n${SITE.url}/produit/${shoe.id}\n\n` +
+      `*Options choisies :*\n${choices}- Quantité : ${quantity}`;
     window.open(whatsappLink(message), '_blank', 'noopener,noreferrer');
   };
 
@@ -138,52 +152,41 @@ export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; st
 
           {shoe.description && <p className="text-muted-foreground">{shoe.description}</p>}
 
-          {colors.length > 0 && (
-            <fieldset ref={colorRef} className="space-y-2">
+          {options.map((option, index) => (
+            <fieldset key={option.attributeId} ref={(el) => { groupRefs.current[index] = el; }} className="space-y-2">
               <legend className="text-lg font-semibold">
-                Couleur{color ? <span className="font-normal text-muted-foreground"> : {color}</span> : null}
+                {option.name}{chosen[index] ? <span className="font-normal text-muted-foreground"> : {chosen[index]}</span> : null}
               </legend>
               <div className="flex flex-wrap gap-2">
-                {colors.map((c) => (
-                  <button key={c.name} type="button" aria-pressed={color === c.name} onClick={() => { setColor(c.name); setError(null); }} className={chip(color === c.name)}>
-                    <span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{ backgroundColor: c.hex }} />
-                    {c.name}
-                  </button>
-                ))}
+                {option.values.map((value) => {
+                  const selected = chosen[index] === value;
+                  const soldOut = valueSoldOut(shoe, index, value, chosen);
+                  const hex = option.kind === 'color' ? swatches.get(value) ?? '#C5C7CB' : null;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={soldOut}
+                      aria-pressed={selected}
+                      aria-label={soldOut ? `${option.name} ${value}, épuisé` : option.kind === 'color' ? value : `${option.name} ${value}`}
+                      onClick={() => choose(index, value)}
+                      className={cn(
+                        hex !== null ? chip(selected) : cn(
+                          'flex h-11 min-w-11 items-center justify-center rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                          selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent'
+                        ),
+                        soldOut && 'cursor-not-allowed opacity-40 line-through hover:bg-background'
+                      )}
+                    >
+                      {hex !== null && <span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{ backgroundColor: hex }} />}
+                      {value}
+                    </button>
+                  );
+                })}
               </div>
             </fieldset>
-          )}
-
-          <fieldset ref={sizeRef} className="space-y-2">
-            <legend className="text-lg font-semibold">
-              Pointure{size !== null ? <span className="font-normal text-muted-foreground"> : {size}</span> : null}
-            </legend>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-              {shoe.availableSizes.map((s) => {
-                const left = availableStock(shoe, s);
-                const soldOut = left === 0;
-                const selected = size === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    disabled={soldOut}
-                    aria-pressed={selected}
-                    aria-label={soldOut ? `Pointure ${s}, épuisée` : `Pointure ${s}`}
-                    onClick={() => { setSize(s); setError(null); setQuantity((q) => Math.min(q, Math.max(1, availableStock(shoe, s) ?? MAX_PER_LINE))); }}
-                    className={cn(
-                      'h-11 rounded-md border text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent',
-                      soldOut && 'cursor-not-allowed opacity-40 line-through hover:bg-background'
-                    )}
-                  >
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-            {stockLeft !== null && stockLeft > 0 && stockLeft <= 3 && <p className="text-sm text-amber-800">Plus que {stockLeft} en stock</p>}
-          </fieldset>
+          ))}
+          {stockLeft !== null && stockLeft > 0 && stockLeft <= 3 && <p className="text-sm text-amber-800">Plus que {stockLeft} en stock</p>}
 
           {error && (
             <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm font-medium text-destructive">{error}</p>

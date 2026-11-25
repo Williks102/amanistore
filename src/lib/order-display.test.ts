@@ -33,7 +33,7 @@ describe('affichage des commandes', () => {
 
   it('lignes: quantité, couleur et total par article (avant: ni quantité ni couleur)', () => {
     const lines = orderLines(order());
-    expect(lines.map((l) => [l.name, l.quantity, l.color, l.total])).toEqual([['Modèle a', 3, 'Noir', 30000], ['Modèle b', 1, 'Rouge', 5000]]);
+    expect(lines.map((l) => [l.name, l.quantity, l.options, l.total])).toEqual([['Modèle a', 3, 'Pointure 38 · Noir', 30000], ['Modèle b', 1, 'Pointure 40 · Rouge', 5000]]);
     expect(itemCount(order())).toBe(4);
   });
 

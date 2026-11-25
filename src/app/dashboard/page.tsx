@@ -94,7 +94,7 @@ const BuyerDashboard = () => {
         toast({ title: 'Impossible de recommander', description: plan.skipped.map((s) => `${s.name}: ${s.reason}`).join(' · ') || 'Aucun article disponible.', variant: 'destructive' });
         return;
       }
-      plan.toAdd.forEach((line) => addItem(line.product, line.quantity, line.size, line.color));
+      plan.toAdd.forEach((line) => addItem(line.product, line.quantity, line.selection));
       const notes = [
         plan.skipped.length ? `Non ajouté: ${plan.skipped.map((s) => `${s.name} (${s.reason})`).join(', ')}.` : '',
         plan.reduced.length ? `Quantité réduite (stock): ${plan.reduced.join(', ')}.` : '',

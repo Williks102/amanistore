@@ -214,15 +214,15 @@ export function DashboardView({ orders, shoes, categories, promoCodes, messages,
               <CardContent className="space-y-4">
                 {stats.stock.tracked === 0 ? (
                   <p className="text-sm text-muted-foreground">Le stock n&apos;est suivi pour aucun produit. Renseignez-le dans « Modifier » (ex. 38:5, 39:3) pour recevoir des alertes ici.</p>
-                ) : stats.stock.outOfStock.length === 0 && stats.stock.lowSizes.length === 0 ? (
+                ) : stats.stock.outOfStock.length === 0 && stats.stock.lowStock.length === 0 ? (
                   <p className="text-sm">Aucune alerte: les produits suivis ont du stock.</p>
                 ) : (
                   <>
                     {stats.stock.outOfStock.length > 0 && (
                       <div><p className="mb-1 text-sm font-semibold">Épuisés ({stats.stock.outOfStock.length})</p><ul className="space-y-1 text-sm">{stats.stock.outOfStock.slice(0, 6).map((s) => <li key={s.id} className="truncate">{s.name}</li>)}</ul></div>
                     )}
-                    {stats.stock.lowSizes.length > 0 && (
-                      <div><p className="mb-1 text-sm font-semibold">Presque épuisées ({stats.stock.lowSizes.length})</p><ul className="space-y-1 text-sm">{stats.stock.lowSizes.slice(0, 8).map((s) => <li key={`${s.id}-${s.size}`} className="flex justify-between gap-3"><span className="min-w-0 truncate">{s.name} · pointure {s.size}</span><span className="shrink-0 text-amber-800">{s.quantity} restante{s.quantity > 1 ? 's' : ''}</span></li>)}</ul></div>
+                    {stats.stock.lowStock.length > 0 && (
+                      <div><p className="mb-1 text-sm font-semibold">Presque épuisées ({stats.stock.lowStock.length})</p><ul className="space-y-1 text-sm">{stats.stock.lowStock.slice(0, 8).map((s) => <li key={`${s.id}-${s.label}`} className="flex justify-between gap-3"><span className="min-w-0 truncate">{s.label ? `${s.name} · ${s.label}` : s.name}</span><span className="shrink-0 text-amber-800">{s.quantity} restante{s.quantity > 1 ? 's' : ''}</span></li>)}</ul></div>
                     )}
                   </>
                 )}

@@ -170,12 +170,14 @@ async function resolveProductOptions(
     if (!snap.exists) return { error: `L’attribut « ${o.name} » n’existe plus. Rechargez la page.` };
     const attribute = plainDoc<Attribute>(snap.id, snap.data() ?? {});
     const values: string[] = [];
+    const hexes: Record<string, string> = {};
     for (const v of o.values) {
       const match = attribute.values.find((av) => valueKey(av.label) === valueKey(String(v)));
       if (!match) return { error: `« ${v} » n’est pas une valeur de l’attribut ${attribute.name}.` };
       values.push(match.label);
+      if (attribute.kind === 'color' && match.hex) hexes[match.label] = match.hex;
     }
-    options.push({ attributeId: attribute.id, name: attribute.name, kind: attribute.kind, values });
+    options.push({ attributeId: attribute.id, name: attribute.name, kind: attribute.kind, values, ...(Object.keys(hexes).length ? { hexes } : {}) });
   }
   // Nom, type et valeurs viennent maintenant de la base: on valide la structure et le stock sur ces valeurs.
   const structural = validateProductAttributes({ options, stockScope: input.stockScope ?? undefined, variantStock: input.variantStock ?? undefined });

@@ -1,4 +1,5 @@
 import type { Order, OrderStatus } from './types';
+import { lineLabel } from './cart-line';
 
 /** Numéro de commande lisible: les 6 premiers caractères de l'identifiant, en majuscules (sans points de suspension). */
 export const shortOrderNumber = (id: string): string => id.slice(0, 6).toUpperCase();
@@ -31,8 +32,8 @@ export type OrderLine = {
   productId: string;
   name: string;
   imageUrl: string;
-  size: number;
-  color: string;
+  /** Choix de la ligne: « Pointure 40 · Noir » (vide pour un produit sans attribut). */
+  options: string;
   quantity: number;
   unitPrice: number;
   total: number;
@@ -44,8 +45,7 @@ export function orderLines(order: Pick<Order, 'items'>): OrderLine[] {
     productId: item.product.id,
     name: item.product.name,
     imageUrl: item.product.gridImage?.url ?? '',
-    size: item.size,
-    color: item.color,
+    options: lineLabel(item),
     quantity: item.quantity,
     unitPrice: item.product.price,
     total: item.product.price * item.quantity,

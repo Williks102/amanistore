@@ -2,7 +2,8 @@
 'use client';
 
 import { create } from 'zustand';
-import type { Shoe, CartItem } from '@/lib/types';
+import type { Shoe, CartItem, Selection } from '@/lib/types';
+import { lineKey } from '@/lib/cart-line';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 
@@ -14,7 +15,7 @@ interface CartState {
   onClose: () => void;
   openCheckout: () => void;
   closeCheckout: () => void;
-  addItem: (product: Shoe, quantity: number, size: number, color: string) => void;
+  addItem: (product: Shoe, quantity: number, selection: Selection) => void;
   removeItem: (itemId: string) => void;
   updateItemQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
@@ -30,25 +31,18 @@ export const useCart = create<CartState>()(
             onClose: () => set({ isOpen: false }),
             openCheckout: () => set({ isCheckoutOpen: true }),
             closeCheckout: () => set({ isCheckoutOpen: false }),
-            addItem: (product, quantity, size, color) => {
+            addItem: (product, quantity, selection) => {
                 const { items } = get();
-                const existingItemIndex = items.findIndex(
-                (item) => item.product.id === product.id && item.size === size && item.color === color
-                );
+                const candidate: CartItem = { id: `${product.id}-${selection.map((s) => s.value).join('-')}`, product, quantity, selection };
+                const key = lineKey(candidate);
+                const existingItemIndex = items.findIndex((item) => lineKey(item) === key);
 
                 if (existingItemIndex > -1) {
                     const updatedItems = [...items];
-                    updatedItems[existingItemIndex].quantity += quantity;
+                    updatedItems[existingItemIndex] = { ...updatedItems[existingItemIndex], quantity: updatedItems[existingItemIndex].quantity + quantity };
                     set({ items: updatedItems });
                 } else {
-                    const newItem: CartItem = {
-                        id: `${product.id}-${size}-${color}`,
-                        product,
-                        quantity,
-                        size,
-                        color,
-                    };
-                    set({ items: [...items, newItem] });
+                    set({ items: [...items, candidate] });
                 }
             },
             removeItem: (itemId) => {
