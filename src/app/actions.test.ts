@@ -13,11 +13,13 @@ const h = vi.hoisted(() => ({
   notifyFails: false,
   channels: { telegram: true, email: false },
   notifyResult: null as null | Record<string, unknown>,
+  // Fonction simple (pas vi.fn): une promesse rejetée renvoyée par un vi.fn est signalée à tort comme non gérée.
+  ai: (async () => ({ recommendations: [] as string[] })) as (input: unknown) => Promise<{ recommendations: string[] }>,
 }));
 
 vi.mock('@/firebase/admin', () => ({ get adminDb() { return h.db; } }));
 vi.mock('firebase-admin/firestore', () => ({ FieldValue: { serverTimestamp: () => '__SERVER_TS__', delete: () => '__DELETE__' } }));
-vi.mock('@/ai/flows/shoe-style-recommendation', () => ({ getShoeRecommendations: vi.fn() }));
+vi.mock('@/ai/flows/shoe-style-recommendation', () => ({ getShoeRecommendations: (input: unknown) => h.ai(input) }));
 vi.mock('next/server', () => ({ after: (fn: () => unknown) => { if (h.afterThrows) throw new Error('hors requête'); h.afterTasks.push(fn); } }));
 vi.mock('@/lib/notify', async (original) => {
   const actual = await original<typeof import('@/lib/notify')>();
@@ -51,7 +53,7 @@ import {
   createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders, getNotificationStatus, sendTestNotification,
   previewColorNormalization, applyColorNormalization,
   getAttributes, createAttribute, updateAttribute, deleteAttribute,
-  previewAttributeMigration, applyAttributeMigration,
+  previewAttributeMigration, applyAttributeMigration, fetchShoeRecommendations,
 } from './actions';
 
 const shoe = {
@@ -1225,5 +1227,46 @@ describe('migration vers les attributs', () => {
     db.seed('shoes', 'already', { ...shoe, options: [] });
     expect(await applyAttributeMigration('tok')).toMatchObject({ success: true, updated: 0 });
     expect(db.writes).toHaveLength(0);
+  });
+});
+
+describe('assistant de style (IA)', () => {
+  const calls: unknown[] = [];
+  const answer = (impl: () => Promise<{ recommendations: string[] }>) => { h.ai = async (input) => { calls.push(input); return impl(); }; };
+  beforeEach(() => { calls.length = 0; answer(async () => ({ recommendations: [] })); });
+
+  it('renvoie les recommandations', async () => {
+    answer(async () => ({ recommendations: ['Escarpin noir', 'Sandale dorée'] }));
+    expect(await fetchShoeRecommendations({ shoeDescription: 'Escarpin beige' })).toEqual({ recommendations: ['Escarpin noir', 'Sandale dorée'] });
+  });
+
+  it('modèle retiré par Google (404, cas du 25/11): message en français, sans détail technique, cause dans les journaux', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const gone = Object.assign(new Error('[404 Not Found] This model models/gemini-2.5-flash is no longer available to new users.'), { status: 404 });
+    answer(async () => { throw gone; });
+    const r = await fetchShoeRecommendations({ shoeDescription: 'Escarpin beige' });
+    expect(r.recommendations).toEqual([]);
+    expect(r.error).toMatch(/momentanément indisponible/);
+    expect(r.error).not.toMatch(/gemini|404|models\//i);
+    expect(String(spy.mock.calls[0][0])).toMatch(/model-unavailable/);
+    spy.mockRestore();
+  });
+
+  it('quota dépassé: message adapté', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const tooMany = Object.assign(new Error('quota'), { status: 429 });
+    answer(async () => { throw tooMany; });
+    expect((await fetchShoeRecommendations({ shoeDescription: 'x' })).error).toMatch(/Trop de demandes/);
+    spy.mockRestore();
+  });
+
+  it('limite de débit et description invalide: l’IA n’est pas appelée', async () => {
+    h.allowRate = false;
+    expect((await fetchShoeRecommendations({ shoeDescription: 'x' })).error).toMatch(/Trop de requêtes/);
+    h.allowRate = true;
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await fetchShoeRecommendations({ shoeDescription: '   ' })).recommendations).toEqual([]);
+    expect(calls).toHaveLength(0);
+    spy.mockRestore();
   });
 });

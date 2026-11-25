@@ -20,6 +20,7 @@ import { after } from 'next/server';
 import { buildOrderNotification, configuredChannels, diagnoseNotifications, explainChannelError, sendNotification, type NotifyResult } from '@/lib/notify';
 import { SITE } from '@/lib/site';
 import { rateLimit } from '@/lib/rate-limit';
+import { describeAiError } from '@/lib/ai-errors';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
 
 cloudinary.config({
@@ -44,8 +45,10 @@ export async function fetchShoeRecommendations(
     const result = await getShoeRecommendations(validatedInput);
     return { recommendations: result.recommendations };
   } catch (error) {
-    console.error('Error fetching shoe recommendations:', error);
-    return { recommendations: [], error: 'Failed to fetch recommendations.' };
+    const { kind, userMessage } = describeAiError(error);
+    // Cause réelle dans les journaux (ex.: model-unavailable = modèle Gemini retiré, à changer par GEMINI_MODEL dans Vercel).
+    console.error(`Assistant de style indisponible (${kind}):`, error);
+    return { recommendations: [], error: userMessage };
   }
 }
 
