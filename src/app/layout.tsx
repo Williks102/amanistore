@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { CartProvider } from '@/components/CartProvider';
+import { BodyUnlock } from '@/components/BodyUnlock';
 import Footer from '@/components/Footer';
 import { FirebaseClientProvider } from '@/firebase';
 import { SITE } from '@/lib/site';
@@ -36,6 +37,7 @@ export default function RootLayout({
             </div>
             <Footer />
             <Toaster />
+            <BodyUnlock />
           </CartProvider>
         </FirebaseClientProvider>
       </body>

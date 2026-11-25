@@ -108,7 +108,7 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
     }
 
     return (
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-11 w-11 rounded-full">
             <Avatar className="h-8 w-8">
@@ -124,14 +124,14 @@ const Header = ({ categories, onToggleSidebar }: HeaderProps) => {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
-            <Link href="/dashboard">
+            <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
               <User className="mr-2 h-4 w-4" />
               <span>Mon Compte</span>
             </Link>
           </DropdownMenuItem>
           {hasStaffAccess && (
             <DropdownMenuItem asChild>
-                <Link href="/admin">
+                <Link href="/admin" onClick={() => setMobileMenuOpen(false)}>
                     <ShieldCheck className="mr-2 h-4 w-4" />
                     <span>Admin</span>
                 </Link>
