@@ -23,7 +23,8 @@ import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { ColorPicker } from '@/components/ColorPicker';
-import { formatStockInput, parseStockInput } from '@/lib/stock';
+import { parseSizeRows, rowsFromShoe, type SizeRow } from '@/lib/size-rows';
+import { SizeStockEditor } from '@/components/admin/SizeStockEditor';
 import Image from 'next/image';
 
 interface EditProductModalProps {
@@ -42,8 +43,8 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
   const [price, setPrice] = useState(shoe.price);
   const [categoryId, setCategoryId] = useState(shoe.categoryId);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(shoe.collectionIds || []);
-  const [availableSizes, setAvailableSizes] = useState(shoe.availableSizes.join(', '));
-  const [stockInput, setStockInput] = useState(formatStockInput(shoe.stock));
+  const [sizeRows, setSizeRows] = useState<SizeRow[]>(() => rowsFromShoe(shoe).rows);
+  const [stockTracked, setStockTracked] = useState(() => rowsFromShoe(shoe).tracked);
   const [featured, setFeatured] = useState(!!shoe.featured);
   const [availableColors, setAvailableColors] = useState<ShoeColor[]>(shoe.availableColors);
   
@@ -61,8 +62,9 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
       setPrice(shoe.price);
       setCategoryId(shoe.categoryId);
       setSelectedCollectionIds(shoe.collectionIds || []); // Ensure it's an array
-      setAvailableSizes(shoe.availableSizes.join(', '));
-      setStockInput(formatStockInput(shoe.stock));
+      const initial = rowsFromShoe(shoe);
+      setSizeRows(initial.rows);
+      setStockTracked(initial.tracked);
       setFeatured(!!shoe.featured);
       setAvailableColors(shoe.availableColors);
       const allImages = [shoe.gridImage, ...(shoe.detailImages || [])];
@@ -102,15 +104,9 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     event.preventDefault();
     setIsSubmitting(true);
 
-    const parsedStock = parseStockInput(stockInput);
-    if (parsedStock.error) {
-        toast({ title: 'Stock invalide', description: parsedStock.error, variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-    }
-    const sizesArray = availableSizes.split(',').map((s) => Number(s.trim())).filter((s) => !isNaN(s) && s > 0);
-    if (sizesArray.length === 0) {
-        toast({ title: 'Tailles invalides', description: 'Veuillez entrer des tailles valides.', variant: 'destructive' });
+    const parsedRows = parseSizeRows(sizeRows, stockTracked);
+    if (parsedRows.error) {
+        toast({ title: 'Pointures et stock', description: parsedRows.error, variant: 'destructive' });
         setIsSubmitting(false);
         return;
     }
@@ -149,9 +145,9 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
         price,
         categoryId,
         collectionIds: selectedCollectionIds,
-        availableSizes: sizesArray,
+        availableSizes: parsedRows.sizes,
         // null = stock non suivi (illimité)
-        stock: parsedStock.stock ?? null,
+        stock: parsedRows.stock ?? null,
         featured,
         availableColors,
         gridImage: allImages[0],
@@ -238,17 +234,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <Label htmlFor="edit-product-sizes">Tailles disponibles</Label>
-                <Input id="edit-product-sizes" value={availableSizes} onChange={(e) => setAvailableSizes(e.target.value)} />
-                 <p className="text-sm text-muted-foreground">Séparez les tailles par des virgules.</p>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="edit-product-stock">Stock par pointure (optionnel)</Label>
-                <Input id="edit-product-stock" placeholder="Ex: 38:5, 39:3, 40:0" value={stockInput} onChange={(e) => setStockInput(e.target.value)} />
-                <p className="text-sm text-muted-foreground">Format pointure:quantité. Laissez vide pour ne pas suivre le stock (illimité). Une pointure absente de la liste est considérée épuisée.</p>
-            </div>
+            <SizeStockEditor idPrefix="edit-product" rows={sizeRows} onRowsChange={setSizeRows} tracked={stockTracked} onTrackedChange={setStockTracked} />
 
             <div className="space-y-4 rounded-md border p-4">
                 <Label className="font-semibold">Couleurs disponibles</Label>
