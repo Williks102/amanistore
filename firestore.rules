@@ -60,6 +60,12 @@ service cloud.firestore {
       allow write: if isAdmin(); // Only admins can write.
     }
     
+    // Attributs de produit (Pointure, Taille…): gérés depuis l'admin par les Server Actions.
+    // Les produits en gardent une copie, la boutique n'a pas besoin de lire cette collection.
+    match /attributes/{attributeId} {
+      allow read, write: if isAdmin() || isProductManager();
+    }
+
     // Les codes promo ne sont plus lisibles publiquement: la validation passe par
     // la Server Action validatePromoCode (Admin SDK, avec limite de débit).
     match /promoCodes/{promoId} {

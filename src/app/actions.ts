@@ -4,10 +4,13 @@
 import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
-import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage } from '@/lib/types';
+import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage, Attribute, AttributeKind, ProductOption, Selection, StockScope } from '@/lib/types';
 import { computeDiscount, promoProblem } from '@/lib/promo';
-import { availableStock } from '@/lib/stock';
-import { canonicalColorName, normalizeColors } from '@/lib/colors';
+import {
+  applyStockChange, legacyFields, MAX_OPTIONS, productOptions, resolveSelection, selectionForLine, validateAttribute, validateProductAttributes,
+  valueKey, type StockLine,
+} from '@/lib/attributes';
+import { canonicalColor, normalizeColors } from '@/lib/colors';
 import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -151,17 +154,67 @@ export async function getProducts() {
     return snapshot.docs.map(doc => plainDoc<Shoe>(doc.id, doc.data())).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 }
 
-export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id'>) {
+/**
+ * Attributs d'un produit saisis par l'admin: structure et stock validés, puis chaque attribut relu en base
+ * (nom, type et valeurs viennent de l'attribut, jamais du navigateur). Retourne les options à enregistrer, ou une erreur.
+ */
+async function resolveProductOptions(
+  db: FirebaseFirestore.Firestore,
+  input: { options: ProductOption[]; stockScope?: StockScope | null; variantStock?: Record<string, number> | null }
+): Promise<{ options: ProductOption[] } | { error: string }> {
+  if (!Array.isArray(input.options) || input.options.length > MAX_OPTIONS) return { error: `Un produit a au plus ${MAX_OPTIONS} attributs.` };
+  if (input.options.some((o) => !o || typeof o.attributeId !== 'string' || !Array.isArray(o.values))) return { error: 'Attribut invalide.' };
+  const options: ProductOption[] = [];
+  for (const o of input.options) {
+    const snap = await db.collection('attributes').doc(o.attributeId).get();
+    if (!snap.exists) return { error: `L’attribut « ${o.name} » n’existe plus. Rechargez la page.` };
+    const attribute = plainDoc<Attribute>(snap.id, snap.data() ?? {});
+    const values: string[] = [];
+    for (const v of o.values) {
+      const match = attribute.values.find((av) => valueKey(av.label) === valueKey(String(v)));
+      if (!match) return { error: `« ${v} » n’est pas une valeur de l’attribut ${attribute.name}.` };
+      values.push(match.label);
+    }
+    options.push({ attributeId: attribute.id, name: attribute.name, kind: attribute.kind, values });
+  }
+  // Nom, type et valeurs viennent maintenant de la base: on valide la structure et le stock sur ces valeurs.
+  const structural = validateProductAttributes({ options, stockScope: input.stockScope ?? undefined, variantStock: input.variantStock ?? undefined });
+  if (structural) return { error: structural };
+  return { options };
+}
+
+type ProductInput = Omit<Shoe, 'id'>;
+
+export async function createProduct(idToken: string, newShoeData: ProductInput) {
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const { stock, featured, ...rest } = newShoeData;
-        const problem = validateProductFields(rest);
+        const { stock, featured, options, stockScope, variantStock, ...rest } = newShoeData;
+        let attributeFields: Record<string, unknown> = {};
+        let checked: Partial<ProductInput> = rest;
+        if (options !== undefined) {
+            // Produit à attributs: pointures et couleurs ne viennent plus des anciens champs.
+            const resolved = await resolveProductOptions(adminDb, { options, stockScope, variantStock });
+            if ('error' in resolved) return { success: false, error: resolved.error };
+            const { availableSizes: _s, availableColors: _c, ...others } = rest;
+            checked = others;
+            attributeFields = {
+                options: resolved.options,
+                availableSizes: [],
+                availableColors: [],
+                ...(variantStock ? { variantStock } : {}),
+                ...(variantStock && stockScope ? { stockScope } : {}),
+            };
+        } else if (variantStock !== undefined || stockScope !== undefined) {
+            return { success: false, error: 'Stock sans attributs: enregistrez aussi les attributs du produit.' };
+        }
+        const problem = validateProductFields(checked);
         if (problem) return { success: false, error: problem };
         const docRef = await adminDb.collection('shoes').add({
             ...rest,
-            availableColors: normalizeColors(rest.availableColors).colors,
-            ...(stock ? { stock: sanitizeStock(stock) } : {}),
+            ...(options === undefined ? { availableColors: normalizeColors(rest.availableColors).colors } : {}),
+            ...(options === undefined && stock ? { stock: sanitizeStock(stock) } : {}),
+            ...attributeFields,
             ...(typeof featured === 'boolean' ? { featured } : {}),
             createdAt: new Date().toISOString(),
         });
@@ -169,19 +222,45 @@ export async function createProduct(idToken: string, newShoeData: Omit<Shoe, 'id
     } catch (error) { return fail(error); }
 }
 
-// `stock: null` supprime le suivi de stock (illimité).
-export async function updateProduct(idToken: string, shoeId: string, updatedShoeData: Omit<Partial<Shoe>, 'stock'> & { stock?: Record<string, number> | null }) {
+// `stock: null` supprime le suivi de stock (illimité); `variantStock: null` aussi, pour un produit à attributs.
+type ProductUpdate = Omit<Partial<Shoe>, 'stock' | 'stockScope' | 'variantStock'> & {
+    stock?: Record<string, number> | null;
+    stockScope?: StockScope | null;
+    variantStock?: Record<string, number> | null;
+};
+export async function updateProduct(idToken: string, shoeId: string, updatedShoeData: ProductUpdate) {
     if (!adminDb) return { success: false, error: 'DB connection failed.' };
     try {
         await requireRole(idToken, ['productManager']);
-        const { id: _ignored, stock, featured, ...rest } = updatedShoeData;
-        const problem = validateProductFields(rest);
-        if (problem) return { success: false, error: problem };
+        const { id: _ignored, stock, featured, options, stockScope, variantStock, ...rest } = updatedShoeData;
         const data: Record<string, unknown> = { ...rest };
-        if (rest.availableColors) data.availableColors = normalizeColors(rest.availableColors).colors;
+        if (options !== undefined) {
+            const resolved = await resolveProductOptions(adminDb, { options, stockScope, variantStock });
+            if ('error' in resolved) return { success: false, error: resolved.error };
+            const { availableSizes: _s, availableColors: _c, ...others } = rest;
+            const problem = validateProductFields(others);
+            if (problem) return { success: false, error: problem };
+            Object.assign(data, { availableSizes: [], availableColors: [] }, { ...others });
+            data.options = resolved.options;
+            data.stock = FieldValue.delete(); // l'ancien stock par pointure n'a plus de sens
+            if (variantStock) {
+                data.variantStock = variantStock;
+                if (stockScope) data.stockScope = stockScope; else data.stockScope = FieldValue.delete();
+            } else {
+                data.variantStock = FieldValue.delete();
+                data.stockScope = FieldValue.delete();
+            }
+        } else {
+            if (variantStock != null || stockScope != null) {
+                return { success: false, error: 'Stock sans attributs: enregistrez aussi les attributs du produit.' };
+            }
+            const problem = validateProductFields(rest);
+            if (problem) return { success: false, error: problem };
+            if (rest.availableColors) data.availableColors = normalizeColors(rest.availableColors).colors;
+            if (stock === null) data.stock = FieldValue.delete();
+            else if (stock !== undefined) data.stock = sanitizeStock(stock);
+        }
         if (typeof featured === 'boolean') data.featured = featured;
-        if (stock === null) data.stock = FieldValue.delete();
-        else if (stock !== undefined) data.stock = sanitizeStock(stock);
         await adminDb.collection('shoes').doc(shoeId).update(data);
         return { success: true };
     } catch (error) { return fail(error); }
@@ -192,6 +271,105 @@ export async function deleteProduct(idToken: string, shoeId: string) {
     try {
         await requireRole(idToken, ['productManager']);
         await adminDb.collection('shoes').doc(shoeId).delete();
+        return { success: true };
+    } catch (error) { return fail(error); }
+}
+
+// ============ ATTRIBUTS DE PRODUIT (Pointure, Taille, Couleur, Matière…) ============
+// Réservé aux admins et gestionnaires de produits. Un produit copie le nom et les valeurs de ses attributs.
+async function productsUsingAttribute(db: FirebaseFirestore.Firestore, attributeId: string) {
+    const snapshot = await db.collection('shoes').get();
+    return snapshot.docs
+        .map((d) => plainDoc<Shoe>(d.id, d.data()))
+        .filter((shoe) => (shoe.options ?? []).some((o) => o.attributeId === attributeId));
+}
+
+export async function getAttributes(idToken: string): Promise<{ attributes: Attribute[] | null; error?: string }> {
+    if (!adminDb) return { attributes: null, error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const snapshot = await adminDb.collection('attributes').get();
+        const attributes = snapshot.docs.map((d) => plainDoc<Attribute>(d.id, d.data()));
+        attributes.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+        return { attributes };
+    } catch (error) { return { attributes: null, error: fail(error).error }; }
+}
+
+type AttributeInput = { name: string; kind: AttributeKind; values: Array<{ label: string; hex?: string }> };
+
+/** Nettoie les valeurs (espaces) et fixe le code des couleurs de la palette. */
+function cleanAttribute(input: AttributeInput): AttributeInput {
+    return {
+        name: String(input.name ?? '').trim(),
+        kind: input.kind,
+        values: (input.values ?? []).map((v) => {
+            const label = String(v?.label ?? '').trim();
+            const known = input.kind === 'color' ? canonicalColor(label) : null;
+            const hex = known ? known.hex : input.kind === 'color' ? v?.hex : undefined;
+            return hex ? { label: known ? known.name : label, hex } : { label };
+        }),
+    };
+}
+
+export async function createAttribute(idToken: string, input: AttributeInput) {
+    if (!adminDb) return { success: false, error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const data = cleanAttribute(input);
+        const problem = validateAttribute(data);
+        if (problem) return { success: false, error: problem };
+        const existing = await adminDb.collection('attributes').get();
+        if (existing.docs.some((d) => valueKey(String(d.data().name)) === valueKey(data.name))) {
+            return { success: false, error: `Un attribut « ${data.name} » existe déjà.` };
+        }
+        const docRef = await adminDb.collection('attributes').add({ ...data, createdAt: new Date().toISOString() });
+        return { success: true, attributeId: docRef.id };
+    } catch (error) { return fail(error); }
+}
+
+/** Renomme un attribut ou change ses valeurs. Le type ne change pas. Une valeur utilisée par un produit ne peut pas être retirée. */
+export async function updateAttribute(idToken: string, attributeId: string, input: Omit<AttributeInput, 'kind'>) {
+    if (!adminDb) return { success: false, error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const ref = adminDb.collection('attributes').doc(attributeId);
+        const snap = await ref.get();
+        if (!snap.exists) return { success: false, error: 'Attribut introuvable.' };
+        const current = plainDoc<Attribute>(snap.id, snap.data() ?? {});
+        const data = cleanAttribute({ ...input, kind: current.kind });
+        const problem = validateAttribute(data);
+        if (problem) return { success: false, error: problem };
+        const others = await adminDb.collection('attributes').get();
+        if (others.docs.some((d) => d.id !== attributeId && valueKey(String(d.data().name)) === valueKey(data.name))) {
+            return { success: false, error: `Un attribut « ${data.name} » existe déjà.` };
+        }
+        const users = await productsUsingAttribute(adminDb, attributeId);
+        const kept = new Set(data.values.map((v) => valueKey(v.label)));
+        for (const shoe of users) {
+            const option = (shoe.options ?? []).find((o) => o.attributeId === attributeId)!;
+            const lost = option.values.find((v) => !kept.has(valueKey(v)));
+            if (lost !== undefined) return { success: false, error: `La valeur « ${lost} » est utilisée par « ${shoe.name} »: retirez-la d’abord du produit.` };
+        }
+        await ref.update({ name: data.name, values: data.values });
+        if (data.name !== current.name) {
+            for (const shoe of users) {
+                const options = (shoe.options ?? []).map((o) => (o.attributeId === attributeId ? { ...o, name: data.name } : o));
+                await adminDb.collection('shoes').doc(shoe.id).update({ options });
+            }
+        }
+        return { success: true, productsUpdated: data.name !== current.name ? users.length : 0 };
+    } catch (error) { return fail(error); }
+}
+
+export async function deleteAttribute(idToken: string, attributeId: string) {
+    if (!adminDb) return { success: false, error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const users = await productsUsingAttribute(adminDb, attributeId);
+        if (users.length > 0) {
+            return { success: false, error: `Cet attribut est utilisé par ${users.length} produit(s), dont « ${users[0].name} »: retirez-le d’abord des produits.` };
+        }
+        await adminDb.collection('attributes').doc(attributeId).delete();
         return { success: true };
     } catch (error) { return fail(error); }
 }
@@ -369,8 +547,11 @@ const CreateOrderSchema = z.object({
   items: z.array(z.object({
     productId: z.string().min(1).max(128),
     quantity: z.number().int().min(1).max(20),
-    size: z.number(),
-    color: z.string().max(50),
+    /** Ancien format (Pointure + Couleur), toujours accepté. */
+    size: z.number().optional(),
+    color: z.string().max(50).optional(),
+    /** Nouveau format: une valeur par attribut du produit. */
+    selection: z.array(z.object({ name: z.string().max(40), value: z.string().max(50) })).max(2).optional(),
   })).min(1).max(50),
 });
 
@@ -425,39 +606,40 @@ export async function createOrder(
 
       // 2. Validation des lignes (prix lus en base, jamais depuis le client)
       const items: CartItem[] = [];
-      const requested = new Map<string, number>(); // `${productId}|${size}` -> quantité totale
+      const stockLines = new Map<string, StockLine[]>(); // productId -> lignes à décompter
       for (const it of data.items) {
         const product = products.get(it.productId);
         if (!product) throw new OrderError("Un produit de votre panier n'existe plus.");
         if (!isPriceValid(product.price)) throw new OrderError(`${product.name} est momentanément indisponible.`);
-        if (product.availableSizes?.length && !product.availableSizes.includes(it.size)) {
-          throw new OrderError(`Taille indisponible pour ${product.name}.`);
-        }
-        if (product.availableColors?.length && !product.availableColors.some((c) => canonicalColorName(c.name) === canonicalColorName(it.color))) {
-          throw new OrderError(`Couleur indisponible pour ${product.name}.`);
-        }
-        const key = `${product.id}|${it.size}`;
-        requested.set(key, (requested.get(key) ?? 0) + it.quantity);
-        items.push({ id: `${product.id}-${it.size}-${it.color}`, product, quantity: it.quantity, size: it.size, color: it.color });
+        const options = productOptions(product);
+        const resolved = resolveSelection(product, selectionForLine(product, it));
+        if (!resolved.ok) throw new OrderError(`Option indisponible pour ${product.name}: ${resolved.reason}.`);
+        const selection: Selection = options.map((o, i) => ({ name: o.name, value: resolved.values[i] }));
+        const lines = stockLines.get(product.id) ?? [];
+        lines.push({ values: resolved.values, quantity: it.quantity });
+        stockLines.set(product.id, lines);
+        items.push({
+          id: `${product.id}-${resolved.values.join('-')}`,
+          product,
+          quantity: it.quantity,
+          ...legacyFields(options, resolved.values),
+          selection,
+        });
       }
 
-      // 3. Stock (pour les produits dont le stock est suivi)
-      const newStock = new Map<string, Record<string, number>>();
-      for (const [key, qty] of requested) {
-        const [productId, sizeStr] = key.split('|');
+      // 3. Stock (pour les produits dont le stock est suivi): contrôlé puis décompté par combinaison
+      const newStock = new Map<string, { field: 'stock' | 'variantStock'; table: Record<string, number> }>();
+      for (const [productId, lines] of stockLines) {
         const product = products.get(productId)!;
-        const available = availableStock(product, Number(sizeStr));
-        if (available === null) continue;
-        if (qty > available) {
+        const change = applyStockChange(product, lines);
+        if (!change.ok) {
           throw new OrderError(
-            available === 0
-              ? `${product.name} (pointure ${sizeStr}) est épuisé.`
-              : `Stock insuffisant pour ${product.name} (pointure ${sizeStr}): ${available} restant(s).`
+            change.available === 0
+              ? `${product.name} (${change.label}) est épuisé.`
+              : `Stock insuffisant pour ${product.name} (${change.label}): ${change.available} restant(s).`
           );
         }
-        const current = newStock.get(productId) ?? { ...(product.stock ?? {}) };
-        current[sizeStr] = available - qty;
-        newStock.set(productId, current);
+        if (change.table) newStock.set(productId, { field: change.field, table: change.table });
       }
 
       // 4. Prix et code promo
@@ -495,8 +677,8 @@ export async function createOrder(
         validationCode,
         date: FieldValue.serverTimestamp(),
       });
-      for (const [productId, stock] of newStock) {
-        tx.update(db.collection('shoes').doc(productId), { stock });
+      for (const [productId, { field, table }] of newStock) {
+        tx.update(db.collection('shoes').doc(productId), { [field]: table });
       }
       if (promoRef) tx.update(promoRef, { usedCount: promoUsed + 1 });
     });
