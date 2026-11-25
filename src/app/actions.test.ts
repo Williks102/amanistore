@@ -50,6 +50,7 @@ import {
   createProduct, updateProduct, deleteProduct, getOrders, getPromoCodes, validatePromoCode, getOrderByCodeForValidation, getProducts, getCategories,
   createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders, getNotificationStatus, sendTestNotification,
   previewColorNormalization, applyColorNormalization,
+  getAttributes, createAttribute, updateAttribute, deleteAttribute,
 } from './actions';
 
 const shoe = {
@@ -867,5 +868,246 @@ describe('les actions ne renvoient que des objets simples (sérialisables par Ne
     expect(isPlain(await getCategories())).toBe(true);
     expect(isPlain(await getPromoCodes('tok'))).toBe(true);
     expect(isPlain(await getContactMessages('tok'))).toBe(true);
+  });
+});
+
+// ============ Attributs de produit (étape 2) ============
+describe('attributs de produit', () => {
+  const isPlain = (v: unknown): boolean => {
+    if (v === null || typeof v !== 'object') return typeof v !== 'function' && typeof v !== 'symbol';
+    if (Array.isArray(v)) return v.every(isPlain);
+    return Object.getPrototypeOf(v) === Object.prototype && Object.values(v).every(isPlain);
+  };
+  const pointure = { name: 'Pointure', kind: 'text', values: [{ label: '38' }, { label: '39' }, { label: '40' }] };
+  const couleur = { name: 'Couleur', kind: 'color', values: [{ label: 'Noir', hex: '#1C1B1A' }, { label: 'Beige', hex: '#D9C4A3' }] };
+  const taille = { name: 'Taille de doigt', kind: 'text', values: [{ label: '52' }, { label: '54' }] };
+  const bagColor = { name: 'Matière', kind: 'text', values: [{ label: 'Cuir' }, { label: 'Toile' }] };
+  const writesTo = (c: string) => db.writes.filter((w) => w.collection === c);
+
+  beforeEach(() => {
+    db.seed('attributes', 'a-size', pointure);
+    db.seed('attributes', 'a-color', couleur);
+    db.seed('attributes', 'a-ring', taille);
+    db.seed('attributes', 'a-mat', bagColor);
+  });
+
+  describe('createAttribute / updateAttribute / deleteAttribute', () => {
+    it('crée un attribut nettoyé, fixe le code des couleurs de la palette', async () => {
+      const r = await createAttribute('tok', { name: '  Teinte ', kind: 'color', values: [{ label: ' doré ' }, { label: 'Turquoise', hex: '#40E0D0' }] });
+      expect(r.success).toBe(true);
+      const saved = db.get('attributes', (r as any).attributeId)!;
+      expect(saved.name).toBe('Teinte');
+      expect(saved.values).toEqual([{ label: 'Doré', hex: '#D4A940' }, { label: 'Turquoise', hex: '#40E0D0' }]);
+    });
+    it('refuse nom en double (sans accents ni casse), valeurs invalides, couleur sans code', async () => {
+      expect((await createAttribute('tok', { name: 'pointure', kind: 'text', values: [{ label: '1' }] })).error).toMatch(/existe déjà/);
+      expect((await createAttribute('tok', { name: 'Nouveau', kind: 'text', values: [] })).error).toMatch(/au moins une valeur/);
+      expect((await createAttribute('tok', { name: 'Nouveau', kind: 'text', values: [{ label: 'S' }, { label: ' s' }] })).error).toMatch(/double/);
+      expect((await createAttribute('tok', { name: 'Nouveau', kind: 'color', values: [{ label: 'Turquoise' }] })).error).toMatch(/code couleur/);
+      expect(writesTo('attributes')).toHaveLength(0);
+    });
+    it('refuse sans le bon rôle et n’écrit rien', async () => {
+      h.roleOk = false;
+      expect((await createAttribute('tok', pointure as any)).success).toBe(false);
+      expect((await updateAttribute('tok', 'a-size', { name: 'X', values: [{ label: '1' }] })).success).toBe(false);
+      expect((await deleteAttribute('tok', 'a-size')).success).toBe(false);
+      expect((await getAttributes('tok')).attributes).toBeNull();
+      expect(db.writes).toHaveLength(0);
+    });
+    it('getAttributes renvoie des objets simples triés par nom', async () => {
+      const { attributes } = await getAttributes('tok');
+      expect(attributes!.map((a) => a.name)).toEqual(['Couleur', 'Matière', 'Pointure', 'Taille de doigt']);
+      expect(isPlain(attributes)).toBe(true);
+    });
+    it('renommer met à jour la copie du nom dans les produits qui l’utilisent', async () => {
+      db.seed('shoes', 'p1', { ...shoe, options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] }] });
+      db.seed('shoes', 'p2', { ...shoe, options: [{ attributeId: 'a-mat', name: 'Matière', kind: 'text', values: ['Cuir'] }] });
+      const r = await updateAttribute('tok', 'a-size', { name: 'Pointure FR', values: pointure.values });
+      expect(r).toMatchObject({ success: true, productsUpdated: 1 });
+      expect(db.get('shoes', 'p1')!.options[0].name).toBe('Pointure FR');
+      expect(db.get('shoes', 'p2')!.options[0].name).toBe('Matière');
+    });
+    it('on peut ajouter une valeur; retirer une valeur utilisée est refusé et n’écrit rien', async () => {
+      db.seed('shoes', 'p1', { ...shoe, name: 'Sandale X', options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38', '40'] }] });
+      expect((await updateAttribute('tok', 'a-size', { name: 'Pointure', values: [...pointure.values, { label: '41' }] })).success).toBe(true);
+      db.writes.length = 0;
+      const r = await updateAttribute('tok', 'a-size', { name: 'Pointure', values: [{ label: '38' }, { label: '39' }] });
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/« 40 ».*Sandale X/);
+      expect(db.writes).toHaveLength(0);
+      // une valeur inutilisée peut partir
+      expect((await updateAttribute('tok', 'a-size', { name: 'Pointure', values: [{ label: '38' }, { label: '40' }] })).success).toBe(true);
+    });
+    it('refuse de renommer vers le nom d’un autre attribut, et un attribut inconnu', async () => {
+      expect((await updateAttribute('tok', 'a-size', { name: 'couleur', values: [{ label: '1' }] })).error).toMatch(/existe déjà/);
+      expect((await updateAttribute('tok', 'nope', { name: 'Z', values: [{ label: '1' }] })).error).toMatch(/introuvable/);
+    });
+    it('supprimer: refusé tant qu’un produit l’utilise', async () => {
+      db.seed('shoes', 'p1', { ...shoe, name: 'Sandale X', options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] }] });
+      expect((await deleteAttribute('tok', 'a-size')).error).toMatch(/Sandale X/);
+      expect(db.get('attributes', 'a-size')).toBeDefined();
+      expect((await deleteAttribute('tok', 'a-ring')).success).toBe(true);
+      expect(db.get('attributes', 'a-ring')).toBeUndefined();
+    });
+  });
+
+  describe('createProduct / updateProduct avec attributs', () => {
+    const base = { name: 'Sac Awa', description: 'd', price: 25000, categoryId: 'c1', collectionIds: [], gridImage: shoe.gridImage, detailImages: [], availableSizes: [], availableColors: [] };
+    const created = () => db.all('shoes').find(([id]) => id.startsWith('shoes-'))![1];
+
+    it('sac sans attribut: quantité unique', async () => {
+      const r = await createProduct('tok', { ...base, options: [], variantStock: { _: 5 } } as any);
+      expect(r.success).toBe(true);
+      expect(created()).toMatchObject({ options: [], variantStock: { _: 5 }, availableSizes: [], availableColors: [] });
+    });
+    it('relit les attributs en base: nom, type et libellés viennent de l’attribut', async () => {
+      const r = await createProduct('tok', { ...base, options: [
+        { attributeId: 'a-size', name: 'FAUX', kind: 'color', values: ['38', ' 39'] },
+        { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['noir'] },
+      ], stockScope: 'combination', variantStock: { '38|noir': 3 } } as any);
+      expect(r.success).toBe(true);
+      expect(created().options).toEqual([
+        { attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38', '39'] },
+        { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir'] },
+      ]);
+    });
+    it('refuse attribut inconnu, valeur hors attribut, 3 attributs, stock sur combinaison inexistante', async () => {
+      const bad = async (extra: any) => (await createProduct('tok', { ...base, ...extra } as any)).error;
+      expect(await bad({ options: [{ attributeId: 'zzz', name: 'X', kind: 'text', values: ['1'] }] })).toMatch(/n’existe plus/);
+      expect(await bad({ options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['50'] }] })).toMatch(/n’est pas une valeur/);
+      expect(await bad({ options: [
+        { attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] },
+        { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir'] },
+        { attributeId: 'a-mat', name: 'Matière', kind: 'text', values: ['Cuir'] },
+      ] })).toMatch(/au plus 2/);
+      expect(await bad({ options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] }], variantStock: { '99': 1 } })).toMatch(/n’existe pas/);
+      expect(await bad({ options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] }], variantStock: { '38': -1 } })).toMatch(/invalide/);
+      expect(await bad({ variantStock: { '38': 1 } })).toMatch(/Stock sans attributs/);
+      expect(db.all('shoes').filter(([id]) => id.startsWith('shoes-'))).toHaveLength(0);
+    });
+    it('prix absurde refusé aussi pour un produit à attributs; pointures anciennes non exigées', async () => {
+      expect((await createProduct('tok', { ...base, price: 5, options: [] } as any)).success).toBe(false);
+      expect((await createProduct('tok', { ...base, options: [] } as any)).success).toBe(true);
+    });
+    it('updateProduct: un produit ancien passe aux attributs, l’ancien stock est supprimé', async () => {
+      db.seed('shoes', 'old', { ...shoe, stock: { '38': 3 } });
+      const r = await updateProduct('tok', 'old', {
+        options: [{ attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38'] }],
+        stockScope: 'combination', variantStock: { '38': 3 },
+      });
+      expect(r.success).toBe(true);
+      const saved = db.get('shoes', 'old')!;
+      expect(saved.stock).toBe('__DELETE__');
+      expect(saved).toMatchObject({ availableSizes: [], availableColors: [], variantStock: { '38': 3 }, stockScope: 'combination' });
+    });
+    it('updateProduct: variantStock null = stock illimité; stock sans attributs refusé', async () => {
+      db.seed('shoes', 'nw', { ...base, options: [], variantStock: { _: 2 } });
+      expect((await updateProduct('tok', 'nw', { options: [], variantStock: null })).success).toBe(true);
+      expect(db.get('shoes', 'nw')!.variantStock).toBe('__DELETE__');
+      expect((await updateProduct('tok', 'shoe1', { variantStock: { '38': 1 } })).success).toBe(false);
+      expect(db.get('shoes', 'shoe1')!.variantStock).toBeUndefined();
+    });
+    it('refuse sans le bon rôle', async () => {
+      h.roleOk = false;
+      expect((await createProduct('tok', { ...base, options: [] } as any)).success).toBe(false);
+      expect((await updateProduct('tok', 'shoe1', { options: [] })).success).toBe(false);
+    });
+  });
+
+  describe('createOrder avec attributs', () => {
+    const buy = (items: any[]) => createOrder('tok', { ...customer, items });
+    const key = (...v: string[]) => v.map((x) => x.toLowerCase()).join('|');
+    beforeEach(() => {
+      db.seed('shoes', 'ps', { ...shoe, price: 12000, availableSizes: [], availableColors: [], stockScope: 'combination',
+        options: [
+          { attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38', '39'] },
+          { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir', 'Beige'] },
+        ],
+        variantStock: { [key('38', 'Noir')]: 3, [key('39', 'Noir')]: 0, [key('38', 'Beige')]: 1 } });
+      db.seed('shoes', 'bag', { ...shoe, price: 30000, availableSizes: [], availableColors: [], options: [], variantStock: { _: 2 } });
+      db.seed('shoes', 'ring', { ...shoe, price: 9000, availableSizes: [], availableColors: [],
+        options: [{ attributeId: 'a-ring', name: 'Taille de doigt', kind: 'text', values: ['52', '54'] }] });
+      db.seed('shoes', 'mig', { ...shoe, price: 8000, availableSizes: [], availableColors: [], stockScope: 'attribute1',
+        options: [
+          { attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38', '39'] },
+          { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir', 'Beige'] },
+        ], variantStock: { '38': 4 } });
+    });
+    const sel = (p: string, c: string) => [{ name: 'Pointure', value: p }, { name: 'Couleur', value: c }];
+
+    it('commande par choix, copie le choix sur la ligne et décompte la combinaison', async () => {
+      const r = await buy([{ productId: 'ps', quantity: 2, selection: sel('38', 'noir') }]);
+      expect(r.success).toBe(true);
+      const item = lastOrder().items[0];
+      expect(item.selection).toEqual(sel('38', 'Noir'));
+      expect(item).toMatchObject({ size: 38, color: 'Noir', id: 'ps-38-Noir' });
+      expect(db.get('shoes', 'ps')!.variantStock).toEqual({ [key('38', 'Noir')]: 1, [key('39', 'Noir')]: 0, [key('38', 'Beige')]: 1 });
+      expect(lastOrder().total).toBe(24000);
+    });
+    it('refuse épuisé, stock insuffisant, et n’écrit rien', async () => {
+      expect((await buy([{ productId: 'ps', quantity: 1, selection: sel('39', 'Noir') }])).error).toMatch(/épuisé/);
+      expect((await buy([{ productId: 'ps', quantity: 2, selection: sel('38', 'Beige') }])).error).toMatch(/1 restant/);
+      expect((await buy([{ productId: 'ps', quantity: 2, selection: sel('39', 'Beige') }])).error).toMatch(/épuisé/); // clé absente = 0
+      expect(db.all('orders')).toHaveLength(0);
+    });
+    it('additionne les lignes de même combinaison', async () => {
+      const r = await buy([
+        { productId: 'ps', quantity: 2, selection: sel('38', 'Noir') },
+        { productId: 'ps', quantity: 2, selection: sel('38', 'noir') },
+      ]);
+      expect(r.error).toMatch(/3 restant/);
+      expect(db.all('orders')).toHaveLength(0);
+    });
+    it('valeur inconnue, attribut manquant ou en trop: refusés', async () => {
+      for (const selection of [sel('50', 'Noir'), [{ name: 'Pointure', value: '38' }], [...sel('38', 'Noir'), { name: 'Matière', value: 'Cuir' }], [{ name: 'Pointure', value: '38' }, { name: 'Pointure', value: '39' }]]) {
+        const r = await buy([{ productId: 'ps', quantity: 1, selection }]);
+        expect(r.success).toBe(false);
+        expect(r.error).toMatch(/Option indisponible|invalides/);
+      }
+      expect(db.all('orders')).toHaveLength(0);
+    });
+    it('un navigateur ne peut pas choisir un attribut qui n’est pas au produit', async () => {
+      const r = await buy([{ productId: 'ring', quantity: 1, selection: [{ name: 'Taille de doigt', value: '60' }] }]);
+      expect(r.success).toBe(false);
+    });
+    it('ancien panier (size + color) accepté sur un produit à Pointure + Couleur', async () => {
+      const r = await buy([{ productId: 'ps', quantity: 1, size: 38, color: 'Noir' }]);
+      expect(r.success).toBe(true);
+      expect(lastOrder().items[0].selection).toEqual(sel('38', 'Noir'));
+    });
+    it('sac sans attribut: quantité unique, sans pointure ni couleur', async () => {
+      expect((await buy([{ productId: 'bag', quantity: 2, selection: [] }])).success).toBe(true);
+      expect(db.get('shoes', 'bag')!.variantStock).toEqual({ _: 0 });
+      expect(lastOrder().items[0]).toMatchObject({ size: 0, color: '', selection: [] });
+      expect((await buy([{ productId: 'bag', quantity: 1 }])).error).toMatch(/épuisé/);
+      expect((await buy([{ productId: 'bag', quantity: 1, selection: [{ name: 'Pointure', value: '40' }] }])).success).toBe(false);
+    });
+    it('bague: taille libre, stock non suivi', async () => {
+      const r = await buy([{ productId: 'ring', quantity: 3, selection: [{ name: 'taille de doigt', value: '54' }] }]);
+      expect(r.success).toBe(true);
+      expect(lastOrder().items[0]).toMatchObject({ size: 0, color: '', selection: [{ name: 'Taille de doigt', value: '54' }] });
+      expect(db.get('shoes', 'ring')!.variantStock).toBeUndefined();
+      expect((await buy([{ productId: 'ring', quantity: 1, selection: [{ name: 'Taille de doigt', value: '56' }] }])).success).toBe(false);
+    });
+    it('stock partagé par pointure (chaussure migrée): les couleurs se partagent', async () => {
+      expect((await buy([
+        { productId: 'mig', quantity: 3, selection: sel('38', 'Noir') },
+        { productId: 'mig', quantity: 1, selection: sel('38', 'Beige') },
+      ])).success).toBe(true);
+      expect(db.get('shoes', 'mig')!.variantStock).toEqual({ '38': 0 });
+      const r = await buy([{ productId: 'mig', quantity: 1, selection: sel('38', 'Beige') }]);
+      expect(r.error).toMatch(/épuisé/);
+      expect(r.error).not.toMatch(/Beige/);
+    });
+    it('les anciens produits se commandent comme avant (size + color)', async () => {
+      db.seed('shoes', 'tracked', { ...shoe, stock: { '38': 3 } });
+      expect((await buy([{ productId: 'tracked', quantity: 2, size: 38, color: 'Noir' }])).success).toBe(true);
+      expect(db.get('shoes', 'tracked')!.stock).toEqual({ '38': 1 });
+      expect(lastOrder().items[0]).toMatchObject({ size: 38, color: 'Noir', selection: sel('38', 'Noir') });
+    });
+    it('la réponse de commande et la lecture admin restent des objets simples', async () => {
+      await buy([{ productId: 'ps', quantity: 1, selection: sel('38', 'Noir') }]);
+      expect(isPlain(await getOrders('tok'))).toBe(true);
+    });
   });
 });

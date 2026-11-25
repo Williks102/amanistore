@@ -71,8 +71,11 @@ export type CartItem = {
   id: string; 
   product: Shoe;
   quantity: number;
+  /** Pointure et couleur (anciennes lignes). Pour un produit à attributs libres: 0 et '' (voir `selection`). */
   size: number;
   color: string;
+  /** Choix par attribut, copie figée au moment de la commande (nom + valeur). */
+  selection?: Selection;
 };
 
 export type OrderStatus = 'En attente' | 'Prêt' | 'Livré' | 'Annulé';

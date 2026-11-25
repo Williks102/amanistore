@@ -21,6 +21,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'roles/pm1'), { productManager: true });
     await setDoc(doc(db, 'roles/om1'), { orderManager: true });
     await setDoc(doc(db, 'shoes/s1'), { name: 'Sandale', price: 10000 });
+    await setDoc(doc(db, 'attributes/at1'), { name: 'Pointure', kind: 'text', values: [{ label: '40' }] });
     await setDoc(doc(db, 'categories/c1'), { name: 'Sandales' });
     await setDoc(doc(db, 'collections/col1'), { name: 'Été' });
     await setDoc(doc(db, 'promoCodes/p1'), { code: 'PROMO10', value: 10, isActive: true });
@@ -34,6 +35,24 @@ beforeEach(async () => {
 
 const anon = () => env.unauthenticatedContext().firestore();
 const as = (uid: string) => env.authenticatedContext(uid).firestore();
+
+describe('attributs de produit', () => {
+  it('ni lecture ni écriture pour les anonymes, clients et gestionnaires de commandes', async () => {
+    for (const db of [anon(), as('alice'), as('om1')]) {
+      await assertFails(getDoc(doc(db, 'attributes/at1')));
+      await assertFails(getDocs(collection(db, 'attributes')));
+      await assertFails(setDoc(doc(db, 'attributes/x'), { name: 'x' }));
+      await assertFails(updateDoc(doc(db, 'attributes/at1'), { name: 'y' }));
+      await assertFails(deleteDoc(doc(db, 'attributes/at1')));
+    }
+  });
+  it('admin et productManager: lecture et écriture', async () => {
+    await assertSucceeds(getDocs(collection(as('pm1'), 'attributes')));
+    await assertSucceeds(setDoc(doc(as('pm1'), 'attributes/x'), { name: 'Taille' }));
+    await assertSucceeds(updateDoc(doc(as('admin1'), 'attributes/at1'), { name: 'Pointure FR' }));
+    await assertSucceeds(deleteDoc(doc(as('admin1'), 'attributes/x')));
+  });
+});
 
 describe('catalogue (shoes, categories, collections)', () => {
   it('lecture publique', async () => {

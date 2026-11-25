@@ -80,6 +80,27 @@ export const legacySelection = (size: number, color: string): Selection => [
   { name: 'Couleur', value: color },
 ];
 
+/**
+ * Choix d'une ligne de panier: le nouveau format (`selection`), ou l'ancien (size + color) converti.
+ * Pour l'ancien format, seuls les attributs que le produit possède sont gardés (produit sans couleur, etc.).
+ */
+export function selectionForLine(shoe: OptionShoe, line: { selection?: Selection; size?: number; color?: string }): Selection {
+  if (line.selection) return line.selection;
+  const names = new Set(productOptions(shoe).map((o) => valueKey(o.name)));
+  return legacySelection(line.size ?? NaN, line.color ?? '').filter((s) => names.has(valueKey(s.name)));
+}
+
+/** size et color conservés sur les lignes (anciens écrans, tableau de bord): Pointure et Couleur si le produit les a, sinon 0 et ''. */
+export function legacyFields(options: ProductOption[], values: string[]): { size: number; color: string } {
+  let size = 0;
+  let color = '';
+  options.forEach((o, i) => {
+    if (valueKey(o.name) === 'pointure') size = Number(values[i]) || 0;
+    else if (valueKey(o.name) === 'couleur' || o.kind === 'color') color = values[i] ?? '';
+  });
+  return { size, color };
+}
+
 /** Texte affiché: « Pointure: 40 · Couleur: Noir ». */
 export const describeSelection = (selection: Selection): string => selection.map((s) => `${s.name}: ${s.value}`).join(' · ');
 
@@ -117,14 +138,14 @@ export function expectedStockKeys(shoe: StockShoe): string[] {
 export type StockLine = { values: string[]; quantity: number };
 export type StockChange =
   | { ok: true; field: 'stock' | 'variantStock'; table: Record<string, number> | null }
-  | { ok: false; reason: string };
+  | { ok: false; reason: string; label: string; available: number };
 
 /**
  * Contrôle puis décompte les quantités demandées (plusieurs lignes d'une même clé s'additionnent).
  * `table` = nouveau stock complet à écrire dans `field`, ou null si le stock n'est pas suivi.
  */
 export function applyStockChange(shoe: StockShoe, lines: StockLine[]): StockChange {
-  const { tracked, table, field } = stockTable(shoe);
+  const { tracked, table, field, scope } = stockTable(shoe);
   if (!tracked) return { ok: true, field, table: null };
   const wanted = new Map<string, { qty: number; values: string[] }>();
   for (const l of lines) {
@@ -135,9 +156,11 @@ export function applyStockChange(shoe: StockShoe, lines: StockLine[]): StockChan
   const next = { ...table };
   for (const [key, { qty, values }] of wanted) {
     const available = availableStockFor(shoe, values) ?? 0;
-    const label = values.length > 0 ? values.join(' / ') : 'ce produit';
+    // Stock partagé par premier attribut: la couleur n'entre pas dans le message.
+    const shown = scope === 'attribute1' ? values.slice(0, 1) : values;
+    const label = shown.length > 0 ? shown.join(' / ') : 'ce produit';
     if (qty > available) {
-      return { ok: false, reason: available === 0 ? `${label} est épuisé` : `stock insuffisant pour ${label}: ${available} restant(s)` };
+      return { ok: false, label, available, reason: available === 0 ? `${label} est épuisé` : `stock insuffisant pour ${label}: ${available} restant(s)` };
     }
     next[key] = available - qty;
   }

@@ -1,6 +1,6 @@
 # Plan: attributs de produit (Pointure, Couleur, Taille, Matière…)
 
-Statut: **étape 1 faite (PR « cœur sans interface »)**, étapes 2 à 5 à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
+Statut: **étapes 1 et 2 faites**, étapes 3 à 5 à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
 
 ## Objectif
 Aujourd'hui, la pointure (nombre 16 à 50) et la couleur (palette de 19) sont écrites en dur partout. On les remplace par des **attributs** créés dans l'admin: un attribut a un nom et des valeurs (Pointure: 38, 39, 40; Taille: S, M, L; Matière: doré, argenté). Un produit choisit 0, 1 ou 2 attributs et, pour chacun, les valeurs proposées. Les chaussures, vêtements, bijoux et sacs utilisent le même mécanisme.
@@ -82,3 +82,12 @@ Plus de 2 attributs, images par couleur, prix différent selon la combinaison, i
 
 ## Étape 1 (faite): `src/lib/attributes.ts`
 Fonctions pures, sans interface ni accès à la base: `productOptions`, `variantKey`, `combinations`, `resolveSelection`, `availableStockFor`, `applyStockChange`, `stockSummaryFor`, `firstAvailableCombination`, `validateAttribute`, `validateProductAttributes`. Aucun écran ni action serveur ne les appelle encore: **le comportement de la boutique est inchangé.** Un test vérifie que, pour un produit ancien, le stock calculé est identique à celui de `stock.ts`.
+
+## Étape 2 (faite): serveur
+- `createOrder` accepte `selection` (nouveau) **et** `size` + `color` (ancien panier). Le choix est revalidé contre le produit lu en base; le stock est décompté par combinaison dans la même transaction (champ `variantStock`, ou `stock` pour un produit ancien). Chaque ligne garde `selection` (copie figée) et, pour les anciens écrans, `size` / `color` (0 et `''` si le produit n'a ni Pointure ni Couleur).
+- `createProduct` / `updateProduct` acceptent `options`, `stockScope`, `variantStock`: chaque attribut est relu en base (nom, type et libellés ne viennent jamais du navigateur), 2 attributs max, 100 combinaisons max. `variantStock: null` = stock illimité. Passer un produit ancien aux attributs supprime son ancien `stock`.
+- Nouvelles actions `getAttributes`, `createAttribute`, `updateAttribute`, `deleteAttribute` (admin et gestionnaire de produits). Renommer met à jour la copie du nom dans les produits; retirer une valeur ou supprimer un attribut utilisés par un produit est refusé.
+- Règle Firestore `attributes/{id}`: lecture et écriture réservées aux admins et gestionnaires de produits (**à republier dans la console Firebase**), 2 tests ajoutés.
+
+## Ordre des étapes suivantes (modifié)
+**Boutique (étape 3) avant l'admin (étape 4)**: tant que l'admin ne permet pas de créer un produit à attributs, la boutique n'en voit aucun, donc aucun écran ne peut afficher « Pointure 0 » par erreur. L'étape 5 (migration) reste la dernière.
