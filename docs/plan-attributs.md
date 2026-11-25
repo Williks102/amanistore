@@ -1,6 +1,6 @@
 # Plan: attributs de produit (Pointure, Couleur, Taille, Matière…)
 
-Statut: **étapes 1, 2 et 3 faites**, étapes 4 et 5 à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
+Statut: **étapes 1 à 4 faites**, étape 5 (migration) à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
 
 ## Objectif
 Aujourd'hui, la pointure (nombre 16 à 50) et la couleur (palette de 19) sont écrites en dur partout. On les remplace par des **attributs** créés dans l'admin: un attribut a un nom et des valeurs (Pointure: 38, 39, 40; Taille: S, M, L; Matière: doré, argenté). Un produit choisit 0, 1 ou 2 attributs et, pour chacun, les valeurs proposées. Les chaussures, vêtements, bijoux et sacs utilisent le même mécanisme.
@@ -98,3 +98,9 @@ Fonctions pures, sans interface ni accès à la base: `productOptions`, `variant
 - « Recommander » (`planReorder`) comprend les deux formats; le tableau de bord signale les stocks bas par pointure ou par combinaison (`lowStock`).
 - Filtres de la boutique et cartes produit lisent les attributs (Pointure et couleurs); les filtres par attribut libre viennent avec l'étape 5.
 - `CartItem.size` et `color` deviennent facultatifs; les paniers déjà enregistrés dans les navigateurs restent valables.
+
+## Étape 4 (faite): admin
+- Page **Attributs** (menu Boutique): une carte par attribut (nom, type, valeurs, nombre de produits qui l'utilisent), fenêtre pour créer ou modifier (valeurs saisies à la suite « S, M, L », couleurs de la palette ou couleur personnalisée), suppression refusée tant qu'un produit l'utilise. Première utilisation: bouton « Créer Pointure et Couleur ».
+- **Création de produit**: choix de 0 à 2 attributs, valeurs à cocher, stock par combinaison (ou partagé par premier attribut), « Même quantité partout », « Ne pas suivre le stock ». Remplace les lignes Pointure + Stock et le sélecteur de couleurs.
+- **Modification**: un produit qui a déjà des attributs utilise le nouveau formulaire; un produit ancien garde l'ancien formulaire jusqu'à la migration (étape 5), car ses pointures et couleurs ne sont pas encore des attributs.
+- Correctif de l'étape 1: une couleur hors palette avec son code (ex. Turquoise) était refusée à l'enregistrement d'un produit.

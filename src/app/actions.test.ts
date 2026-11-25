@@ -971,6 +971,12 @@ describe('attributs de produit', () => {
         { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir'], hexes: { Noir: '#1C1B1A' } },
       ]);
     });
+    it('couleur hors palette avec son code: produit créé, code conservé sur l’option', async () => {
+      db.seed('attributes', 'a-tint', { name: 'Teinte', kind: 'color', values: [{ label: 'Turquoise', hex: '#40E0D0' }] });
+      const r = await createProduct('tok', { ...base, options: [{ attributeId: 'a-tint', name: 'Teinte', kind: 'color', values: ['turquoise'] }] } as any);
+      expect(r.success).toBe(true);
+      expect(created().options).toEqual([{ attributeId: 'a-tint', name: 'Teinte', kind: 'color', values: ['Turquoise'], hexes: { Turquoise: '#40E0D0' } }]);
+    });
     it('refuse attribut inconnu, valeur hors attribut, 3 attributs, stock sur combinaison inexistante', async () => {
       const bad = async (extra: any) => (await createProduct('tok', { ...base, ...extra } as any)).error;
       expect(await bad({ options: [{ attributeId: 'zzz', name: 'X', kind: 'text', values: ['1'] }] })).toMatch(/n’existe plus/);

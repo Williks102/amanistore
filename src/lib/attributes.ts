@@ -219,7 +219,7 @@ export function validateProductAttributes(shoe: Pick<Shoe, 'options' | 'stockSco
     if (ids.has(o.attributeId) || names.has(valueKey(o.name))) return `L’attribut « ${o.name} » est choisi deux fois.`;
     ids.add(o.attributeId);
     names.add(valueKey(o.name));
-    const problem = validateAttribute({ name: o.name, kind: o.kind, values: (o.values ?? []).map((label) => ({ label })) });
+    const problem = validateAttribute({ name: o.name, kind: o.kind, values: (o.values ?? []).map((label) => ({ label, hex: o.hexes?.[label] })) });
     if (problem) return `${o.name}: ${problem}`;
   }
   if (shoe.variantStock === undefined) return shoe.stockScope !== undefined ? 'Mode de stock sans quantités.' : null;

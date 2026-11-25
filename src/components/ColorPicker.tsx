@@ -47,7 +47,7 @@ export function ColorPicker({ value, onChange }: { value: ShoeColor[]; onChange:
                   type="button"
                   aria-label={`Retirer ${color.name}`}
                   onClick={() => onChange(value.filter((c) => c.name !== color.name))}
-                  className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted"
+                  className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted"
                 >
                   <X className="h-4 w-4" />
                 </button>

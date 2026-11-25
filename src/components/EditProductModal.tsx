@@ -18,13 +18,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import type { Shoe, ShoeColor, Category, Collection, ShoeImage } from '@/lib/types';
+import type { Shoe, ShoeColor, Category, Collection, ShoeImage, Attribute, StockScope } from '@/lib/types';
 import { Loader2, X } from 'lucide-react';
 import { updateProduct, uploadImage } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { ColorPicker } from '@/components/ColorPicker';
 import { parseSizeRows, rowsFromShoe, type SizeRow } from '@/lib/size-rows';
 import { SizeStockEditor } from '@/components/admin/SizeStockEditor';
+import { ProductOptionsEditor } from '@/components/admin/ProductOptionsEditor';
+import { parseOptionsForm, stateFromShoe, type OptionsFormState } from '@/lib/option-form';
 import Image from 'next/image';
 
 interface EditProductModalProps {
@@ -34,9 +36,12 @@ interface EditProductModalProps {
   categories: Category[];
   collections: Collection[];
   onProductUpdate: () => void;
+  /** Attributs créés dans l'admin (produits à attributs). */
+  attributes?: Attribute[];
+  onGoToAttributes?: () => void;
 }
 
-export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, collections, onProductUpdate }: EditProductModalProps) => {
+export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, collections, onProductUpdate, attributes = [], onGoToAttributes }: EditProductModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState(shoe.name);
   const [description, setDescription] = useState(shoe.description);
@@ -45,6 +50,9 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>(shoe.collectionIds || []);
   const [sizeRows, setSizeRows] = useState<SizeRow[]>(() => rowsFromShoe(shoe).rows);
   const [stockTracked, setStockTracked] = useState(() => rowsFromShoe(shoe).tracked);
+  // Produit à attributs: nouveau formulaire. Produit ancien (pas d'`options`): ancien formulaire, jusqu'à sa conversion.
+  const hasOptions = !!shoe.options;
+  const [optionsForm, setOptionsForm] = useState<OptionsFormState>(() => stateFromShoe(shoe));
   const [featured, setFeatured] = useState(!!shoe.featured);
   const [availableColors, setAvailableColors] = useState<ShoeColor[]>(shoe.availableColors);
   
@@ -65,6 +73,7 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
       const initial = rowsFromShoe(shoe);
       setSizeRows(initial.rows);
       setStockTracked(initial.tracked);
+      setOptionsForm(stateFromShoe(shoe));
       setFeatured(!!shoe.featured);
       setAvailableColors(shoe.availableColors);
       const allImages = [shoe.gridImage, ...(shoe.detailImages || [])];
@@ -104,9 +113,15 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     event.preventDefault();
     setIsSubmitting(true);
 
-    const parsedRows = parseSizeRows(sizeRows, stockTracked);
-    if (parsedRows.error) {
+    const parsedRows = hasOptions ? null : parseSizeRows(sizeRows, stockTracked);
+    if (parsedRows?.error) {
         toast({ title: 'Pointures et stock', description: parsedRows.error, variant: 'destructive' });
+        setIsSubmitting(false);
+        return;
+    }
+    const parsedOptions = hasOptions ? parseOptionsForm(optionsForm, attributes) : null;
+    if (parsedOptions && !parsedOptions.ok) {
+        toast({ title: 'Attributs et stock', description: parsedOptions.error, variant: 'destructive' });
         setIsSubmitting(false);
         return;
     }
@@ -139,20 +154,36 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
     }));
     const allImages = [...existingImageObjects, ...newImageObjects];
 
-    const updatedShoeData: Omit<Partial<Shoe>, 'stock'> & { stock?: Record<string, number> | null } = {
+    type Update = Omit<Partial<Shoe>, 'stock' | 'stockScope' | 'variantStock'> & {
+        stock?: Record<string, number> | null;
+        stockScope?: StockScope | null;
+        variantStock?: Record<string, number> | null;
+    };
+    const common = {
         name,
         description,
         price,
         categoryId,
         collectionIds: selectedCollectionIds,
-        availableSizes: parsedRows.sizes,
-        // null = stock non suivi (illimité)
-        stock: parsedRows.stock ?? null,
         featured,
-        availableColors,
         gridImage: allImages[0],
         detailImages: allImages.slice(1),
     };
+    const updatedShoeData: Update = parsedOptions && parsedOptions.ok
+        ? {
+            ...common,
+            options: parsedOptions.options,
+            // null = stock non suivi (illimité)
+            stockScope: parsedOptions.stockScope ?? null,
+            variantStock: parsedOptions.variantStock ?? null,
+        }
+        : {
+            ...common,
+            availableSizes: parsedRows?.sizes,
+            // null = stock non suivi (illimité)
+            stock: parsedRows?.stock ?? null,
+            availableColors,
+        };
 
     const result = await updateProduct(await getIdToken(), shoe.id, updatedShoeData);
 
@@ -234,12 +265,18 @@ export const EditProductModal = ({ shoe, isOpen, onOpenChange, categories, colle
                 </div>
             </div>
 
-            <SizeStockEditor idPrefix="edit-product" rows={sizeRows} onRowsChange={setSizeRows} tracked={stockTracked} onTrackedChange={setStockTracked} />
+            {hasOptions ? (
+                <ProductOptionsEditor idPrefix="edit-product" attributes={attributes} state={optionsForm} onChange={setOptionsForm} onGoToAttributes={onGoToAttributes} />
+            ) : (
+                <>
+                <SizeStockEditor idPrefix="edit-product" rows={sizeRows} onRowsChange={setSizeRows} tracked={stockTracked} onTrackedChange={setStockTracked} />
 
-            <div className="space-y-4 rounded-md border p-4">
-                <Label className="font-semibold">Couleurs disponibles</Label>
-                <ColorPicker value={availableColors} onChange={setAvailableColors} />
-            </div>
+                <div className="space-y-4 rounded-md border p-4">
+                    <Label className="font-semibold">Couleurs disponibles</Label>
+                    <ColorPicker value={availableColors} onChange={setAvailableColors} />
+                </div>
+                </>
+            )}
 
             <div className="space-y-3">
               <Label>Images du produit</Label>
