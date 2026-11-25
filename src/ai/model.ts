@@ -9,3 +9,17 @@ export function resolveModelName(raw: string | undefined = process.env.GEMINI_MO
   const name = (raw ?? '').trim().replace(/^googleai\//i, '');
   return `googleai/${/^[a-z0-9][a-z0-9.-]{2,60}$/i.test(name) ? name : DEFAULT_MODEL}`;
 }
+
+/**
+ * Modèle de secours (variable GEMINI_FALLBACK_MODEL, facultative): utilisé quand le principal est surchargé (503) ou retiré (404).
+ * Absent, invalide ou identique au principal: pas de secours.
+ */
+export function resolveFallbackModelName(
+  raw: string | undefined = process.env.GEMINI_FALLBACK_MODEL,
+  primary: string = resolveModelName()
+): string | undefined {
+  const name = (raw ?? '').trim().replace(/^googleai\//i, '');
+  if (!/^[a-z0-9][a-z0-9.-]{2,60}$/i.test(name)) return undefined;
+  const full = `googleai/${name}`;
+  return full === primary ? undefined : full;
+}

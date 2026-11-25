@@ -20,7 +20,7 @@ Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actio
 - **Une Server Action ne renvoie que des objets simples.** Un champ Timestamp Firestore (`claimedAt`, `date`…) fait échouer la réponse et vide l'admin. Tout document renvoyé passe par `plainDoc` / `orderFromDoc` (`src/app/actions.ts`), et les commandes par une liste blanche de champs. Un test le garantit: ne pas le contourner.
 - Un fichier `'use server'` n'exporte que des fonctions asynchrones.
 - Une panne de lecture ne doit jamais s'afficher comme « introuvable » ou « aucune donnée »: erreur explicite avec « Réessayer » (`LoadError`, `src/app/error.tsx`), et chargement de l'admin source par source.
-- **L'assistant de style (IA) dépend d'un modèle Gemini que Google retire de temps en temps** (`gemini-2.5-flash` répond 404 aux nouveaux comptes depuis novembre 2026). Le modèle se change par la variable `GEMINI_MODEL` dans Vercel (défaut: `src/ai/model.ts`); la clé est `GEMINI_API_KEY`. Les journaux disent « Assistant de style indisponible (model-unavailable | quota | key | unknown) ».
+- **L'assistant de style (IA) dépend d'un modèle Gemini que Google retire de temps en temps** (`gemini-2.5-flash` répond 404 aux nouveaux comptes depuis novembre 2026). Le modèle se change par la variable `GEMINI_MODEL` dans Vercel (défaut: `src/ai/model.ts`); la clé est `GEMINI_API_KEY`. Un modèle surchargé (503 « high demand ») est réessayé une fois; `GEMINI_FALLBACK_MODEL` (facultative) donne un modèle de secours pour le 503 persistant et le 404. Les journaux disent « Assistant de style indisponible (model-unavailable | overloaded | quota | key | unknown) ».
 - Contrôler les **journaux d'erreurs de Vercel** après une mise en ligne importante.
 
 ## Produits et attributs
