@@ -22,6 +22,10 @@ Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actio
 - Une panne de lecture ne doit jamais s'afficher comme « introuvable » ou « aucune donnée »: erreur explicite avec « Réessayer » (`LoadError`, `src/app/error.tsx`), et chargement de l'admin source par source.
 - Contrôler les **journaux d'erreurs de Vercel** après une mise en ligne importante.
 
+## Produits et attributs
+- Un produit décrit ses choix par **attributs** (Pointure, Couleur, Taille, Matière…), 2 au plus, créés dans l'admin (`attributes`) et copiés sur le produit (`options`); stock par combinaison ou partagé par premier attribut (`variantStock`). Tout passe par `src/lib/attributes.ts` (`productOptions` lit aussi les produits anciens). Plan et état: `docs/plan-attributs.md`.
+- Le serveur relit les attributs en base et revalide chaque choix dans `createOrder`: jamais de nom, valeur ou stock pris du navigateur.
+
 ## Interface et charte visuelle
 Objectif : une boutique **chaleureuse, moderne et utilisable au téléphone** (audit et plan : `docs/audit-interface.md`).
 - **Jetons de couleur** uniquement (`src/app/globals.css`) : pas de couleur en dur dans les écrans. Une nouvelle charte se branche en changeant ces valeurs.

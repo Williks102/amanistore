@@ -1,6 +1,6 @@
 # Plan: attributs de produit (Pointure, Couleur, Taille, Matière…)
 
-Statut: **étapes 1 à 4 faites**, étape 5 (migration) à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
+Statut: **étapes 1 à 5 faites** (reste le retrait des anciens champs, plus tard). Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
 
 ## Objectif
 Aujourd'hui, la pointure (nombre 16 à 50) et la couleur (palette de 19) sont écrites en dur partout. On les remplace par des **attributs** créés dans l'admin: un attribut a un nom et des valeurs (Pointure: 38, 39, 40; Taille: S, M, L; Matière: doré, argenté). Un produit choisit 0, 1 ou 2 attributs et, pour chacun, les valeurs proposées. Les chaussures, vêtements, bijoux et sacs utilisent le même mécanisme.
@@ -104,3 +104,9 @@ Fonctions pures, sans interface ni accès à la base: `productOptions`, `variant
 - **Création de produit**: choix de 0 à 2 attributs, valeurs à cocher, stock par combinaison (ou partagé par premier attribut), « Même quantité partout », « Ne pas suivre le stock ». Remplace les lignes Pointure + Stock et le sélecteur de couleurs.
 - **Modification**: un produit qui a déjà des attributs utilise le nouveau formulaire; un produit ancien garde l'ancien formulaire jusqu'à la migration (étape 5), car ses pointures et couleurs ne sont pas encore des attributs.
 - Correctif de l'étape 1: une couleur hors palette avec son code (ex. Turquoise) était refusée à l'enregistrement d'un produit.
+
+## Étape 5 (faite): migration et filtres
+- **Conversion** (page Attributs, carte « Convertir mes produits actuels »): bouton « Vérifier mes produits » = aperçu sans écriture (prêts, à corriger avec la raison, attributs à créer ou compléter, blocages), puis « Convertir N produits » avec confirmation. Le plan est recalculé côté serveur; chaque produit est relu et converti dans sa propre transaction (une commande passée pendant la conversion n'est pas perdue). Relancer est sans danger (déjà convertis ignorés).
+- Règles: Pointure (nombre valide, triées) puis Couleur (palette); **stock par pointure conservé** en mode « partagé par premier attribut » (pointure absente de la table = 0); stock non suivi reste non suivi. Sont ignorés et listés: pointure invalide, couleur hors palette, stock suivi sans pointure, ni pointure ni couleur. Blocage: un attribut « Pointure » ou « Couleur » d'un autre type existe déjà.
+- **Les anciens champs (`availableSizes`, `availableColors`, `stock`) restent enregistrés** sur les produits convertis (retour arrière possible). Leur retrait fera l'objet d'une PR séparée, une fois la boutique éprouvée.
+- **Filtres de la boutique** par attribut: un groupe par attribut du catalogue (Pointure, Couleur, puis les autres par nom), OU dans un groupe, ET entre groupes. Le fichier mort `src/shop/page.tsx` (hors routes) est supprimé.

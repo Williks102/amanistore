@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/EmptyState';
+import { AttributeMigrationCard } from '@/components/admin/AttributeMigrationCard';
 import { useToast } from '@/hooks/use-toast';
 import { createAttribute, deleteAttribute, updateAttribute } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
@@ -86,6 +87,8 @@ export function AttributesView({ attributes, shoes, onChanged, onCreateStarters 
           <Plus className="mr-2 h-4 w-4" /> Nouvel attribut
         </Button>
       </div>
+
+      <AttributeMigrationCard legacyCount={shoes.filter((s) => !s.options).length} onDone={onChanged} />
 
       {attributes.length === 0 ? (
         <div className="space-y-4">
