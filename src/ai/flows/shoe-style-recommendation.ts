@@ -12,6 +12,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {resolveFallbackModelName} from '@/ai/model';
+import {runWithFallback} from '@/ai/run-with-fallback';
 
 const ShoeRecommendationInputSchema = z.object({
   shoeDescription: z
@@ -59,7 +61,10 @@ const shoeStyleRecommendationFlow = ai.defineFlow(
     outputSchema: ShoeRecommendationOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
+    // Réessai si le modèle est surchargé, modèle de secours (GEMINI_FALLBACK_MODEL) s'il y en a un.
+    const {output} = await runWithFallback((model) => (model ? prompt(input, {model}) : prompt(input)), {
+      fallback: resolveFallbackModelName(),
+    });
     return output!;
   }
 );
