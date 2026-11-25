@@ -10,6 +10,23 @@ export type ShoeImage = {
   hint: string;
 };
 
+/** Attribut de produit créé dans l'admin (Pointure, Taille, Couleur, Matière…). */
+export type AttributeKind = 'text' | 'color';
+export type AttributeValue = { label: string; hex?: string };
+export type Attribute = {
+  id: string;
+  name: string;
+  kind: AttributeKind;
+  values: AttributeValue[];
+  position?: number;
+};
+/** Attribut utilisé par un produit, avec les valeurs proposées (nom copié: un renommage n'abîme pas les produits). */
+export type ProductOption = { attributeId: string; name: string; kind: AttributeKind; values: string[] };
+/** « Stock par combinaison » ou « par valeur du premier attribut » (partagé entre les valeurs du second). */
+export type StockScope = 'combination' | 'attribute1';
+/** Choix d'une cliente: une valeur par attribut du produit, ex: [{ name: 'Pointure', value: '40' }]. */
+export type Selection = Array<{ name: string; value: string }>;
+
 export type Category = {
   id: string; 
   name: string;
@@ -40,6 +57,11 @@ export type Shoe = {
    * Absent = stock non suivi (illimité). Présent: une pointure absente de la table vaut 0.
    */
   stock?: Record<string, number>;
+  /** Attributs du produit (0 à 2). Absent = produit ancien, lu à partir de availableSizes et availableColors. */
+  options?: ProductOption[];
+  stockScope?: StockScope;
+  /** Stock par clé de combinaison (voir variantKey). Présent avec `options`; absent = stock non suivi. */
+  variantStock?: Record<string, number>;
   /** « Coup de cœur »: mis en avant dans la sélection de l'accueil. */
   featured?: boolean;
   createdAt?: string;
