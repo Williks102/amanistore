@@ -215,6 +215,11 @@ describe('validateProductAttributes', () => {
     expect(validateProductAttributes({ options: [sizeOpt, colorOpt], stockScope: 'attribute1', variantStock: { [variantKey(['38', 'Noir'])]: 2 } })).toMatch(/n’existe pas/);
     expect(validateProductAttributes({ options: [], stockScope: 'attribute1', variantStock: {} })).toMatch(/au moins un attribut/);
   });
+  it('couleur hors palette: acceptée avec son code, refusée sans', () => {
+    const turq = (hexes?: Record<string, string>): ProductOption => ({ attributeId: 't', name: 'Teinte', kind: 'color', values: ['Turquoise'], ...(hexes ? { hexes } : {}) });
+    expect(validateProductAttributes({ options: [turq({ Turquoise: '#40E0D0' })] })).toBeNull();
+    expect(validateProductAttributes({ options: [turq()] })).toMatch(/code couleur/);
+  });
   it('plafond de 100 combinaisons', () => {
     const many = (n: number, name: string, id: string): ProductOption => ({ attributeId: id, name, kind: 'text', values: Array.from({ length: n }, (_, i) => `v${i}`) });
     expect(validateProductAttributes({ options: [many(10, 'A', 'x'), many(10, 'B', 'y')], variantStock: {} })).toBeNull();

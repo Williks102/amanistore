@@ -27,10 +27,11 @@ import { Loader2, PlusCircle, Box, ShoppingBag, Users, BarChart2, Tag, Truck, Ch
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import Image from 'next/image';
 
-import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor, ContactMessage } from '@/lib/types';
-import { newSizeRow, parseSizeRows, type SizeRow } from '@/lib/size-rows';
+import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ContactMessage, Attribute } from '@/lib/types';
+import { emptyOptionsForm, parseOptionsForm, STARTER_ATTRIBUTES, type OptionsFormState } from '@/lib/option-form';
 import { AdminPromoList } from '@/components/admin/AdminPromoList';
-import { SizeStockEditor } from '@/components/admin/SizeStockEditor';
+import { AttributesView } from '@/components/admin/AttributesView';
+import { ProductOptionsEditor } from '@/components/admin/ProductOptionsEditor';
 import { duplicateNames, productIssues } from '@/lib/product-validation';
 import type { ColorNormalizationItem } from '@/app/actions';
 import { 
@@ -38,12 +39,12 @@ import {
     uploadImage, getOrders, updateOrderStatus, getPromoCodes, createPromoCode, 
     updatePromoCode, deletePromoCode, createCategory, deleteCategory, createCollection, 
     deleteCollection, getOrderByCodeForValidation, validateOrderDelivery, getMyRoles,
-    getContactMessages, deleteContactMessage, previewColorNormalization, applyColorNormalization
+    getContactMessages, deleteContactMessage, previewColorNormalization, applyColorNormalization,
+    getAttributes, createAttribute
 } from '@/app/actions';
 import { getIdToken } from '@/lib/get-id-token';
 import { RoleGate } from '@/components/RoleGate';
 import { OrderStatusBadge } from '@/components/OrderStatusBadge';
-import { ColorPicker } from '@/components/ColorPicker';
 import { AdminProductList } from '@/components/admin/AdminProductList';
 import { DashboardView } from '@/components/admin/DashboardView';
 import { AdminOrderList } from '@/components/admin/AdminOrderList';
@@ -55,7 +56,7 @@ import { HomeButton, LogoutButton } from '@/components/DashboardActions';
 import type { Roles } from '@/lib/server-auth';
 import { EditProductModal } from '@/components/EditProductModal';
 
-type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'messages' | 'quality' | 'delivery-validation';
+type View = 'dashboard' | 'products' | 'create-product' | 'orders' | 'categories' | 'collections' | 'promotions' | 'messages' | 'quality' | 'attributes' | 'delivery-validation';
 
 const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   // Un tableau vide = réservé aux admins (l'admin passe toujours).
@@ -68,9 +69,10 @@ const VIEW_ROLES: Record<View, Array<keyof Roles>> = {
   promotions: [],
   messages: [],
   quality: ['productManager'],
+  attributes: ['productManager'],
   'delivery-validation': ['orderManager'],
 };
-const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'messages', 'quality', 'delivery-validation'];
+const VIEW_ORDER: View[] = ['dashboard', 'orders', 'products', 'create-product', 'categories', 'collections', 'promotions', 'messages', 'quality', 'attributes', 'delivery-validation'];
 
 const AdminPage = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -105,6 +107,7 @@ const AdminPage = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [attributes, setAttributes] = useState<Attribute[]>([]);
   const [colorPreview, setColorPreview] = useState<ColorNormalizationItem[] | null>(null);
   const [isColorBusy, setIsColorBusy] = useState(false);
   const [featuredBusyId, setFeaturedBusyId] = useState<string | null>(null);
@@ -119,9 +122,7 @@ const AdminPage = () => {
   const [newShoePrice, setNewShoePrice] = useState(0);
   const [newShoeCategoryId, setNewShoeCategoryId] = useState('');
   const [newShoeCollectionIds, setNewShoeCollectionIds] = useState<string[]>([]);
-  const [newShoeRows, setNewShoeRows] = useState<SizeRow[]>(() => [newSizeRow()]);
-  const [newShoeTracked, setNewShoeTracked] = useState(true);
-  const [newShoeColors, setNewShoeColors] = useState<ShoeColor[]>([]);
+  const [newShoeOptions, setNewShoeOptions] = useState<OptionsFormState>(emptyOptionsForm);
   const [newShoeImageFiles, setNewShoeImageFiles] = useState<File[]>([]);
   const [newShoeImagePreviews, setNewShoeImagePreviews] = useState<string[]>([]);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -160,6 +161,7 @@ const AdminPage = () => {
     const token = await getIdToken();
     const wantOrders = !!roles && (roles.admin || roles.orderManager);
     const wantAdminData = !!roles?.admin;
+    const wantCatalog = !!roles && (roles.admin || roles.productManager);
     const jobs: Array<[string, Promise<unknown>]> = [
       ['produits', getProducts()],
       ['catégories', getCategories()],
@@ -167,6 +169,7 @@ const AdminPage = () => {
       ['commandes', wantOrders ? getOrders(token) : Promise.resolve(null)],
       ['codes promo', wantAdminData ? getPromoCodes(token) : Promise.resolve(null)],
       ['messages', wantAdminData ? getContactMessages(token) : Promise.resolve(null)],
+      ['attributs', wantCatalog ? getAttributes(token).then((r) => { if (!r.attributes) throw new Error(r.error); return r.attributes; }) : Promise.resolve(null)],
     ];
     const results = await Promise.allSettled(jobs.map(([, job]) => job));
     const failed: string[] = [];
@@ -181,6 +184,7 @@ const AdminPage = () => {
     const ordersData = value<Order[]>(3);
     const promoData = value<PromoCode[]>(4);
     const messagesData = value<ContactMessage[]>(5);
+    const attributesData = value<Attribute[]>(6);
     // Une source qui a échoué garde ses dernières données connues.
     if (shoesData) setShoes(shoesData);
     if (categoriesData) setCategories(categoriesData);
@@ -188,6 +192,7 @@ const AdminPage = () => {
     if (ordersData) setOrders(ordersData);
     if (promoData) setPromoCodes(promoData);
     if (messagesData) setMessages(messagesData);
+    if (attributesData) setAttributes(attributesData);
     if (!token) failed.push('votre session (reconnectez-vous)');
     failed.forEach((name) => console.error(`Chargement admin impossible: ${name}`));
     setFailedSources(failed);
@@ -196,6 +201,18 @@ const AdminPage = () => {
 
   useEffect(() => { if (roles) fetchData(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roles]);
+
+  /** Crée Pointure et Couleur (sauf celles qui existent déjà). */
+  const createStarterAttributes = async () => {
+    const token = await getIdToken();
+    const existing = new Set(attributes.map((a) => a.name.trim().toLowerCase()));
+    for (const starter of STARTER_ATTRIBUTES) {
+      if (existing.has(starter.name.toLowerCase())) continue;
+      const result = await createAttribute(token, starter);
+      if (!result.success) toast({ title: 'Création impossible', description: result.error, variant: 'destructive' });
+    }
+    await fetchData();
+  };
 
   // ---- ENTITY HANDLERS (Create, Delete) ----
 
@@ -357,9 +374,9 @@ const AdminPage = () => {
         uploadedUrls.push(uploadResult.secure_url);
       }
 
-      const parsedRows = parseSizeRows(newShoeRows, newShoeTracked);
-      if (parsedRows.error) {
-        toast({ title: 'Pointures et stock', description: parsedRows.error, variant: 'destructive' });
+      const parsedOptions = parseOptionsForm(newShoeOptions, attributes);
+      if (!parsedOptions.ok) {
+        toast({ title: 'Attributs et stock', description: parsedOptions.error, variant: 'destructive' });
         setIsSubmitting(false);
         return;
       }
@@ -373,9 +390,10 @@ const AdminPage = () => {
         collectionIds: newShoeCollectionIds,
         gridImage: detailImages[0],
         detailImages,
-        availableSizes: parsedRows.sizes,
-        availableColors: newShoeColors,
-        ...(parsedRows.stock ? { stock: parsedRows.stock } : {}),
+        availableSizes: [],
+        availableColors: [],
+        options: parsedOptions.options,
+        ...(parsedOptions.variantStock ? { stockScope: parsedOptions.stockScope, variantStock: parsedOptions.variantStock } : {}),
         ...(newShoeFeatured ? { featured: true } : {}),
       };
 
@@ -389,10 +407,8 @@ const AdminPage = () => {
         setNewShoePrice(0);
         setNewShoeCategoryId('');
         setNewShoeCollectionIds([]);
-        setNewShoeRows([newSizeRow()]);
-        setNewShoeTracked(true);
+        setNewShoeOptions(emptyOptionsForm());
         setNewShoeFeatured(false);
-        setNewShoeColors([]);
         setNewShoeImageFiles([]);
         setNewShoeImagePreviews([]);
         fetchData();
@@ -573,7 +589,7 @@ const AdminPage = () => {
                     </Select>
                   </div>
                 </div>
-                <SizeStockEditor idPrefix="new-product" rows={newShoeRows} onRowsChange={setNewShoeRows} tracked={newShoeTracked} onTrackedChange={setNewShoeTracked} />
+                <ProductOptionsEditor idPrefix="new-product" attributes={attributes} state={newShoeOptions} onChange={setNewShoeOptions} onGoToAttributes={() => setActiveView('attributes')} onCreateStarters={createStarterAttributes} />
                 <div className="space-y-2">
                   <Label>Collections</Label>
                   <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
@@ -584,10 +600,6 @@ const AdminPage = () => {
                       </label>
                     ))}
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Couleurs</Label>
-                  <ColorPicker value={newShoeColors} onChange={setNewShoeColors} />
                 </div>
                 <div className="space-y-2">
                   <Label>Images</Label>
@@ -740,6 +752,16 @@ const AdminPage = () => {
                     </CardContent>
                 </Card>
             </div>
+        );
+
+        case 'attributes':
+        return (
+          <Card>
+            <CardHeader><CardTitle>Attributs</CardTitle><CardDescription>Pointure, couleur, taille, matière… les choix proposés aux clientes.</CardDescription></CardHeader>
+            <CardContent>
+              <AttributesView attributes={attributes} shoes={shoes} onChanged={fetchData} onCreateStarters={createStarterAttributes} />
+            </CardContent>
+          </Card>
         );
 
         case 'quality':
@@ -945,13 +967,14 @@ const AdminPage = () => {
     collections: { label: 'Collections', icon: <Shapes className="mr-2 h-4 w-4" /> },
     messages: { label: 'Messages', icon: <Mail className="mr-2 h-4 w-4" /> },
     quality: { label: 'Qualité du catalogue', icon: <ListChecks className="mr-2 h-4 w-4" /> },
+    attributes: { label: 'Attributs', icon: <Shapes className="mr-2 h-4 w-4" /> },
   };
 
   // Navigation groupée: l'essentiel d'abord, puis les ventes, la boutique, les clients.
   const NAV_GROUPS: Array<{ label: string; views: View[] }> = [
     { label: "Vue d'ensemble", views: ['dashboard'] },
     { label: 'Ventes', views: ['orders', 'delivery-validation', 'promotions'] },
-    { label: 'Boutique', views: ['products', 'create-product', 'quality', 'categories', 'collections'] },
+    { label: 'Boutique', views: ['products', 'create-product', 'attributes', 'quality', 'categories', 'collections'] },
     { label: 'Clients', views: ['messages'] },
   ];
 
@@ -1045,6 +1068,8 @@ const AdminPage = () => {
           shoe={selectedShoe}
           categories={categories}
           collections={collections}
+          attributes={attributes}
+          onGoToAttributes={() => { setIsEditModalOpen(false); setActiveView('attributes'); }}
           onProductUpdate={fetchData}
         />
       )}
