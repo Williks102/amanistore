@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { catalogMaxPrice, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
 import { PALETTE, canonicalColor } from '@/lib/colors';
 import { isListable, isSizeValid } from '@/lib/product-validation';
-import { stockSummary } from '@/lib/stock';
+import { shoeColors, shoeSizes, stockSummaryFor } from '@/lib/attributes';
 import { EmptyState } from '@/components/EmptyState';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -86,14 +86,14 @@ function ShopContent() {
 
   // Pointures valides seulement; couleurs regroupées par nom officiel (« noir », « Noire » => « Noir »).
   const availableSizes = useMemo(() => {
-    const allSizes = shoes.flatMap((shoe) => shoe.availableSizes).filter(isSizeValid);
+    const allSizes = shoes.flatMap((shoe) => shoeSizes(shoe)).filter(isSizeValid);
     return [...new Set(allSizes)].sort((a, b) => a - b);
   }, [shoes]);
 
   const availableColors = useMemo(() => {
     const unique = new Map<string, { name: string; hex: string }>();
     shoes.forEach((shoe) =>
-      shoe.availableColors.forEach((color) => {
+      shoeColors(shoe).forEach((color) => {
         const canonical = canonicalColor(color.name);
         const name = canonical?.name ?? color.name.trim();
         if (!unique.has(name)) unique.set(name, { name, hex: canonical?.hex ?? color.hex });
@@ -123,7 +123,7 @@ function ShopContent() {
       : sortBy === 'price-desc' ? products.sort((a, b) => b.price - a.price)
       : products.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     // Les produits épuisés passent en fin de liste (l'ordre choisi est conservé dans chaque groupe).
-    return [...sorted.filter((s) => !stockSummary(s).soldOut), ...sorted.filter((s) => stockSummary(s).soldOut)];
+    return [...sorted.filter((s) => !stockSummaryFor(s).soldOut), ...sorted.filter((s) => stockSummaryFor(s).soldOut)];
   }, [filteredShoes, sortBy]);
 
 

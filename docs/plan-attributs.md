@@ -1,6 +1,6 @@
 # Plan: attributs de produit (Pointure, Couleur, Taille, Matière…)
 
-Statut: **étapes 1 et 2 faites**, étapes 3 à 5 à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
+Statut: **étapes 1, 2 et 3 faites**, étapes 4 et 5 à venir. Décision du propriétaire: 2 attributs par produit au maximum, une PR par étape.
 
 ## Objectif
 Aujourd'hui, la pointure (nombre 16 à 50) et la couleur (palette de 19) sont écrites en dur partout. On les remplace par des **attributs** créés dans l'admin: un attribut a un nom et des valeurs (Pointure: 38, 39, 40; Taille: S, M, L; Matière: doré, argenté). Un produit choisit 0, 1 ou 2 attributs et, pour chacun, les valeurs proposées. Les chaussures, vêtements, bijoux et sacs utilisent le même mécanisme.
@@ -91,3 +91,10 @@ Fonctions pures, sans interface ni accès à la base: `productOptions`, `variant
 
 ## Ordre des étapes suivantes (modifié)
 **Boutique (étape 3) avant l'admin (étape 4)**: tant que l'admin ne permet pas de créer un produit à attributs, la boutique n'en voit aucun, donc aucun écran ne peut afficher « Pointure 0 » par erreur. L'étape 5 (migration) reste la dernière.
+
+## Étape 3 (faite): boutique
+- Fiche produit: un sélecteur par attribut du produit (pastilles pour un attribut de type couleur, boutons sinon); une valeur est barrée et désactivée quand toutes les combinaisons qui la contiennent sont épuisées; un attribut à une seule valeur est présélectionné; produit sans attribut (sac): aucun sélecteur, quantité seule.
+- Panier (`addItem(produit, quantité, choix)`), commande, confirmation, message WhatsApp, validation de livraison, compte client, détail admin: le texte vient de `lineLabel` (« Pointure 40 · Noir », « Taille 54 · Doré », vide pour un sac). Les anciennes commandes s'affichent comme avant, même si la copie du produit n'a plus ses attributs.
+- « Recommander » (`planReorder`) comprend les deux formats; le tableau de bord signale les stocks bas par pointure ou par combinaison (`lowStock`).
+- Filtres de la boutique et cartes produit lisent les attributs (Pointure et couleurs); les filtres par attribut libre viennent avec l'étape 5.
+- `CartItem.size` et `color` deviennent facultatifs; les paniers déjà enregistrés dans les navigateurs restent valables.

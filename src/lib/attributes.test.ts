@@ -3,7 +3,7 @@ import type { ProductOption, Shoe } from './types';
 import {
   applyStockChange, availableStockFor, combinations, describeSelection, expectedStockKeys, firstAvailableCombination,
   legacySelection, productOptions, resolveSelection, stockKeyFor, stockSummaryFor, validateAttribute,
-  validateProductAttributes, variantKey,
+  validateProductAttributes, variantKey, valueSoldOut, shoeSizes, shoeColors, stockEntries,
 } from './attributes';
 import { availableStock, firstAvailableSize, stockSummary } from './stock';
 
@@ -224,5 +224,39 @@ describe('validateProductAttributes', () => {
   it('stock sans attributs enregistrés', () => {
     expect(validateProductAttributes({ variantStock: {} })).toMatch(/attributs/);
     expect(validateProductAttributes({ options: [sizeOpt], stockScope: 'combination' })).toMatch(/sans quantités/);
+  });
+});
+
+describe('aides d’affichage', () => {
+  const shoe = newShoe({ stockScope: 'combination', variantStock: { [variantKey(['38', 'Noir'])]: 3, [variantKey(['38', 'Beige'])]: 0, [variantKey(['39', 'Noir'])]: 0, [variantKey(['39', 'Beige'])]: 0 } });
+
+  it('valueSoldOut: épuisée seulement si toutes les combinaisons compatibles le sont', () => {
+    expect(valueSoldOut(shoe, 0, '39', [null, null])).toBe(true);   // 39 n'a rien, quelle que soit la couleur
+    expect(valueSoldOut(shoe, 0, '38', [null, null])).toBe(false);  // 38 Noir existe
+    expect(valueSoldOut(shoe, 0, '38', [null, 'Beige'])).toBe(true); // 38 en Beige: plus rien
+    expect(valueSoldOut(shoe, 1, 'Beige', ['38', null])).toBe(true);
+    expect(valueSoldOut(shoe, 1, 'Noir', ['38', null])).toBe(false);
+  });
+  it('valueSoldOut: stock non suivi = jamais épuisé; ancien stock partagé par pointure', () => {
+    expect(valueSoldOut(newShoe(), 0, '38', [null, null])).toBe(false);
+    expect(valueSoldOut(oldShoe, 0, '40', [null, null])).toBe(true);   // table ancienne: 40 = 0
+    expect(valueSoldOut(oldShoe, 0, '39', [null, null])).toBe(false);
+  });
+  it('shoeSizes / shoeColors: produit ancien et nouveau', () => {
+    expect(shoeSizes(oldShoe)).toEqual([39, 40, 40.5]);
+    expect(shoeSizes(newShoe({ options: [{ attributeId: 'x', name: 'Taille', kind: 'text', values: ['S'] }] }))).toEqual([]);
+    expect(shoeColors(oldShoe).map((c) => [c.name, c.hex])).toEqual([['Noir', '#1C1B1A'], ['Beige', '#D9C4A3']]);
+    const turq = newShoe({ options: [{ attributeId: 'c', name: 'Teinte', kind: 'color', values: ['Turquoise'], hexes: { Turquoise: '#40E0D0' } }] });
+    expect(shoeColors(turq)).toEqual([{ name: 'Turquoise', hex: '#40E0D0' }]);
+  });
+  it('stockEntries: libellés par pointure (ancien, partagé) ou par combinaison; vide si non suivi', () => {
+    expect(stockEntries(oldUntracked)).toEqual([]);
+    expect(stockEntries(oldShoe).map((e) => [e.label, e.quantity])).toEqual([['Pointure 39', 2], ['Pointure 40', 0], ['Pointure 40.5', 4]]);
+    expect(stockEntries(shoe).map((e) => [e.label, e.quantity])).toEqual([
+      ['Pointure 38 · Couleur Noir', 3], ['Pointure 38 · Couleur Beige', 0], ['Pointure 39 · Couleur Noir', 0], ['Pointure 39 · Couleur Beige', 0],
+    ]);
+    const shared = newShoe({ stockScope: 'attribute1', variantStock: { [variantKey(['38'])]: 2 } });
+    expect(stockEntries(shared).map((e) => [e.label, e.quantity])).toEqual([['Pointure 38', 2], ['Pointure 39', 0]]);
+    expect(stockEntries({ ...base, options: [], variantStock: { _: 4 } } as any)).toEqual([{ key: '_', values: [], label: '', quantity: 4 }]);
   });
 });

@@ -21,7 +21,14 @@ export type Attribute = {
   position?: number;
 };
 /** Attribut utilisé par un produit, avec les valeurs proposées (nom copié: un renommage n'abîme pas les produits). */
-export type ProductOption = { attributeId: string; name: string; kind: AttributeKind; values: string[] };
+export type ProductOption = {
+  attributeId: string;
+  name: string;
+  kind: AttributeKind;
+  values: string[];
+  /** Codes couleur des valeurs (attribut de type couleur hors palette). */
+  hexes?: Record<string, string>;
+};
 /** « Stock par combinaison » ou « par valeur du premier attribut » (partagé entre les valeurs du second). */
 export type StockScope = 'combination' | 'attribute1';
 /** Choix d'une cliente: une valeur par attribut du produit, ex: [{ name: 'Pointure', value: '40' }]. */
@@ -71,9 +78,9 @@ export type CartItem = {
   id: string; 
   product: Shoe;
   quantity: number;
-  /** Pointure et couleur (anciennes lignes). Pour un produit à attributs libres: 0 et '' (voir `selection`). */
-  size: number;
-  color: string;
+  /** Pointure et couleur (anciennes lignes, ou produit à Pointure + Couleur). Absents ou 0 / '' sinon (voir `selection`). */
+  size?: number;
+  color?: string;
   /** Choix par attribut, copie figée au moment de la commande (nom + valeur). */
   selection?: Selection;
 };

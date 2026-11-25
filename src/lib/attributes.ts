@@ -49,7 +49,7 @@ export function combinations(options: ProductOption[]): string[][] {
   return options.reduce<string[][]>((acc, o) => acc.flatMap((prefix) => o.values.map((v) => [...prefix, v])), [[]]);
 }
 
-export type ResolvedSelection = { ok: true; values: string[] } | { ok: false; reason: string };
+export type ResolvedSelection = { ok: true; values: string[] } | { ok: false; reason: string; option?: string; value?: string };
 
 /**
  * Vérifie un choix contre les attributs du produit (lus en base, jamais ce que le navigateur prétend).
@@ -67,7 +67,7 @@ export function resolveSelection(shoe: OptionShoe, selection: Selection): Resolv
     const wanted = String(selection[idx].value ?? '');
     const match = option.values.find((v) =>
       option.kind === 'color' ? canonicalColorName(v) === canonicalColorName(wanted) : valueKey(v) === valueKey(wanted));
-    if (match === undefined) return { ok: false, reason: `${option.name} « ${wanted} » n’est pas proposé` };
+    if (match === undefined) return { ok: false, reason: `${option.name} « ${wanted} » n’est pas proposé`, option: option.name, value: wanted };
     values.push(match);
   }
   if (selection.length !== used.size) return { ok: false, reason: 'choix en trop pour ce produit' };
@@ -235,4 +235,55 @@ export function validateProductAttributes(shoe: Pick<Shoe, 'options' | 'stockSco
     if (!Number.isInteger(qty) || qty < 0 || qty > MAX_QTY) return `Stock invalide (${key}): entier de 0 à ${MAX_QTY.toLocaleString('fr-FR')}.`;
   }
   return null;
+}
+
+// ─────────────── Aides d'affichage (boutique, panier, commandes) ───────────────
+
+/** Une valeur est « épuisée » si toutes les combinaisons qui la contiennent (avec les autres choix déjà faits) n'ont plus de stock. */
+export function valueSoldOut(shoe: StockShoe, optionIndex: number, value: string, chosen: Array<string | null>): boolean {
+  const combos = combinations(productOptions(shoe)).filter(
+    (c) => c[optionIndex] === value && c.every((v, j) => j === optionIndex || chosen[j] == null || chosen[j] === v)
+  );
+  return combos.length > 0 && combos.every((c) => availableStockFor(shoe, c) === 0);
+}
+
+/** Pointures numériques proposées (attribut nommé Pointure), pour le filtre de la boutique. */
+export function shoeSizes(shoe: OptionShoe): number[] {
+  const option = productOptions(shoe).find((o) => valueKey(o.name) === 'pointure');
+  return (option?.values ?? []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+}
+
+/** Couleurs proposées (attribut de type couleur) avec leur code, pour les pastilles et le filtre. */
+export function shoeColors(shoe: OptionShoe & Pick<Shoe, 'availableColors'>): Array<{ name: string; hex: string }> {
+  const out: Array<{ name: string; hex: string }> = [];
+  for (const o of productOptions(shoe)) {
+    if (o.kind !== 'color') continue;
+    for (const v of o.values) {
+      const legacyHex = (shoe.availableColors ?? []).find((c) => canonicalColorName(c.name) === canonicalColorName(v))?.hex;
+      out.push({ name: v, hex: canonicalColor(v)?.hex ?? o.hexes?.[v] ?? legacyHex ?? '#C5C7CB' });
+    }
+  }
+  return out;
+}
+
+export type StockEntry = { key: string; values: string[]; label: string; quantity: number };
+
+/**
+ * Une entrée par clé de stock d'un produit à stock suivi (vide sinon), avec un libellé lisible
+ * (« Pointure 40 », « Pointure 40 · Noir », « » pour un produit sans attribut).
+ */
+export function stockEntries(shoe: StockShoe): StockEntry[] {
+  const { tracked, scope, field } = stockTable(shoe);
+  if (!tracked) return [];
+  const options = productOptions(shoe);
+  const shared = scope === 'attribute1' || field === 'stock';
+  const seen = new Map<string, StockEntry>();
+  for (const values of combinations(options)) {
+    const key = stockKeyFor(shoe, values);
+    if (seen.has(key)) continue;
+    const count = shared ? Math.min(1, values.length) : values.length;
+    const label = options.slice(0, count).map((o, i) => `${o.name} ${values[i]}`).join(' · ');
+    seen.set(key, { key, values: values.slice(0, count), label, quantity: availableStockFor(shoe, values) ?? 0 });
+  }
+  return [...seen.values()];
 }

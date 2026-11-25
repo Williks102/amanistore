@@ -968,7 +968,7 @@ describe('attributs de produit', () => {
       expect(r.success).toBe(true);
       expect(created().options).toEqual([
         { attributeId: 'a-size', name: 'Pointure', kind: 'text', values: ['38', '39'] },
-        { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir'] },
+        { attributeId: 'a-color', name: 'Couleur', kind: 'color', values: ['Noir'], hexes: { Noir: '#1C1B1A' } },
       ]);
     });
     it('refuse attribut inconnu, valeur hors attribut, 3 attributs, stock sur combinaison inexistante', async () => {

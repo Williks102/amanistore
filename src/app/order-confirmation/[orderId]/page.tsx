@@ -1,6 +1,7 @@
 
 'use client';
 
+import { lineLabel } from '@/lib/cart-line';
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -112,7 +113,7 @@ export default function OrderConfirmationPage() {
     message += `*Client:* ${order.customerName}\n\n`;
     message += `*Articles commandés:*\n`;
     order.items.forEach(item => {
-      message += `- ${item.quantity} x ${item.product.name} (Taille: ${item.size}, Couleur: ${item.color})\n`;
+      message += `- ${item.quantity} x ${item.product.name}${lineLabel(item) ? ` (${lineLabel(item)})` : ''}\n`;
     });
     message += `\n*Total:* ${order.total.toLocaleString('fr-FR')} XOF\n`;
     
@@ -223,7 +224,7 @@ export default function OrderConfirmationPage() {
                     <div className="flex-grow">
                       <p className="font-medium">{item.product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        Taille: {item.size} | Couleur: {item.color} | Qté: {item.quantity}
+                        {lineLabel(item) ? `${lineLabel(item)} | ` : ''}Qté: {item.quantity}
                       </p>
                     </div>
                     <p className="font-medium text-sm">

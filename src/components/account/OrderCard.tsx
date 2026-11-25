@@ -93,7 +93,7 @@ export function OrderCard({ order, onReorder }: { order: Order; onReorder?: (ord
               </Link>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{line.name}</p>
-                <p className="text-muted-foreground">Pointure {line.size} · {line.color}</p>
+                {line.options && <p className="text-muted-foreground">{line.options}</p>}
                 <p className="text-muted-foreground">{line.quantity} × {xof(line.unitPrice)}</p>
               </div>
               <p className="shrink-0 font-semibold">{xof(line.total)}</p>

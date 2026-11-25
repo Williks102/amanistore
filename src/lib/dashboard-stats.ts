@@ -1,5 +1,6 @@
 import type { Category, ContactMessage, Order, PromoCode, Shoe } from './types';
 import { productIssues } from './product-validation';
+import { stockEntries } from './attributes';
 
 /**
  * Indicateurs du tableau de bord de l'admin, calculés à partir des données déjà chargées (donc déjà filtrées par rôle).
@@ -88,22 +89,23 @@ export function ageLabel(date: string, now: Date): string {
 
 export type StockAlerts = {
   outOfStock: Array<{ id: string; name: string }>;
-  lowSizes: Array<{ id: string; name: string; size: number; quantity: number }>;
+  /** Une entrée par pointure ou combinaison presque épuisée; `label` ex: « Pointure 40 », « Taille 54 · Doré ». */
+  lowStock: Array<{ id: string; name: string; label: string; quantity: number }>;
   tracked: number;
   untracked: number;
 };
 
 /** Alertes de stock sur les produits dont le stock est suivi (les autres sont illimités). */
 export function stockAlerts(shoes: Shoe[]): StockAlerts {
-  const out: StockAlerts = { outOfStock: [], lowSizes: [], tracked: 0, untracked: 0 };
+  const out: StockAlerts = { outOfStock: [], lowStock: [], tracked: 0, untracked: 0 };
   for (const shoe of shoes) {
-    if (!shoe.stock) { out.untracked += 1; continue; }
+    const entries = stockEntries(shoe);
+    if (entries.length === 0) { out.untracked += 1; continue; }
     out.tracked += 1;
-    const quantities = (shoe.availableSizes ?? []).map((size) => ({ size, quantity: Math.max(0, Math.floor(shoe.stock?.[String(size)] ?? 0)) }));
-    if (quantities.every((q) => q.quantity === 0)) out.outOfStock.push({ id: shoe.id, name: shoe.name });
-    else for (const q of quantities) if (q.quantity > 0 && q.quantity <= LOW_STOCK) out.lowSizes.push({ id: shoe.id, name: shoe.name, size: q.size, quantity: q.quantity });
+    if (entries.every((e) => e.quantity === 0)) out.outOfStock.push({ id: shoe.id, name: shoe.name });
+    else for (const e of entries) if (e.quantity > 0 && e.quantity <= LOW_STOCK) out.lowStock.push({ id: shoe.id, name: shoe.name, label: e.label, quantity: e.quantity });
   }
-  out.lowSizes.sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name) || a.size - b.size);
+  out.lowStock.sort((a, b) => a.quantity - b.quantity || a.name.localeCompare(b.name) || a.label.localeCompare(b.label, 'fr', { numeric: true }));
   return out;
 }
 

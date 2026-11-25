@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Category, Collection, Shoe } from '@/lib/types';
 import { canonicalColorName } from '@/lib/colors';
 import { isListable } from '@/lib/product-validation';
+import { shoeColors, shoeSizes } from '@/lib/attributes';
 
 export type UnifiedPriceRange = {
   min: number;
@@ -40,8 +41,8 @@ export const matchesProductFilters = (shoe: Shoe, filters: ProductFilters) => {
   if (selectedCollection && !selectedCollection.categoryIds.includes(shoe.categoryId)) return false;
   if (searchTerm && !shoe.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
   if (shoe.price < priceRange.min || shoe.price > priceRange.max) return false;
-  if (selectedSizes.length > 0 && !selectedSizes.some((size) => shoe.availableSizes.includes(size))) return false;
-  if (selectedColors.length > 0 && !selectedColors.some((colorName) => shoe.availableColors.some((color) => canonicalColorName(color.name) === colorName))) return false;
+  if (selectedSizes.length > 0 && !selectedSizes.some((size) => shoeSizes(shoe).includes(size))) return false;
+  if (selectedColors.length > 0 && !selectedColors.some((colorName) => shoeColors(shoe).some((color) => canonicalColorName(color.name) === colorName))) return false;
 
   return true;
 };

@@ -1,6 +1,7 @@
 
 'use client';
 
+import { lineLabel } from '@/lib/cart-line';
 import React, { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -187,7 +188,7 @@ function ValidateDeliveryPage() {
                         <Image src={item.product.gridImage.url} alt={item.product.name} width={40} height={40} className="rounded-md object-cover" />
                         <div>
                           <p className="font-medium">{item.product.name}</p>
-                          <p className="text-muted-foreground">Taille: {item.size} | Couleur: {item.color} | Qté: {item.quantity}</p>
+                          <p className="text-muted-foreground">{lineLabel(item) ? `${lineLabel(item)} | ` : ''}Qté: {item.quantity}</p>
                         </div>
                       </div>
                     ))}

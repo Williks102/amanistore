@@ -26,7 +26,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag, Trash } from 'lucide-react';
 import { CheckoutDialog } from './CheckoutDialog';
-import { availableStock } from '@/lib/stock';
+import { lineLabel, lineStockLeft } from '@/lib/cart-line';
 
 const MAX_PER_LINE = 20; // même plafond que le serveur
 
@@ -55,7 +55,7 @@ export const Cart = () => {
               <div className="min-h-0 flex-grow overflow-y-auto">
                 <ul className="flex flex-col gap-5 py-4">
                   {items.map((item) => {
-                    const stockLeft = availableStock(item.product, item.size);
+                    const stockLeft = lineStockLeft(item);
                     const maxQty = Math.min(stockLeft ?? MAX_PER_LINE, MAX_PER_LINE);
                     return (
                       <li key={item.id} className="flex gap-3">
@@ -66,7 +66,7 @@ export const Cart = () => {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <Link href={`/produit/${item.product.id}`} onClick={onClose} className="block truncate font-semibold hover:text-primary">{item.product.name}</Link>
-                              <p className="text-sm text-muted-foreground">Pointure {item.size} · {item.color}</p>
+                              {lineLabel(item) && <p className="text-sm text-muted-foreground">{lineLabel(item)}</p>}
                             </div>
                             <Button variant="ghost" size="icon" aria-label={`Retirer ${item.product.name} du panier`} onClick={() => removeItem(item.id)}>
                               <Trash className="h-4 w-4" />

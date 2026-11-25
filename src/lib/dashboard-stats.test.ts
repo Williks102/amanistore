@@ -116,7 +116,19 @@ describe('alertes de stock', () => {
       shoe('libre'), // pas de stock suivi = illimité
     ]);
     expect(a.outOfStock.map((x) => x.id)).toEqual(['rupture']);
-    expect(a.lowSizes.map((x) => [x.name, x.size, x.quantity])).toEqual([['Bas', 40, 1], ['Bas', 38, 2]]);
+    expect(a.lowStock.map((x) => [x.name, x.label, x.quantity])).toEqual([['Bas', 'Pointure 40', 1], ['Bas', 'Pointure 38', 2]]);
+    expect([a.tracked, a.untracked]).toEqual([3, 1]);
+  });
+
+  it('produits à attributs: combinaisons, quantité unique, stock partagé', () => {
+    const a = stockAlerts([
+      shoe('bague', { name: 'Bague', availableSizes: [], availableColors: [], options: [{ attributeId: 't', name: 'Taille', kind: 'text', values: ['52', '54'] }, { attributeId: 'm', name: 'Matière', kind: 'text', values: ['Doré'] }], stockScope: 'combination', variantStock: { '52|dore': 2, '54|dore': 9 } } as any),
+      shoe('sac', { name: 'Sac', availableSizes: [], availableColors: [], options: [], variantStock: { _: 0 } } as any),
+      shoe('sacok', { name: 'Sac ok', availableSizes: [], availableColors: [], options: [], variantStock: { _: 7 } } as any),
+      shoe('libre2', { availableSizes: [], availableColors: [], options: [] } as any),
+    ]);
+    expect(a.outOfStock.map((x) => x.id)).toEqual(['sac']);
+    expect(a.lowStock.map((x) => [x.name, x.label, x.quantity])).toEqual([['Bague', 'Taille 52 · Matière Doré', 2]]);
     expect([a.tracked, a.untracked]).toEqual([3, 1]);
   });
 

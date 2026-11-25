@@ -81,7 +81,7 @@ export function OrderDetailDialog({ order, onClose, onStatusChange }: Props) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium">{line.quantity} × {line.name}</span>
-                    <span className="block text-muted-foreground">Pointure <strong className="text-foreground">{line.size}</strong> · {line.color}</span>
+                    {line.options && <span className="block text-muted-foreground">{line.options}</span>}
                     <span className="block text-muted-foreground">{xof(line.unitPrice)} l&apos;unité</span>
                   </span>
                   <span className="shrink-0 font-semibold">{xof(line.total)}</span>
