@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import type { Category, Collection, Shoe } from '@/lib/types';
-import { canonicalColorName } from '@/lib/colors';
 import { isListable } from '@/lib/product-validation';
-import { shoeColors, shoeSizes } from '@/lib/attributes';
+import { matchesOptionFilters, selectedCount, type SelectedOptions } from '@/lib/attribute-filters';
 
 export type UnifiedPriceRange = {
   min: number;
@@ -14,8 +13,8 @@ export type ProductFilters = {
   selectedCollection: Collection | null;
   searchTerm: string;
   priceRange: UnifiedPriceRange;
-  selectedSizes: number[];
-  selectedColors: string[];
+  /** Valeurs cochées par attribut (Pointure, Couleur, Matière…), clé = nom de l'attribut sans accents ni casse. */
+  selectedOptions: SelectedOptions;
 };
 
 export const DEFAULT_MAX_PRICE = 100000;
@@ -33,16 +32,14 @@ export const matchesProductFilters = (shoe: Shoe, filters: ProductFilters) => {
     selectedCollection,
     searchTerm,
     priceRange,
-    selectedSizes,
-    selectedColors,
+    selectedOptions,
   } = filters;
 
   if (selectedCategory && shoe.categoryId !== selectedCategory.id) return false;
   if (selectedCollection && !selectedCollection.categoryIds.includes(shoe.categoryId)) return false;
   if (searchTerm && !shoe.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
   if (shoe.price < priceRange.min || shoe.price > priceRange.max) return false;
-  if (selectedSizes.length > 0 && !selectedSizes.some((size) => shoeSizes(shoe).includes(size))) return false;
-  if (selectedColors.length > 0 && !selectedColors.some((colorName) => shoeColors(shoe).some((color) => canonicalColorName(color.name) === colorName))) return false;
+  if (!matchesOptionFilters(shoe, selectedOptions)) return false;
 
   return true;
 };
@@ -58,8 +55,7 @@ export function useProductFilters(shoes: Shoe[], filters: ProductFilters, maxPri
     !!filters.selectedCollection ||
     filters.searchTerm.trim().length > 0 ||
     filters.priceRange.max < maxPrice ||
-    filters.selectedSizes.length > 0 ||
-    filters.selectedColors.length > 0;
+    selectedCount(filters.selectedOptions) > 0;
 
   return {
     filteredShoes,

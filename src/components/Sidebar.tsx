@@ -12,18 +12,16 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { cn } from '@/lib/utils';
-import type { ShoeColor } from '@/lib/types';
+import type { FilterGroup, SelectedOptions } from '@/lib/attribute-filters';
 import { DEFAULT_MAX_PRICE, type UnifiedPriceRange } from '@/hooks/use-product-filters';
 
 interface SidebarProps {
   priceRange: UnifiedPriceRange;
   onPriceRangeChange: (value: UnifiedPriceRange) => void;
-  availableSizes: number[];
-  selectedSizes: number[];
-  onSelectedSizesChange: (sizes: number[]) => void;
-  availableColors: ShoeColor[];
-  selectedColors: string[];
-  onSelectedColorsChange: (colors: string[]) => void;
+  /** Un groupe par attribut du catalogue (Pointure, Couleur, Matière…). */
+  filterGroups: FilterGroup[];
+  selectedOptions: SelectedOptions;
+  onSelectedOptionsChange: (selected: SelectedOptions) => void;
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   resultCount?: number;
@@ -36,12 +34,9 @@ interface SidebarProps {
 const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = ({
   priceRange,
   onPriceRangeChange,
-  availableSizes,
-  selectedSizes,
-  onSelectedSizesChange,
-  availableColors,
-  selectedColors,
-  onSelectedColorsChange,
+  filterGroups,
+  selectedOptions,
+  onSelectedOptionsChange,
   searchTerm,
   onSearchTermChange,
   resultCount,
@@ -49,32 +44,21 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
 }) => {
   const safeSearchTerm = searchTerm ?? "";
 
-  const handleSizeClick = (size: number) => {
-    const newSizes = selectedSizes.includes(size)
-      ? selectedSizes.filter((s) => s !== size)
-      : [...selectedSizes, size];
-    onSelectedSizesChange(newSizes);
-  };
-
-  const handleColorClick = (colorName: string) => {
-    const newColors = selectedColors.includes(colorName)
-      ? selectedColors.filter((c) => c !== colorName)
-      : [...selectedColors, colorName];
-    onSelectedColorsChange(newColors);
+  const toggle = (key: string, value: string) => {
+    const current = selectedOptions[key] ?? [];
+    onSelectedOptionsChange({ ...selectedOptions, [key]: current.includes(value) ? current.filter((v) => v !== value) : [...current, value] });
   };
 
   const clearFilters = () => {
     onPriceRangeChange({ min: 0, max: maxPrice });
-    onSelectedSizesChange([]);
-    onSelectedColorsChange([]);
+    onSelectedOptionsChange({});
     onSearchTermChange?.('');
   };
 
   const activeFilters = [
     ...(safeSearchTerm ? ['Recherche: ' + safeSearchTerm] : []),
     ...(priceRange.max < maxPrice ? ['Prix max: ' + priceRange.max.toLocaleString('fr-FR') + ' XOF'] : []),
-    ...selectedSizes.map((size) => 'Pointure: ' + size),
-    ...selectedColors.map((color) => 'Couleur: ' + color),
+    ...filterGroups.flatMap((g) => (selectedOptions[g.key] ?? []).map((v) => `${g.name}: ${v}`)),
   ];
 
   return (
@@ -116,44 +100,33 @@ const FilterContent: React.FC<Omit<SidebarProps, 'isOpen' | 'onOpenChange'>> = (
           <span>{`XOF ${priceRange.max.toLocaleString('fr-FR')}`}</span>
         </div>
       </div>
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Taille</h3>
-        <div className="grid grid-cols-4 gap-2">
-          {availableSizes.map((size) => (
-            <Button
-              key={size}
-              variant={selectedSizes.includes(size) ? 'default' : 'outline'}
-              onClick={() => handleSizeClick(size)}
-              className="h-11"
-            >
-              {size}
-            </Button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Couleur</h3>
-        <div className="flex flex-wrap gap-2">
-          {availableColors.map((color) => {
-            const selected = selectedColors.includes(color.name);
-            return (
-              <button
-                key={color.name}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => handleColorClick(color.name)}
-                className={cn(
-                  'flex min-h-11 items-center gap-2 rounded-full border px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  selected ? 'border-primary bg-primary/10 font-medium' : 'border-input bg-background hover:bg-accent'
-                )}
-              >
-                <span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{ backgroundColor: color.hex }} />
-                {color.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {filterGroups.map((group) => (
+        <fieldset key={group.key}>
+          <legend className="mb-4 text-lg font-semibold">{group.name}</legend>
+          <div className="flex flex-wrap gap-2">
+            {group.values.map((item) => {
+              const selected = (selectedOptions[group.key] ?? []).includes(item.value);
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => toggle(group.key, item.value)}
+                  className={cn(
+                    'flex min-h-11 items-center gap-2 border text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    item.hex
+                      ? cn('rounded-full px-3', selected ? 'border-primary bg-primary/10 font-medium' : 'border-input bg-background hover:bg-accent')
+                      : cn('min-w-11 justify-center rounded-md px-3 font-medium', selected ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background hover:bg-accent')
+                  )}
+                >
+                  {item.hex && <span aria-hidden="true" className="h-5 w-5 rounded-full border border-border" style={{ backgroundColor: item.hex }} />}
+                  {item.value}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
       <Button variant="ghost" onClick={clearFilters} className="w-full">
         Réinitialiser les filtres
       </Button>

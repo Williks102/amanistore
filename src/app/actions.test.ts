@@ -51,6 +51,7 @@ import {
   createPromoCode, getContactMessages, deleteContactMessage, getGuestOrder, claimGuestOrders, getNotificationStatus, sendTestNotification,
   previewColorNormalization, applyColorNormalization,
   getAttributes, createAttribute, updateAttribute, deleteAttribute,
+  previewAttributeMigration, applyAttributeMigration,
 } from './actions';
 
 const shoe = {
@@ -1115,5 +1116,114 @@ describe('attributs de produit', () => {
       await buy([{ productId: 'ps', quantity: 1, selection: sel('38', 'Noir') }]);
       expect(isPlain(await getOrders('tok'))).toBe(true);
     });
+  });
+});
+
+// ============ Migration vers les attributs (étape 5) ============
+describe('migration vers les attributs', () => {
+  const old = (over: Record<string, any> = {}) => ({ ...shoe, availableSizes: [38, 39], availableColors: [{ name: 'noire', hex: '#000' }, { name: 'Beige', hex: '#D9C4A3' }], ...over });
+  beforeEach(() => {
+    db.data.get('shoes')!.clear();
+    db.seed('shoes', 'tracked', old({ name: 'Suivi', stock: { '38': 3, '39': 0 } }));
+    db.seed('shoes', 'free', old({ name: 'Libre' }));
+    db.seed('shoes', 'bad-size', old({ name: 'Pointure fausse', availableSizes: [3, 3637] }));
+    db.seed('shoes', 'bad-color', old({ name: 'Couleur inconnue', availableColors: [{ name: 'Turquoise', hex: '#0ff' }] }));
+    db.seed('shoes', 'already', { ...shoe, name: 'Déjà converti', options: [], variantStock: { _: 2 } });
+  });
+  const attr = (name: string) => db.all('attributes').find(([, a]) => a.name === name);
+
+  it('aperçu: n’écrit rien, liste convertibles et produits à corriger', async () => {
+    const r = await previewAttributeMigration('tok');
+    expect(r.plan).toMatchObject({ convertible: 2, skipped: 2, alreadyDone: 1, blockers: [] });
+    expect(r.plan!.items.filter((i) => i.status === 'skip').map((i) => i.name).sort()).toEqual(['Couleur inconnue', 'Pointure fausse']);
+    expect(db.writes).toHaveLength(0);
+  });
+
+  it('application: crée Pointure et Couleur, convertit les produits, garde le stock et les anciens champs', async () => {
+    const r = await applyAttributeMigration('tok');
+    expect(r.success).toBe(true);
+    expect(r.updated).toBe(2);
+    expect(r.skipped.map((s) => s.name).sort()).toEqual(['Couleur inconnue', 'Pointure fausse']);
+
+    const pointure = attr('Pointure')!, couleur = attr('Couleur')!;
+    expect(pointure[1]).toMatchObject({ kind: 'text', values: [{ label: '38' }, { label: '39' }] });
+    expect(couleur[1].kind).toBe('color');
+    expect(couleur[1].values.map((v: any) => v.label)).toEqual(['Noir', 'Beige']);
+
+    const tracked = db.get('shoes', 'tracked')!;
+    expect(tracked.options).toEqual([
+      { attributeId: pointure[0], name: 'Pointure', kind: 'text', values: ['38', '39'] },
+      { attributeId: couleur[0], name: 'Couleur', kind: 'color', values: ['Noir', 'Beige'] },
+    ]);
+    expect(tracked).toMatchObject({ stockScope: 'attribute1', variantStock: { '38': 3, '39': 0 } });
+    expect(tracked.stock).toEqual({ '38': 3, '39': 0 });          // ancien stock conservé
+    expect(tracked.availableSizes).toEqual([38, 39]);            // anciens champs conservés
+    expect(db.get('shoes', 'free')!.variantStock).toBeUndefined(); // stock non suivi reste non suivi
+    expect(db.get('shoes', 'bad-size')!.options).toBeUndefined();  // produits à corriger intacts
+    expect(db.get('shoes', 'bad-color')!.options).toBeUndefined();
+    expect(db.get('shoes', 'already')!.variantStock).toEqual({ _: 2 });
+  });
+
+  it('un produit converti se commande ensuite avec la même règle de stock', async () => {
+    await applyAttributeMigration('tok');
+    const buy = (items: any[]) => createOrder('tok', { ...customer, items });
+    expect((await buy([{ productId: 'tracked', quantity: 2, selection: [{ name: 'Pointure', value: '38' }, { name: 'Couleur', value: 'beige' }] }])).success).toBe(true);
+    expect(db.get('shoes', 'tracked')!.variantStock).toEqual({ '38': 1, '39': 0 });
+    // l'ancien panier (size + color) reste accepté, couleurs partagent la pointure
+    expect((await buy([{ productId: 'tracked', quantity: 2, size: 38, color: 'Noir' }])).error).toMatch(/1 restant/);
+    expect((await buy([{ productId: 'tracked', quantity: 1, size: 39, color: 'Noir' }])).error).toMatch(/épuisé/);
+  });
+
+  it('un produit modifié pendant la conversion n’est pas écrasé', async () => {
+    const real = db.runTransaction;
+    let first = true;
+    db.runTransaction = (async (fn: any) => {
+      if (first) { first = false; db.seed('shoes', 'tracked', { ...db.get('shoes', 'tracked')!, options: [], variantStock: { _: 7 } }); } // modifié par un autre admin entre l'aperçu et l'écriture
+      return real(fn);
+    }) as any;
+    const r = await applyAttributeMigration('tok');
+    expect(r.success).toBe(true);
+    expect(db.get('shoes', 'tracked')!.options).toEqual([]);
+    expect(db.get('shoes', 'tracked')!.variantStock).toEqual({ _: 7 });
+  });
+
+  it('idempotent: une seconde application ne convertit plus rien et ne duplique pas les attributs', async () => {
+    await applyAttributeMigration('tok');
+    const attrs = db.all('attributes').length;
+    const again = await applyAttributeMigration('tok');
+    expect(again).toMatchObject({ success: true, updated: 0 });
+    expect(db.all('attributes')).toHaveLength(attrs);
+  });
+
+  it('complète un attribut existant sans le dupliquer', async () => {
+    db.seed('attributes', 'a-p', { name: 'Pointure', kind: 'text', values: [{ label: '40' }] });
+    await applyAttributeMigration('tok');
+    expect(db.all('attributes').filter(([, a]) => a.name === 'Pointure')).toHaveLength(1);
+    expect(db.get('attributes', 'a-p')!.values.map((v: any) => v.label)).toEqual(['38', '39', '40']);
+    expect(db.get('shoes', 'tracked')!.options[0].attributeId).toBe('a-p');
+  });
+
+  it('blocage: attribut du même nom d’un autre type, rien n’est écrit', async () => {
+    db.seed('attributes', 'a-c', { name: 'Couleur', kind: 'text', values: [{ label: 'x' }] });
+    db.writes.length = 0;
+    const r = await applyAttributeMigration('tok');
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/Couleur/);
+    expect(db.writes).toHaveLength(0);
+    expect((await previewAttributeMigration('tok')).plan!.blockers).toHaveLength(1);
+  });
+
+  it('refuse sans le bon rôle et n’écrit rien', async () => {
+    h.roleOk = false;
+    expect((await applyAttributeMigration('tok')).success).toBe(false);
+    expect((await previewAttributeMigration('tok')).plan).toBeNull();
+    expect(db.writes).toHaveLength(0);
+  });
+
+  it('rien à convertir: succès sans écriture', async () => {
+    db.data.get('shoes')!.clear();
+    db.seed('shoes', 'already', { ...shoe, options: [] });
+    expect(await applyAttributeMigration('tok')).toMatchObject({ success: true, updated: 0 });
+    expect(db.writes).toHaveLength(0);
   });
 });

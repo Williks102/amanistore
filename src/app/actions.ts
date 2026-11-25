@@ -11,6 +11,7 @@ import {
   valueKey, type StockLine,
 } from '@/lib/attributes';
 import { canonicalColor, normalizeColors } from '@/lib/colors';
+import { mergedValues, planMigration, planShoe, POINTURE, type MigrationPlan } from '@/lib/migration';
 import { isPriceValid, validateProductFields } from '@/lib/product-validation';
 import { adminDb } from '@/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -427,6 +428,84 @@ export async function applyColorNormalization(idToken: string): Promise<{ succes
     } catch (error) {
         const failure = fail(error);
         return { success: false, updated: 0, skipped: [], error: failure.error };
+    }
+}
+
+// ============ MIGRATION VERS LES ATTRIBUTS (admin produits) ============
+async function readMigrationInputs(db: FirebaseFirestore.Firestore) {
+    const [shoesSnap, attributesSnap] = await Promise.all([db.collection('shoes').get(), db.collection('attributes').get()]);
+    const shoes = shoesSnap.docs.map((d) => plainDoc<Shoe>(d.id, d.data()));
+    const attributes = attributesSnap.docs.map((d) => plainDoc<Attribute>(d.id, d.data()));
+    return { shoes, attributes };
+}
+
+/** Aperçu: produits convertibles, produits à corriger (avec la raison), attributs à créer ou compléter. Aucune écriture. */
+export async function previewAttributeMigration(idToken: string): Promise<{ plan: MigrationPlan | null; error?: string }> {
+    if (!adminDb) return { plan: null, error: 'DB connection failed.' };
+    try {
+        await requireRole(idToken, ['productManager']);
+        const { shoes, attributes } = await readMigrationInputs(adminDb);
+        return { plan: planMigration(shoes, attributes) };
+    } catch (error) {
+        return { plan: null, error: fail(error).error };
+    }
+}
+
+/**
+ * Convertit les produits anciens en « Pointure + Couleur » (plan recalculé côté serveur, jamais d'après le client).
+ * Le stock par pointure est conservé tel quel (partagé entre les couleurs). Chaque produit est relu et converti dans
+ * sa propre transaction, donc une commande passée pendant la conversion n'est pas perdue. Les anciens champs restent.
+ * Les produits à corriger sont ignorés et listés; un blocage (attribut de même nom d'un autre type) arrête tout.
+ */
+export async function applyAttributeMigration(idToken: string): Promise<{ success: boolean; updated: number; skipped: Array<{ id: string; name: string; reason: string }>; error?: string }> {
+    if (!adminDb) return { success: false, updated: 0, skipped: [], error: 'DB connection failed.' };
+    const db = adminDb;
+    try {
+        await requireRole(idToken, ['productManager']);
+        const { shoes, attributes } = await readMigrationInputs(db);
+        const plan = planMigration(shoes, attributes);
+        const skipped: Array<{ id: string; name: string; reason: string }> = plan.items.filter((i) => i.status === 'skip').map((i) => ({ id: i.id, name: i.name, reason: i.reason ?? '' }));
+        if (plan.blockers.length > 0) return { success: false, updated: 0, skipped, error: plan.blockers.join(' ') };
+        if (plan.convertible === 0) return { success: true, updated: 0, skipped };
+
+        for (const change of plan.attributeChanges) {
+            if (change.action === 'create') {
+                await db.collection('attributes').add({ name: change.name, kind: change.kind, values: mergedValues([], change.addValues, change.name === POINTURE), createdAt: new Date().toISOString() });
+            } else if (change.action === 'extend') {
+                const existing = attributes.find((a) => valueKey(a.name) === valueKey(change.name))!;
+                await db.collection('attributes').doc(existing.id).update({ values: mergedValues(existing.values, change.addValues, change.name === POINTURE) });
+            }
+        }
+        const fresh = (await db.collection('attributes').get()).docs.map((d) => plainDoc<Attribute>(d.id, d.data()));
+        const byName = (name: string) => fresh.find((a) => valueKey(a.name) === valueKey(name));
+
+        let updated = 0;
+        for (const item of plan.items.filter((i) => i.status === 'convert')) {
+            const ref = db.collection('shoes').doc(item.id);
+            const outcome = await db.runTransaction(async (tx) => {
+                const snap = await tx.get(ref);
+                if (!snap.exists) return 'gone';
+                const shoe = plainDoc<Shoe>(snap.id, snap.data() ?? {});
+                if (shoe.options) return 'done'; // converti entre-temps
+                const current = planShoe(shoe); // relu dans la transaction: le stock est celui du moment
+                if (current.status === 'skip') return current.reason ?? 'ignoré';
+                const options: ProductOption[] = [];
+                for (const o of current.options) {
+                    const attribute = byName(o.attribute);
+                    if (!attribute) return `attribut « ${o.attribute} » introuvable`;
+                    options.push({ attributeId: attribute.id, name: attribute.name, kind: attribute.kind, values: o.values });
+                }
+                const problem = validateProductAttributes({ options, stockScope: current.stockScope, variantStock: current.variantStock });
+                if (problem) return problem;
+                tx.update(ref, { options, ...(current.variantStock ? { stockScope: current.stockScope, variantStock: current.variantStock } : {}) });
+                return 'ok';
+            });
+            if (outcome === 'ok') updated += 1;
+            else if (outcome !== 'done' && outcome !== 'gone') skipped.push({ id: item.id, name: item.name, reason: outcome });
+        }
+        return { success: true, updated, skipped };
+    } catch (error) {
+        return { success: false, updated: 0, skipped: [], error: fail(error).error };
     }
 }
 

@@ -17,7 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { catalogMaxPrice, useProductFilters, type ProductFilters } from '@/hooks/use-product-filters';
 import { PALETTE, canonicalColor } from '@/lib/colors';
 import { isListable, isSizeValid } from '@/lib/product-validation';
-import { shoeColors, shoeSizes, stockSummaryFor } from '@/lib/attributes';
+import { stockSummaryFor } from '@/lib/attributes';
+import { catalogFilterGroups, selectedCount, type SelectedOptions } from '@/lib/attribute-filters';
 import { EmptyState } from '@/components/EmptyState';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -44,8 +45,7 @@ function ShopContent() {
   const [searchTerm, setSearchTerm] = useState('');
   // Plafond choisi par la cliente; sinon le prix max du catalogue (aucun produit ne disparaît par défaut).
   const [maxPriceFilter, setMaxPriceFilter] = useState<number | null>(null);
-  const [selectedSizes, setSelectedSizes] = useState<number[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
+  const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({});
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc'>('newest');
 
@@ -84,24 +84,9 @@ function ShopContent() {
   const priceRange = useMemo<PriceRange>(() => ({ min: 0, max: Math.min(maxPriceFilter ?? catalogMax, catalogMax) }), [maxPriceFilter, catalogMax]);
   const setPriceRange = (range: PriceRange) => setMaxPriceFilter(range.max >= catalogMax ? null : range.max);
 
-  // Pointures valides seulement; couleurs regroupées par nom officiel (« noir », « Noire » => « Noir »).
-  const availableSizes = useMemo(() => {
-    const allSizes = shoes.flatMap((shoe) => shoeSizes(shoe)).filter(isSizeValid);
-    return [...new Set(allSizes)].sort((a, b) => a - b);
-  }, [shoes]);
-
-  const availableColors = useMemo(() => {
-    const unique = new Map<string, { name: string; hex: string }>();
-    shoes.forEach((shoe) =>
-      shoeColors(shoe).forEach((color) => {
-        const canonical = canonicalColor(color.name);
-        const name = canonical?.name ?? color.name.trim();
-        if (!unique.has(name)) unique.set(name, { name, hex: canonical?.hex ?? color.hex });
-      })
-    );
-    const order = (n: string) => { const i = PALETTE.findIndex((p) => p.name === n); return i === -1 ? 999 : i; };
-    return Array.from(unique.values()).sort((a, b) => order(a.name) - order(b.name) || a.name.localeCompare(b.name));
-  }, [shoes]);
+  // Un groupe de filtres par attribut du catalogue (Pointure, Couleur, Matière…); couleurs regroupées par nom officiel.
+  const filterGroups = useMemo(() => catalogFilterGroups(shoes), [shoes]);
+  const setGroupValues = (key: string, values: string[]) => setSelectedOptions((prev) => ({ ...prev, [key]: values }));
 
   const filters = useMemo<ProductFilters>(
     () => ({
@@ -109,10 +94,9 @@ function ShopContent() {
       selectedCollection,
       searchTerm,
       priceRange,
-      selectedSizes,
-      selectedColors,
+      selectedOptions,
     }),
-    [selectedCategory, selectedCollection, searchTerm, priceRange, selectedSizes, selectedColors]
+    [selectedCategory, selectedCollection, searchTerm, priceRange, selectedOptions]
   );
 
   const { filteredShoes } = useProductFilters(shoes, filters, catalogMax);
@@ -130,7 +114,7 @@ function ShopContent() {
   // Retour en haut de liste quand le choix change.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [selectedCategory, selectedCollection, searchTerm, maxPriceFilter, selectedSizes, selectedColors, sortBy]);
+  }, [selectedCategory, selectedCollection, searchTerm, maxPriceFilter, selectedOptions, sortBy]);
 
   const categoryChips = useMemo(
     () =>
@@ -141,7 +125,7 @@ function ShopContent() {
   );
 
   const sidebarFilterCount =
-    (searchTerm.trim() ? 1 : 0) + (priceRange.max < catalogMax ? 1 : 0) + selectedSizes.length + selectedColors.length;
+    (searchTerm.trim() ? 1 : 0) + (priceRange.max < catalogMax ? 1 : 0) + selectedCount(selectedOptions);
 
   const activeChips = [
     ...(selectedCollection
@@ -149,15 +133,19 @@ function ShopContent() {
       : []),
     ...(searchTerm.trim() ? [{ key: 'search', label: `Recherche : ${searchTerm.trim()}`, onRemove: () => setSearchTerm('') }] : []),
     ...(priceRange.max < catalogMax ? [{ key: 'price', label: `Prix max : ${priceRange.max.toLocaleString('fr-FR')} XOF`, onRemove: () => setMaxPriceFilter(null) }] : []),
-    ...selectedSizes.map((size) => ({ key: `size-${size}`, label: `Pointure ${size}`, onRemove: () => setSelectedSizes(selectedSizes.filter((x) => x !== size)) })),
-    ...selectedColors.map((name) => ({ key: `color-${name}`, label: name, onRemove: () => setSelectedColors(selectedColors.filter((x) => x !== name)) })),
+    ...filterGroups.flatMap((group) =>
+      (selectedOptions[group.key] ?? []).map((value) => ({
+        key: `${group.key}-${value}`,
+        label: group.kind === 'color' ? value : `${group.name} ${value}`,
+        onRemove: () => setGroupValues(group.key, (selectedOptions[group.key] ?? []).filter((x) => x !== value)),
+      }))
+    ),
   ];
 
   const clearAll = () => {
     setSearchTerm('');
     setMaxPriceFilter(null);
-    setSelectedSizes([]);
-    setSelectedColors([]);
+    setSelectedOptions({});
     if (selectedCollection) router.push(selectedCategory ? `/shop?category=${selectedCategory.id}` : '/shop');
   };
 
@@ -249,12 +237,9 @@ function ShopContent() {
           <Sidebar
             priceRange={priceRange}
             onPriceRangeChange={setPriceRange}
-            availableSizes={availableSizes}
-            selectedSizes={selectedSizes}
-            onSelectedSizesChange={setSelectedSizes}
-            availableColors={availableColors}
-            selectedColors={selectedColors}
-            onSelectedColorsChange={setSelectedColors}
+            filterGroups={filterGroups}
+            selectedOptions={selectedOptions}
+            onSelectedOptionsChange={setSelectedOptions}
             searchTerm={searchTerm}
             onSearchTermChange={setSearchTerm}
             resultCount={filteredShoes.length}
