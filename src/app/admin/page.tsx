@@ -28,7 +28,9 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/s
 import Image from 'next/image';
 
 import type { Shoe, Category, Collection, Order, OrderStatus, PromoCode, ShoeColor, ContactMessage } from '@/lib/types';
-import { parseStockInput } from '@/lib/stock';
+import { newSizeRow, parseSizeRows, type SizeRow } from '@/lib/size-rows';
+import { AdminPromoList } from '@/components/admin/AdminPromoList';
+import { SizeStockEditor } from '@/components/admin/SizeStockEditor';
 import { duplicateNames, productIssues } from '@/lib/product-validation';
 import type { ColorNormalizationItem } from '@/app/actions';
 import { 
@@ -117,7 +119,8 @@ const AdminPage = () => {
   const [newShoePrice, setNewShoePrice] = useState(0);
   const [newShoeCategoryId, setNewShoeCategoryId] = useState('');
   const [newShoeCollectionIds, setNewShoeCollectionIds] = useState<string[]>([]);
-  const [newShoeSizes, setNewShoeSizes] = useState('');
+  const [newShoeRows, setNewShoeRows] = useState<SizeRow[]>(() => [newSizeRow()]);
+  const [newShoeTracked, setNewShoeTracked] = useState(true);
   const [newShoeColors, setNewShoeColors] = useState<ShoeColor[]>([]);
   const [newShoeImageFiles, setNewShoeImageFiles] = useState<File[]>([]);
   const [newShoeImagePreviews, setNewShoeImagePreviews] = useState<string[]>([]);
@@ -132,7 +135,6 @@ const AdminPage = () => {
   const [newPromoExpiresAt, setNewPromoExpiresAt] = useState('');
   const [newPromoMaxUses, setNewPromoMaxUses] = useState('');
   const [newPromoMinAmount, setNewPromoMinAmount] = useState('');
-  const [newShoeStock, setNewShoeStock] = useState('');
   const [newShoeFeatured, setNewShoeFeatured] = useState(false);
 
   // Edit Modal states
@@ -355,20 +357,9 @@ const AdminPage = () => {
         uploadedUrls.push(uploadResult.secure_url);
       }
 
-      const parsedSizes = newShoeSizes
-        .split(',')
-        .map((s) => Number(s.trim()))
-        .filter((n) => !Number.isNaN(n) && n > 0);
-
-      if (parsedSizes.length === 0) {
-        toast({ title: 'Pointures invalides', description: 'Entrez des pointures valides séparées par des virgules.', variant: 'destructive' });
-        setIsSubmitting(false);
-        return;
-      }
-
-      const parsedStock = parseStockInput(newShoeStock);
-      if (parsedStock.error) {
-        toast({ title: 'Stock invalide', description: parsedStock.error, variant: 'destructive' });
+      const parsedRows = parseSizeRows(newShoeRows, newShoeTracked);
+      if (parsedRows.error) {
+        toast({ title: 'Pointures et stock', description: parsedRows.error, variant: 'destructive' });
         setIsSubmitting(false);
         return;
       }
@@ -382,9 +373,9 @@ const AdminPage = () => {
         collectionIds: newShoeCollectionIds,
         gridImage: detailImages[0],
         detailImages,
-        availableSizes: parsedSizes,
+        availableSizes: parsedRows.sizes,
         availableColors: newShoeColors,
-        ...(parsedStock.stock ? { stock: parsedStock.stock } : {}),
+        ...(parsedRows.stock ? { stock: parsedRows.stock } : {}),
         ...(newShoeFeatured ? { featured: true } : {}),
       };
 
@@ -398,8 +389,8 @@ const AdminPage = () => {
         setNewShoePrice(0);
         setNewShoeCategoryId('');
         setNewShoeCollectionIds([]);
-        setNewShoeSizes('');
-        setNewShoeStock('');
+        setNewShoeRows([newSizeRow()]);
+        setNewShoeTracked(true);
         setNewShoeFeatured(false);
         setNewShoeColors([]);
         setNewShoeImageFiles([]);
@@ -581,9 +572,8 @@ const AdminPage = () => {
                       <SelectContent>{categories.map((cat) => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}</SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2"><Label>Pointures (ex: 40,41,42)</Label><Input value={newShoeSizes} onChange={(e) => setNewShoeSizes(e.target.value)} required/></div>
-                  <div className="space-y-2"><Label>Stock par pointure (optionnel, ex: 40:5, 41:3)</Label><Input value={newShoeStock} onChange={(e) => setNewShoeStock(e.target.value)} /><p className="text-xs text-muted-foreground">Laissez vide pour ne pas suivre le stock (illimité).</p></div>
                 </div>
+                <SizeStockEditor idPrefix="new-product" rows={newShoeRows} onRowsChange={setNewShoeRows} tracked={newShoeTracked} onTrackedChange={setNewShoeTracked} />
                 <div className="space-y-2">
                   <Label>Collections</Label>
                   <div className="grid grid-cols-2 gap-2 rounded-md border p-3">
@@ -933,28 +923,7 @@ const AdminPage = () => {
             <Card>
               <CardHeader><CardTitle>Codes existants</CardTitle></CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader><TableRow><TableHead>Code</TableHead><TableHead>Remise</TableHead><TableHead>Conditions</TableHead><TableHead>Statut</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {promoCodes.map((promo) => (
-                      <TableRow key={promo.id}>
-                        <TableCell className="font-medium">{promo.code}</TableCell>
-                        <TableCell>{promo.discountType === 'percentage' ? `${promo.value}%` : `${promo.value.toLocaleString('fr-FR')} XOF`}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          <div>Utilisé: {promo.usedCount ?? 0}{promo.maxUses ? ` / ${promo.maxUses}` : ''}</div>
-                          {promo.expiresAt && <div>Expire le {new Date(promo.expiresAt).toLocaleDateString('fr-FR')}</div>}
-                          {promo.minOrderAmount ? <div>Min. {promo.minOrderAmount.toLocaleString('fr-FR')} XOF</div> : null}
-                        </TableCell>
-                        <TableCell><Badge variant={promo.isActive ? 'default' : 'secondary'}>{promo.isActive ? 'Actif' : 'Inactif'}</Badge></TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handlePromoStatusToggle(promo)}>{promo.isActive ? 'Désactiver' : 'Activer'}</Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDeletePromo(promo.id)}>Supprimer</Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                {promoCodes.length === 0 && <EmptyState icon={<Tag className="h-8 w-8" />} title="Aucun code promo" hint="Créez un code avec le formulaire." />}
+                <AdminPromoList promoCodes={promoCodes} onToggle={handlePromoStatusToggle} onDelete={handleDeletePromo} />
               </CardContent>
             </Card>
           </div>
