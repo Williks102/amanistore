@@ -21,7 +21,6 @@ Next.js (App Router), Firebase (Auth, Firestore, Admin SDK dans les Server Actio
 - Un fichier `'use server'` n'exporte que des fonctions asynchrones.
 - **Une action appelée dans `startTransition` doit être entourée d'un `try/catch`**: si sa réponse est perdue (coupure, délai dépassé), l'erreur remonte à la page entière (« Un souci est survenu ») au lieu de rester dans le composant.
 - Une panne de lecture ne doit jamais s'afficher comme « introuvable » ou « aucune donnée »: erreur explicite avec « Réessayer » (`LoadError`, `src/app/error.tsx`), et chargement de l'admin source par source.
-- **L'assistant de style (IA) dépend d'un modèle Gemini que Google retire de temps en temps** (`gemini-2.5-flash` répond 404 aux nouveaux comptes depuis novembre 2026). Le modèle se change par la variable `GEMINI_MODEL` dans Vercel (défaut: `src/ai/model.ts`); la clé est `GEMINI_API_KEY`. Un modèle surchargé (503 « high demand ») ou muet (10 s) est réessayé une fois dans un budget de 27 s (la page produit a `maxDuration = 30`); `GEMINI_FALLBACK_MODEL` (facultative) donne un modèle de secours pour le 503 persistant et le 404. Les journaux disent « Assistant de style indisponible (model-unavailable | overloaded | quota | key | unknown) ».
 - Contrôler les **journaux d'erreurs de Vercel** après une mise en ligne importante.
 
 ## Produits et attributs

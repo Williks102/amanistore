@@ -8,7 +8,7 @@
 - Color Selection: Provide a selection of available colors for each shoe model.
 - Quantity Adjustment: Allow users to choose the desired quantity of shoes.
 - XOF Pricing Display: Clearly display prices in XOF (CFA Franc).
-- Style Guide AI Assistant: A tool which recommends other similar shoes based on user preference and trend analysis using AI to customize the presentation.
+- (Retiré) Style Guide AI Assistant: l'assistant de style par IA a été retiré du site en novembre 2026 (modèle Gemini surchargé ou retiré par Google, peu d'usage).
 
 ## Style Guidelines:
 

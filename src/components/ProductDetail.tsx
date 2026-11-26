@@ -8,7 +8,6 @@ import type { Selection, Shoe } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
-import { StyleGuideLauncher } from '@/components/StyleGuideAssistant';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { availableStockFor, productOptions, shoeColors, stockSummaryFor, valueSoldOut } from '@/lib/attributes';
@@ -24,7 +23,7 @@ const chooseMessage = (name: string): string => {
   return known[key] ? `Choisissez ${known[key]}.` : `Choisissez : ${name}.`;
 };
 
-export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; styleAssistant?: boolean }) {
+export function ProductDetail({ shoe }: { shoe: Shoe }) {
   const { addItem, openCheckout } = useCart();
   const { toast } = useToast();
 
@@ -216,7 +215,6 @@ export function ProductDetail({ shoe, styleAssistant = false }: { shoe: Shoe; st
             </Button>
           </div>
 
-          {styleAssistant && <StyleGuideLauncher shoeDescription={shoe.description} />}
         </div>
       </div>
 
