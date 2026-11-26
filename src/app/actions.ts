@@ -1,7 +1,6 @@
 
 'use server';
 
-import { getShoeRecommendations } from '@/ai/flows/shoe-style-recommendation';
 import { z } from 'zod';
 import { v2 as cloudinary } from 'cloudinary';
 import type { Shoe, Category, PromoCode, Order, Collection, OrderStatus, CartItem, ContactMessage, Attribute, AttributeKind, ProductOption, Selection, StockScope } from '@/lib/types';
@@ -20,7 +19,6 @@ import { after } from 'next/server';
 import { buildOrderNotification, configuredChannels, diagnoseNotifications, explainChannelError, sendNotification, type NotifyResult } from '@/lib/notify';
 import { SITE } from '@/lib/site';
 import { rateLimit } from '@/lib/rate-limit';
-import { describeAiError } from '@/lib/ai-errors';
 import { AuthError, requireRole, requireUser, getRolesForUid, verifyToken, type Roles } from '@/lib/server-auth';
 
 cloudinary.config({
@@ -28,29 +26,6 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
-// ============ AI ACTIONS ============
-const ShoeRecommendationInputSchema = z.object({
-  shoeDescription: z.string().trim().min(1).max(500),
-});
-
-export async function fetchShoeRecommendations(
-  input: z.infer<typeof ShoeRecommendationInputSchema>
-) {
-  if (!(await rateLimit('ai-recommendations', 10, 60_000))) {
-    return { recommendations: [], error: 'Trop de requêtes. Réessayez dans un instant.' };
-  }
-  try {
-    const validatedInput = ShoeRecommendationInputSchema.parse(input);
-    const result = await getShoeRecommendations(validatedInput);
-    return { recommendations: result.recommendations };
-  } catch (error) {
-    const { kind, userMessage } = describeAiError(error);
-    // Cause réelle dans les journaux (ex.: model-unavailable = modèle Gemini retiré, à changer par GEMINI_MODEL dans Vercel).
-    console.error(`Assistant de style indisponible (${kind}):`, error);
-    return { recommendations: [], error: userMessage };
-  }
-}
 
 // ============ IMAGE UPLOAD ============
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

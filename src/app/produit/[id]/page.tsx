@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { ProductPageView } from '@/components/ProductPageView';
 import { fetchShoeById } from '@/lib/firestore-rest';
 import { isListable } from '@/lib/product-validation';
-import { stockSummary } from '@/lib/stock';
+import { stockSummaryFor } from '@/lib/attributes';
 import { SITE } from '@/lib/site';
 
 type Props = { params: Promise<{ id: string }> };
@@ -46,17 +46,14 @@ export default async function ProductPage({ params }: Props) {
       url: `${SITE.url}/produit/${id}`,
       priceCurrency: 'XOF',
       price: shoe.price,
-      availability: stockSummary(shoe).soldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      availability: stockSummaryFor(shoe).soldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     },
   };
-
-  // L'assistant de style (IA) n'est proposé que si une clé Gemini est configurée: sinon il échouerait devant la cliente.
-  const styleAssistant = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-      <ProductPageView shoe={shoe} styleAssistant={styleAssistant} />
+      <ProductPageView shoe={shoe} />
     </>
   );
 }
