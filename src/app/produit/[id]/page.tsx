@@ -3,8 +3,11 @@ import { notFound } from 'next/navigation';
 import { ProductPageView } from '@/components/ProductPageView';
 import { fetchShoeById } from '@/lib/firestore-rest';
 import { isListable } from '@/lib/product-validation';
-import { stockSummary } from '@/lib/stock';
+import { stockSummaryFor } from '@/lib/attributes';
 import { SITE } from '@/lib/site';
+
+/** Durée maximale de la page et de ses actions (le conseil de style appelle l'IA, parfois lente): 30 s, au lieu de 10 s par défaut sur l'offre gratuite. */
+export const maxDuration = 30;
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -46,7 +49,7 @@ export default async function ProductPage({ params }: Props) {
       url: `${SITE.url}/produit/${id}`,
       priceCurrency: 'XOF',
       price: shoe.price,
-      availability: stockSummary(shoe).soldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      availability: stockSummaryFor(shoe).soldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
     },
   };
 

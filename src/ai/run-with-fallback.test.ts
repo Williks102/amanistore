@@ -62,3 +62,34 @@ describe('runWithFallback', () => {
     expect(s.calls).toHaveLength(3);
   });
 });
+
+describe('runWithFallback: délais', () => {
+  /** Appel qui ne répond jamais (modèle muet). */
+  const hang = () => new Promise<never>(() => {});
+
+  it('appel muet: abandonné au bout du délai, traité comme une surcharge, puis secours', async () => {
+    const calls: Array<string | undefined> = [];
+    const call = (model?: string) => { calls.push(model); return model ? Promise.resolve('secours') : hang(); };
+    const result = await runWithFallback(call, { fallback: 'googleai/autre', callTimeoutMs: 20, retryDelayMs: 1, budgetMs: 1000 });
+    expect(result).toBe('secours');
+    expect(calls).toEqual([undefined, undefined, 'googleai/autre']);
+  });
+  it('appel muet sans secours: erreur de surcharge (message adapté), jamais d’attente infinie', async () => {
+    await expect(runWithFallback(hang, { callTimeoutMs: 20, retryDelayMs: 1, budgetMs: 1000 })).rejects.toMatchObject({ status: 503 });
+  });
+  it('budget total: pas de nouvel essai qui dépasserait la limite de durée', async () => {
+    let t = 0;
+    const calls: Array<string | undefined> = [];
+    const call = async (model?: string) => { calls.push(model); t += 9000; throw overloaded(); }; // chaque appel « dure » 9 s
+    await expect(runWithFallback(call, { fallback: 'googleai/autre', now: () => t, sleep: async (ms) => { t += ms; }, callTimeoutMs: 10_000, budgetMs: 27_000 })).rejects.toThrow(/high demand/);
+    // 9 s + 1 s de pause + 10 s d'essai maximum = 20 s: le deuxième essai passe; à 19 s + 10 s > 27 s: pas de secours.
+    expect(calls).toEqual([undefined, undefined]);
+  });
+  it('budget serré: le deuxième essai est lui-même refusé', async () => {
+    let t = 0;
+    const calls: unknown[] = [];
+    const call = async () => { calls.push(1); t += 20_000; throw overloaded(); };
+    await expect(runWithFallback(call, { now: () => t, sleep: async () => {}, callTimeoutMs: 10_000, budgetMs: 27_000 })).rejects.toThrow();
+    expect(calls).toHaveLength(1);
+  });
+});

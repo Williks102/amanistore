@@ -13,12 +13,18 @@ export function StyleGuideAssistant({ shoeDescription }: { shoeDescription: stri
   useEffect(() => {
     startTransition(async () => {
       setError(null);
-      const result = await fetchShoeRecommendations({ shoeDescription });
-      if (result.error) {
-        setError(result.error);
+      try {
+        const result = await fetchShoeRecommendations({ shoeDescription });
+        if (result.error) {
+          setError(result.error);
+          setRecommendations([]);
+        } else {
+          setRecommendations(result.recommendations || []);
+        }
+      } catch {
+        // Réponse perdue (coupure, délai dépassé): sans ce filet, l'erreur d'une transition fait planter toute la page.
+        setError('Le conseil de style n’a pas pu répondre. Réessayez dans quelques minutes.');
         setRecommendations([]);
-      } else {
-        setRecommendations(result.recommendations || []);
       }
     });
   }, [shoeDescription]);
@@ -34,7 +40,7 @@ export function StyleGuideAssistant({ shoeDescription }: { shoeDescription: stri
       )}
       {!isPending && error && (
         <Alert variant="destructive" className="text-xs">
-          <AlertTitle>Erreur</AlertTitle>
+          <AlertTitle>Conseil de style indisponible</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
